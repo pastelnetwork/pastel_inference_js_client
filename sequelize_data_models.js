@@ -1,6 +1,9 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
-
+const sequelize = new Sequelize("database", "username", "password", {
+  // Configure the database connection
+  // ...
+});
 const Message = sequelize.define('Message', {
     id: {
       type: DataTypes.INTEGER,

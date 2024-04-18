@@ -23,6 +23,7 @@ const {
 } = require("./sequelize_data_models");
 
 const {
+  supernodeListSchema,  
   messageSchema,
   userMessageSchema,
   creditPackPurchaseRequestSchema,
@@ -104,14 +105,11 @@ async function fetchCurrentPSLMarketPrice() {
   if (prices.length === 0) {
     throw new Error("Could not retrieve PSL price from any source.");
   }
-
   const averagePrice =
     prices.reduce((sum, price) => sum + price, 0) / prices.length;
-
   if (averagePrice < 0.0000001 || averagePrice > 0.02) {
     throw new Error(`Invalid PSL price: ${averagePrice}`);
   }
-
   logger.info(
     `The current Average PSL price is: $${averagePrice.toFixed(8)} based on ${
       prices.length
@@ -123,11 +121,9 @@ async function fetchCurrentPSLMarketPrice() {
 async function estimatedMarketPriceOfInferenceCreditsInPSLTerms() {
   try {
     const pslPriceUSD = await fetchCurrentPSLMarketPrice();
-
     const costPerCreditUSD =
       TARGET_VALUE_PER_CREDIT_IN_USD / (1 - TARGET_PROFIT_MARGIN);
     const costPerCreditPSL = costPerCreditUSD / pslPriceUSD;
-
     logger.info(
       `Estimated market price of 1.0 inference credit: ${costPerCreditPSL.toFixed(
         4
@@ -147,7 +143,6 @@ function parseAndFormat(value) {
     if (typeof value === "string" && value.includes("\n")) {
       return value;
     }
-
     const parsedValue = typeof value === "string" ? JSON.parse(value) : value;
     return JSON.stringify(parsedValue, null, 4);
   } catch (error) {
@@ -159,7 +154,6 @@ function parseAndFormat(value) {
 function prettyJSON(data) {
   if (typeof data === "object" && data !== null) {
     const formattedData = {};
-
     for (const [key, value] of Object.entries(data)) {
       if (key.endsWith("_json")) {
         formattedData[key] = parseAndFormat(value);
@@ -169,7 +163,6 @@ function prettyJSON(data) {
         formattedData[key] = value;
       }
     }
-
     return JSON.stringify(formattedData, null, 4);
   } else if (typeof data === "string") {
     return parseAndFormat(data);
@@ -184,6 +177,88 @@ function logActionWithPayload(action, payloadName, jsonPayload) {
   );
 }
 
+async function checkSupernodeList() {
+    try {
+      const [
+        masternodeListFull,
+        masternodeListRank,
+        masternodeListPubkey,
+        masternodeListExtra,
+      ] = await Promise.all([
+        rpc_connection.call("masternodelist", "full"),
+        rpc_connection.call("masternodelist", "rank"),
+        rpc_connection.call("masternodelist", "pubkey"),
+        rpc_connection.call("masternodelist", "extra"),
+      ]);
+  
+      const masternodeListFullData = Object.entries(masternodeListFull).map(
+        ([txidVout, data]) => {
+          const [
+            supernodeStatus,
+            protocolVersion,
+            supernodePslAddress,
+            lastSeenTime,
+            activeSeconds,
+            lastPaidTime,
+            lastPaidBlock,
+            ipAddressPort,
+          ] = data.split(" ");
+  
+          return {
+            supernode_status: supernodeStatus,
+            protocol_version: Number(protocolVersion),
+            supernode_psl_address: supernodePslAddress,
+            lastseentime: Number(lastSeenTime),
+            activeseconds: Number(activeSeconds),
+            lastpaidtime: Number(lastPaidTime),
+            lastpaidblock: Number(lastPaidBlock),
+            "ipaddress:port": ipAddressPort,
+            txid_vout: txidVout,
+          };
+        }
+      );
+  
+      const masternodeListFullDF = masternodeListFullData.map((data) => {
+        const { txid_vout, ...rest } = data;
+        const rank = masternodeListRank[txid_vout];
+        const pubkey = masternodeListPubkey[txid_vout];
+        const extra = masternodeListExtra[txid_vout];
+  
+        return {
+          ...rest,
+          rank: Number(rank),
+          pubkey,
+          extAddress: extra.extAddress,
+          extP2P: extra.extP2P,
+          extKey: extra.extKey,
+          activedays: Number(rest.activeseconds) / 86400,
+        };
+      });
+  
+      const validMasternodeListFullDF = masternodeListFullDF.filter(
+        (data) =>
+          ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
+          data["ipaddress:port"] !== "154.38.164.75:29933"
+      );
+  
+      const { error } = supernodeListSchema.validate(validMasternodeListFullDF[0]);
+      if (error) {
+        throw new Error(`Invalid supernode list data: ${error.message}`);
+      }
+  
+      const masternodeListFullDFJSON = JSON.stringify(
+        Object.fromEntries(
+          validMasternodeListFullDF.map((data) => [data.txid_vout, data])
+        )
+      );
+  
+      return { supernodeListDF: validMasternodeListFullDF, supernodeListJSON: masternodeListFullDFJSON };
+    } catch (error) {
+      logger.error(`Error in checkSupernodeList: ${error.message}`);
+      throw error;
+    }
+  }
+  
 function transformCreditPackPurchaseRequestResponse(result) {
   const transformedResult = { ...result };
   const fieldsToConvert = [
@@ -257,7 +332,6 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
     ) {
       continue;
     }
-
     if (fieldValue !== null && fieldValue !== undefined) {
       if (fieldValue instanceof Date) {
         responseFields[fieldName] = fieldValue.toISOString();
@@ -271,11 +345,9 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       }
     }
   }
-
   const sortedResponseFields = Object.fromEntries(
     Object.entries(responseFields).sort(([a], [b]) => a.localeCompare(b))
   );
-
   return JSON.stringify(sortedResponseFields);
 }
 
@@ -393,7 +465,6 @@ async function validatePastelIDSignatureFields(
     const sortedXorDistances = xorDistances.sort((a, b) => a.distance - b.distance);
     return sortedXorDistances[0].pastelID;
   }
-  
   for (const fieldName in modelInstance) {
     if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
@@ -773,6 +844,7 @@ module.exports = {
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   prettyJSON,
   logActionWithPayload,
+  checkSupernodeList,
   transformCreditPackPurchaseRequestResponse,
   computeSHA3256Hexdigest,
   getSHA256HashOfInputData,

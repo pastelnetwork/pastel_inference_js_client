@@ -46,6 +46,7 @@ const {
   computeSHA3256HashOfSQLModelResponseFields,
   MAXIMUM_PER_CREDIT_PRICE_IN_PSL_FOR_CLIENT,
   getCurrentPastelBlockHeight,
+  getClosestSupernodePastelIDFromList,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING,
   logActionWithPayload,

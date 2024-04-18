@@ -1,5 +1,20 @@
 const Joi = require('joi');
 
+const supernodeListSchema = Joi.object({
+  supernode_status: Joi.string().required(),
+  protocol_version: Joi.number().required(),
+  supernode_psl_address: Joi.string().required(),
+  lastseentime: Joi.number().required(),
+  activeseconds: Joi.number().required(),
+  lastpaidtime: Joi.number().required(),
+  lastpaidblock: Joi.number().required(),
+  "ipaddress:port": Joi.string().required(),
+  rank: Joi.number().required(),
+  pubkey: Joi.string().required(),
+  extAddress: Joi.string().required(),
+  extP2P: Joi.string().required(),
+  extKey: Joi.string().required(),
+});
 
 const messageSchema = Joi.object({
     sending_sn_pastelid: Joi.string().required(),
@@ -237,8 +252,10 @@ const messageSchema = Joi.object({
     const inferenceConfirmation = await InferenceConfirmation.create(value);
     return inferenceConfirmation;
   }
-  
+
+
   module.exports = {
+    supernodeListSchema,
     messageSchema,
     userMessageSchema,
     creditPackPurchaseRequestSchema,

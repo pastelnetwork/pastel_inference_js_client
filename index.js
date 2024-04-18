@@ -62,6 +62,7 @@ if (rpcPort === "9932") {
         creditPriceCushionPercentage
       );
 
+
     if (
       estimatedTotalCostInPSLForCreditPack >
       maximumTotalAmountOfPSLToFundInNewTrackingAddress
@@ -89,6 +90,11 @@ if (rpcPort === "9932") {
         burnAddress
       );
 
+      let creditPackTicketPastelTxid;
+      creditPackTicketPastelTxid = creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid;
+      creditUsageTrackingPSLAddress = creditPackPurchaseRequestConfirmationResponse.credit_usage_tracking_psl_address;
+      
+
     if (creditPackPurchaseRequestConfirmationResponse) {
       logger.info(
         `Credit pack ticket stored on the blockchain with transaction ID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid}`
@@ -103,8 +109,6 @@ if (rpcPort === "9932") {
     }
   }
 
-  let creditPackTicketPastelTxid;
-  let creditUsageTrackingPSLAddress;
 
   if (useTestCreditPackTicketUsage) {
     const startTime = Date.now();
@@ -116,6 +120,7 @@ if (rpcPort === "9932") {
     );
     const initialCreditPackBalance =
       creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;
+
 
     logger.info(
       `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`

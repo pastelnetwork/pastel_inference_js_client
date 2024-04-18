@@ -39,12 +39,12 @@ const {
   inferenceConfirmationSchema,
 } = require("./validation_schemas");
 
+const { signMessageWithPastelID } = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
-const { logger } = require("./utility_functions");
 const {
+  logger,    
   checkSupernodeList,
   getNClosestSupernodesToPastelIDURLs,
-  signMessageWithPastelID,
   validateCreditPackTicketMessageData,
   validateInferenceData,
   computeSHA3256HashOfSQLModelResponseFields,
@@ -204,6 +204,11 @@ async function handleCreditPackTicketEndToEnd(numberOfCredits, creditUsageTracki
 
     const creditPackPurchaseRequestConfirmationResponse = await inferenceClient.confirmCreditPurchaseRequest(highestRankedSupernodeURL, creditPackPurchaseRequestConfirmation);
 
+    if (!creditPackPurchaseRequestConfirmationResponse) {
+        logger.error("Credit pack ticket storage failed!");
+        return null;
+      }
+
     for (const supernodePastelID of signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms) {
       try {
         if (checkIfPastelIDIsValid(supernodePastelID)) {
@@ -296,6 +301,10 @@ async function handleCreditPackTicketEndToEnd(numberOfCredits, creditUsageTracki
     const { supernodeListDF, supernodeListJSON } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(MY_LOCAL_PASTELID, supernodeListDF);
  
+    if (!supernodeURL) {
+        throw new Error("Supernode URL is undefined");
+      }
+
     logger.info(`Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`);
     const creditPackDataObject = await inferenceClient.getCreditPackTicketFromTxid(supernodeURL, creditPackTicketPastelTxid);
  
@@ -461,7 +470,18 @@ async function handleCreditPackTicketEndToEnd(numberOfCredits, creditUsageTracki
               var auditResults = "";
               var validationResults = "";
             }
- 
+            
+            if (!inferenceResultDict) {
+                logger.error("Inference result is null");
+                return { inferenceResultDict: null, auditResults: null, validationResults: null };
+              }
+              if (!auditResults) {
+                logger.warn("Audit results are null");
+              }
+              if (!validationResults) {
+                logger.warn("Validation results are null");
+              }
+
             return { inferenceResultDict, auditResults, validationResults };
           } else {
             logger.info("Inference results not available yet; retrying...");
