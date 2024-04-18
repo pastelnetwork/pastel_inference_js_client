@@ -1,19 +1,33 @@
+const fs = require("fs");
+const path = require("path");
+const { logger } = require("./utility_functions");
+const {
+  getLocalRPCSettings,
+  initializeRPCConnection,
+} = require("./rpc_functions");
+const {
+  sendMessageAndCheckForNewIncomingMessages,
+  handleCreditPackTicketEndToEnd,
+  getCreditPackTicketInfoEndToEnd,
+  handleInferenceRequestEndToEnd,
+} = require("./end_to_end_functions");
+
+
 async function main() {
   let rpcConnection;
   const { rpcHost, rpcPort, rpcUser, rpcPassword, otherFlags } =
-    getLocalRPCSettings();
-  rpcConnection = new AsyncAuthServiceProxy(
-    `http://${rpcUser}:${rpcPassword}@${rpcHost}:${rpcPort}`
-  );
+    await getLocalRPCSettings();
+  await initializeRPCConnection();
 
-  let burnAddress;
-  if (rpcPort === "9932") {
-    burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
-  } else if (rpcPort === "19932") {
-    burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
-  } else if (rpcPort === "29932") {
-    burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
-  }
+  
+let burnAddress;
+if (rpcPort === "9932") {
+  burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
+} else if (rpcPort === "19932") {
+  burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
+} else if (rpcPort === "29932") {
+  burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
+}
 
   const useTestMessagingFunctionality = false;
   const useTestCreditPackTicketFunctionality = true;
@@ -21,6 +35,8 @@ async function main() {
   const useTestInferenceRequestFunctionality = true;
   const useTestLLMTextCompletion = true;
   const useTestImageGeneration = false;
+
+  const inferenceClient = new PastelInferenceClient(process.env.MY_LOCAL_PASTELID, process.env.MY_PASTELID_PASSPHRASE);
 
   if (useTestMessagingFunctionality) {
     const messageBody =
@@ -40,12 +56,8 @@ async function main() {
     const creditPriceCushionPercentage = 0.15;
     const maximumTotalAmountOfPSLToFundInNewTrackingAddress = 100000.0;
 
-    const messagingClient = new PastelMessagingClient(
-      MY_LOCAL_PASTELID,
-      MY_PASTELID_PASSPHRASE
-    );
     const estimatedTotalCostInPSLForCreditPack =
-      await messagingClient.internalEstimateOfCreditPackTicketCostInPSL(
+      await inferenceClient.internalEstimateOfCreditPackTicketCostInPSL(
         desiredNumberOfCredits,
         creditPriceCushionPercentage
       );
@@ -282,3 +294,8 @@ async function main() {
     }
   }
 }
+
+main().catch((error) => {
+  logger.error(`Error in main function: ${error.message}`);
+  process.exit(1);
+});

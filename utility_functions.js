@@ -1,9 +1,55 @@
 const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
+const axios = require("axios");
 const winston = require("winston");
+const {
+  Message,
+  UserMessage,
+  CreditPackPurchaseRequest,
+  CreditPackPurchaseRequestRejection,
+  CreditPackPurchaseRequestPreliminaryPriceQuote,
+  CreditPackPurchaseRequestPreliminaryPriceQuoteResponse,
+  CreditPackPurchaseRequestResponseTermination,
+  CreditPackPurchaseRequestResponse,
+  CreditPackPurchaseRequestConfirmation,
+  CreditPackRequestStatusCheck,
+  CreditPackPurchaseRequestStatus,
+  CreditPackStorageRetryRequest,
+  CreditPackStorageRetryRequestResponse,
+  InferenceAPIUsageRequest,
+  InferenceAPIUsageResponse,
+  InferenceAPIOutputResult,
+  InferenceConfirmation,
+} = require("./sequelize_data_models");
+
+const {
+  messageSchema,
+  userMessageSchema,
+  creditPackPurchaseRequestSchema,
+  creditPackPurchaseRequestRejectionSchema,
+  creditPackPurchaseRequestPreliminaryPriceQuoteSchema,
+  creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema,
+  creditPackPurchaseRequestResponseTerminationSchema,
+  creditPackPurchaseRequestResponseSchema,
+  creditPackPurchaseRequestConfirmationSchema,
+  creditPackRequestStatusCheckSchema,
+  creditPackPurchaseRequestStatusSchema,
+  creditPackStorageRetryRequestSchema,
+  creditPackStorageRetryRequestResponseSchema,
+  inferenceAPIUsageRequestSchema,
+  inferenceAPIUsageResponseSchema,
+  inferenceAPIOutputResultSchema,
+  inferenceConfirmationSchema,
+} = require("./validation_schemas");
+
+const {
+  TARGET_VALUE_PER_CREDIT_IN_USD,
+  TARGET_PROFIT_MARGIN,
+  MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING,
+  MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS,
+} = require("./constants");
 
 // Logging setup
-const winston = require("winston");
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.combine(
@@ -41,6 +87,7 @@ async function fetchCurrentPSLMarketPrice() {
 
       return { priceCMC, priceCG };
     } catch (error) {
+      logger.error(`Error fetching PSL market prices: ${error.message}`);
       return { priceCMC: null, priceCG: null };
     }
   }
@@ -76,10 +123,9 @@ async function fetchCurrentPSLMarketPrice() {
 async function estimatedMarketPriceOfInferenceCreditsInPSLTerms() {
   try {
     const pslPriceUSD = await fetchCurrentPSLMarketPrice();
-    const targetValuePerCreditUSD = TARGET_VALUE_PER_CREDIT_IN_USD;
-    const targetProfitMargin = TARGET_PROFIT_MARGIN;
 
-    const costPerCreditUSD = targetValuePerCreditUSD / (1 - targetProfitMargin);
+    const costPerCreditUSD =
+      TARGET_VALUE_PER_CREDIT_IN_USD / (1 - TARGET_PROFIT_MARGIN);
     const costPerCreditPSL = costPerCreditUSD / pslPriceUSD;
 
     logger.info(
@@ -105,6 +151,7 @@ function parseAndFormat(value) {
     const parsedValue = typeof value === "string" ? JSON.parse(value) : value;
     return JSON.stringify(parsedValue, null, 4);
   } catch (error) {
+    logger.error(`Error parsing and formatting value: ${error.message}`);
     return value;
   }
 }
@@ -210,6 +257,7 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
     ) {
       continue;
     }
+
     if (fieldValue !== null && fieldValue !== undefined) {
       if (fieldValue instanceof Date) {
         responseFields[fieldName] = fieldValue.toISOString();
@@ -218,10 +266,8 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
           fieldValue,
           Object.keys(fieldValue).sort()
         );
-      } else if (typeof fieldValue === "bigint") {
-        responseFields[fieldName] = fieldValue.toString();
       } else {
-        respo;
+        responseFields[fieldName] = fieldValue.toString();
       }
     }
   }
@@ -243,24 +289,32 @@ async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
   return sha256HashOfResponseFields;
 }
 
+function compareDatetimes(datetime1, datetime2) {
+  const diffInSeconds = Math.abs(datetime1 - datetime2) / 1000;
+  const areCloseEnough =
+    diffInSeconds <=
+    MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING;
+  return { diffInSeconds, areCloseEnough };
+}
+
 function validateTimestampFields(modelInstance, validationErrors) {
   for (const [fieldName, fieldValue] of Object.entries(modelInstance)) {
     if (fieldName.endsWith("_timestamp_utc_iso_string")) {
       try {
-        new Date(fieldValue);
+        const timestamp = new Date(fieldValue);
+        const currentTimestamp = new Date();
+        const { areCloseEnough } = compareDatetimes(
+          timestamp,
+          currentTimestamp
+        );
+        if (!areCloseEnough) {
+          validationErrors.push(
+            `Timestamp in field ${fieldName} is too far from the current time`
+          );
+        }
       } catch (error) {
         validationErrors.push(
           `Invalid timestamp format for field ${fieldName}`
-        );
-      }
-      const currentTimestamp = new Date();
-      const { areCloseEnough } = compareDatetimes(
-        new Date(fieldValue),
-        currentTimestamp
-      );
-      if (!areCloseEnough) {
-        validationErrors.push(
-          `Timestamp in field ${fieldName} is too far from the current time`
         );
       }
     }
@@ -271,7 +325,7 @@ async function validatePastelBlockHeightFields(
   modelInstance,
   validationErrors
 ) {
-  const { bestBlockHeight } = await getBestBlockHashAndMerkleRoot();
+  const [, , bestBlockHeight] = await getBestBlockHashAndMerkleRoot();
   for (const [fieldName, fieldValue] of Object.entries(modelInstance)) {
     if (fieldName.endsWith("_pastel_block_height")) {
       if (
@@ -302,6 +356,7 @@ async function validateHashFields(modelInstance, validationErrors) {
       break;
     }
   }
+
   if (hashFieldName) {
     const actualHash = modelInstance[hashFieldName];
     if (actualHash !== expectedHash) {
@@ -319,12 +374,26 @@ async function validatePastelIDSignatureFields(
   let lastSignatureFieldName = null;
   let lastHashFieldName = null;
   let firstPastelID;
+
   for (const fieldName in modelInstance) {
     if (fieldName.includes("_pastelid")) {
       firstPastelID = fieldName;
       break;
     }
   }
+
+  async function getClosestSupernodePastelIDFromList(localPastelID, supernodePastelIDs) {
+    const xorDistances = await Promise.all(
+      supernodePastelIDs.map(async (supernodePastelID) => {
+        const distance = await calculateXORDistance(localPastelID, supernodePastelID);
+        return { pastelID: supernodePastelID, distance };
+      })
+    );
+  
+    const sortedXorDistances = xorDistances.sort((a, b) => a.distance - b.distance);
+    return sortedXorDistances[0].pastelID;
+  }
+  
   for (const fieldName in modelInstance) {
     if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
@@ -335,9 +404,11 @@ async function validatePastelIDSignatureFields(
       lastHashFieldName = fieldName;
     }
   }
+
   if (lastSignatureFieldName && lastHashFieldName) {
     if (firstPastelID || firstPastelID === "NA") {
       let pastelID, messageToVerify, signature;
+
       if (firstPastelID === "NA") {
         const pastelIDAndSignatureCombinedFieldName = lastSignatureFieldName;
         const pastelIDAndSignatureCombinedFieldJSON =
@@ -345,6 +416,7 @@ async function validatePastelIDSignatureFields(
         const pastelIDAndSignatureCombinedFieldDict = JSON.parse(
           pastelIDAndSignatureCombinedFieldJSON
         );
+
         for (const key in pastelIDAndSignatureCombinedFieldDict) {
           if (key.includes("pastelid")) {
             pastelID = pastelIDAndSignatureCombinedFieldDict[key];
@@ -353,21 +425,34 @@ async function validatePastelIDSignatureFields(
             signature = pastelIDAndSignatureCombinedFieldDict[key];
           }
         }
+
         messageToVerify = modelInstance[lastHashFieldName];
       } else {
         pastelID = modelInstance[firstPastelID];
         messageToVerify = modelInstance[lastHashFieldName];
         signature = modelInstance[lastSignatureFieldName];
       }
-      const verificationResult = await verifyMessageWithPastelID(
-        pastelID,
+
+      const { error } = messageSchema.validate({
+        pastelid: pastelID,
         messageToVerify,
-        signature
-      );
-      if (verificationResult !== "OK") {
+        pastelIDSignatureOnMessage: signature,
+      });
+      if (error) {
         validationErrors.push(
-          `Pastelid signature in field ${lastSignatureFieldName} failed verification`
+          `Invalid data for verifyMessageWithPastelID: ${error.message}`
         );
+      } else {
+        const verificationResult = await verifyMessageWithPastelID(
+          pastelID,
+          messageToVerify,
+          signature
+        );
+        if (verificationResult !== "OK") {
+          validationErrors.push(
+            `Pastelid signature in field ${lastSignatureFieldName} failed verification`
+          );
+        }
       }
     } else {
       validationErrors.push(
@@ -700,6 +785,7 @@ module.exports = {
   validatePastelBlockHeightFields,
   validateHashFields,
   validatePastelIDSignatureFields,
+  getClosestSupernodePastelIDFromList,  
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceResponseFields,
