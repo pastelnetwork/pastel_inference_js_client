@@ -1,0 +1,902 @@
+const axios = require('axios');
+
+class PastelInferenceClient {
+  constructor(pastelID, passphrase) {
+    this.pastelID = pastelID;
+    this.passphrase = passphrase;
+  }
+
+  async requestAndSignChallenge(supernodeURL) {
+    const response = await axios.get(
+      `${supernodeURL}/request_challenge/${this.pastelID}`
+    );
+    response.data.challenge;
+    response.data.challenge_id;
+    const signature = await signMessageWithPastelID(
+      this.pastelID,
+      challenge,
+      this.passphrase
+    );
+    return {
+      challenge,
+      challenge_id,
+      signature,
+    };
+  }
+
+  async sendUserMessage(supernodeURL, userMessage) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = userMessage;
+    const response = await axios.post(
+      `${supernodeURL}/send_user_message`,
+      {
+        user_message: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    return result;
+  }
+
+  async getUserMessages(supernodeURL) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const { challenge, challenge_id, signature } = challengeResult;
+    const params = {
+      pastelid: this.pastelID,
+      challenge,
+      challenge_id,
+      challenge_signature: signature,
+    };
+    const response = await axios.get(`${supernodeURL}/get_user_messages`, {
+      params,
+      timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+    });
+    response.data;
+    return result.map((message) => message);
+  }
+
+  async getCreditPackTicketFromTxid(supernodeURL, txid) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const params = {
+      txid,
+      pastelid: this.pastelID,
+      challenge,
+      challenge_id,
+      challenge_signature: challengeSignature,
+    };
+    logActionWithPayload("retrieving", "credit pack ticket from txid", params);
+    const response = await axios.get(
+      `${supernodeURL}/get_credit_pack_ticket_from_txid`,
+      {
+        params,
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    const resultTransformed =
+      transformCreditPackPurchaseRequestResponse(result);
+    logActionWithPayload(
+      "receiving",
+      "credit pack ticket from Supernode",
+      resultTransformed
+    );
+    return resultTransformed;
+  }
+
+  async creditPackTicketInitialPurchaseRequest(
+    supernodeURL,
+    creditPackRequest
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = creditPackRequest;
+    logActionWithPayload(
+      "requesting",
+      "a new Pastel credit pack ticket",
+      payload
+    );
+    const response = await axios.post(
+      `${supernodeURL}/credit_purchase_initial_request`,
+      {
+        credit_pack_request: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    if ("rejection_reason_string" in result) {
+      logger.error(
+        `Credit pack purchase request rejected: ${result.rejection_reason_string}`
+      );
+      return result;
+    } else {
+      logActionWithPayload(
+        "receiving",
+        "response to credit pack purchase request",
+        result
+      );
+      return result;
+    }
+  }
+
+  async calculatePriceDifferencePercentage(quotedPrice, estimatedPrice) {
+    if (estimatedPrice === 0) {
+      throw new Error("Estimated price cannot be zero.");
+    }
+    const differencePercentage =
+      Math.abs(quotedPrice - estimatedPrice) / estimatedPrice;
+    return differencePercentage;
+  }
+
+  async confirmPreliminaryPriceQuote(
+    preliminaryPriceQuote,
+    maximumTotalCreditPackPriceInPSL,
+    maximumPerCreditPriceInPSL
+  ) {
+    if (!maximumTotalCreditPackPriceInPSL && !maximumPerCreditPriceInPSL) {
+      maximumPerCreditPriceInPSL = MAXIMUM_PER_CREDIT_PRICE_IN_PSL_FOR_CLIENT;
+    }
+    const {
+      preliminary_quoted_price_per_credit_in_psl: quotedPricePerCredit,
+      preliminary_total_cost_of_credit_pack_in_psl: quotedTotalPrice,
+      credit_pack_purchase_request_fields_json: requestFields,
+    } = preliminaryPriceQuote;
+    const { requested_initial_credits_in_credit_pack: requestedCredits } =
+      JSON.parse(requestFields);
+    if (!maximumTotalCreditPackPriceInPSL) {
+      maximumTotalCreditPackPriceInPSL =
+        maximumPerCreditPriceInPSL * requestedCredits;
+    } else if (!maximumPerCreditPriceInPSL) {
+      maximumPerCreditPriceInPSL =
+        maximumTotalCreditPackPriceInPSL / requestedCredits;
+    }
+    const estimatedPricePerCredit =
+      await estimatedMarketPriceOfInferenceCreditsInPSLTerms();
+    const priceDifferencePercentage =
+      await this.calculatePriceDifferencePercentage(
+        quotedPricePerCredit,
+        estimatedPricePerCredit
+      );
+    if (
+      quotedPricePerCredit <= maximumPerCreditPriceInPSL &&
+      quotedTotalPrice <= maximumTotalCreditPackPriceInPSL &&
+      priceDifferencePercentage <=
+        MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
+    ) {
+      logger.info(
+        `Preliminary price quote is within the acceptable range: ${quotedPricePerCredit} PSL per credit, ${quotedTotalPrice} PSL total, which is within the maximum of ${maximumPerCreditPriceInPSL} PSL per credit and ${maximumTotalCreditPackPriceInPSL} PSL total. The price difference from the estimated fair market price is ${
+          priceDifferencePercentage * 100
+        }%, which is within the allowed maximum of ${
+          MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING * 100
+        }%.`
+      );
+      return true;
+    } else {
+      logger.warning(
+        `Preliminary price quote exceeds the maximum acceptable price or the price difference from the estimated fair price is too high! Quoted price: ${quotedPricePerCredit} PSL per credit, ${quotedTotalPrice} PSL total, maximum price: ${maximumPerCreditPriceInPSL} PSL per credit, ${maximumTotalCreditPackPriceInPSL} PSL total. The price difference from the estimated fair market price is ${
+          priceDifferencePercentage * 100
+        }%, which exceeds the allowed maximum of ${
+          MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING * 100
+        }%.`
+      );
+      return false;
+    }
+  }
+
+  async internalEstimateOfCreditPackTicketCostInPSL(
+    desiredNumberOfCredits,
+    priceCushionPercentage
+  ) {
+    const estimatedPricePerCredit =
+      await estimatedMarketPriceOfInferenceCreditsInPSLTerms();
+    const estimatedTotalCostOfTicket =
+      Math.round(
+        desiredNumberOfCredits *
+          estimatedPricePerCredit *
+          (1 + priceCushionPercentage) *
+          100
+      ) / 100;
+    return estimatedTotalCostOfTicket;
+  }
+
+  async creditPackTicketPreliminaryPriceQuoteResponse(
+    supernodeURL,
+    creditPackRequest,
+    preliminaryPriceQuote,
+    maximumTotalCreditPackPriceInPSL,
+    maximumPerCreditPriceInPSL
+  ) {
+    if ("rejection_reason_string" in preliminaryPriceQuote) {
+      logger.error(
+        `Credit pack purchase request rejected: ${preliminaryPriceQuote.rejection_reason_string}`
+      );
+      return null;
+    }
+    const agreeWithPriceQuote = await this.confirmPreliminaryPriceQuote(
+      preliminaryPriceQuote,
+      maximumTotalCreditPackPriceInPSL,
+      maximumPerCreditPriceInPSL
+    );
+    if (!agreeWithPriceQuote) {
+      logger.info("End user does not agree with the preliminary price quote!");
+      var agreeWithPreliminaryPriceQuote = false;
+    } else {
+      var agreeWithPreliminaryPriceQuote = true;
+    }
+    const priceQuoteResponse = {
+      sha3_256_hash_of_credit_pack_purchase_request_fields:
+        creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields,
+      sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
+        preliminaryPriceQuote.sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields,
+      credit_pack_purchase_request_fields_json:
+        preliminaryPriceQuote.credit_pack_purchase_request_fields_json,
+      agree_with_preliminary_price_quote: agreeWithPreliminaryPriceQuote,
+      credit_usage_tracking_psl_address:
+        preliminaryPriceQuote.credit_usage_tracking_psl_address,
+      preliminary_quoted_price_per_credit_in_psl:
+        preliminaryPriceQuote.preliminary_quoted_price_per_credit_in_psl,
+      preliminary_price_quote_response_timestamp_utc_iso_string:
+        new Date().toISOString(),
+      preliminary_price_quote_response_pastel_block_height:
+        await getCurrentPastelBlockHeight(),
+      preliminary_price_quote_response_message_version_string: "1.0",
+      requesting_end_user_pastelid:
+        creditPackRequest.requesting_end_user_pastelid,
+      sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields:
+        "",
+      requesting_end_user_pastelid_signature_on_preliminary_price_quote_response_hash:
+        "",
+    };
+    priceQuoteResponse.sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields =
+      await computeSHA3256HashOfSQLModelResponseFields(priceQuoteResponse);
+    priceQuoteResponse.requesting_end_user_pastelid_signature_on_preliminary_price_quote_response_hash =
+      await signMessageWithPastelID(
+        creditPackRequest.requesting_end_user_pastelid,
+        priceQuoteResponse.sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields,
+        this.passphrase
+      );
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = priceQuoteResponse;
+    logActionWithPayload(
+      "sending",
+      "price quote response to supernode",
+      payload
+    );
+    const response = await axios.post(
+      `${supernodeURL}/credit_purchase_preliminary_price_quote_response`,
+      {
+        preliminary_price_quote_response: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 3 * 1000,
+      }
+    );
+    response.data;
+    if ("termination_reason_string" in result) {
+      logger.error(
+        `Credit pack purchase request response terminated: ${result.termination_reason_string}`
+      );
+      return result;
+    } else {
+      const transformedResult =
+        transformCreditPackPurchaseRequestResponse(result);
+      logActionWithPayload(
+        "receiving",
+        "response to credit pack purchase request",
+        transformedResult
+      );
+      return transformedResult;
+    }
+  }
+
+  async checkStatusOfCreditPurchaseRequest(
+    supernodeURL,
+    creditPackPurchaseRequestHash
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const statusCheck = {
+      sha3_256_hash_of_credit_pack_purchase_request_fields:
+        creditPackPurchaseRequestHash,
+      requesting_end_user_pastelid: this.pastelID,
+      requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
+        await signMessageWithPastelID(
+          this.pastelID,
+          creditPackPurchaseRequestHash,
+          this.passphrase
+        ),
+    };
+    const payload = statusCheck;
+    logActionWithPayload(
+      "checking",
+      "status of credit pack purchase request",
+      payload
+    );
+    const response = await axios.post(
+      `${supernodeURL}/check_status_of_credit_purchase_request`,
+      {
+        credit_pack_request_status_check: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload(
+      "receiving",
+      "credit pack purchase request response from Supernode",
+      result
+    );
+    return result;
+  }
+
+  async confirmCreditPurchaseRequest(
+    supernodeURL,
+    creditPackPurchaseRequestConfirmation
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = creditPackPurchaseRequestConfirmation;
+    logActionWithPayload("confirming", "credit pack purchase request", payload);
+    const response = await axios.post(
+      `${supernodeURL}/confirm_credit_purchase_request`,
+      {
+        confirmation: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 30 * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload(
+      "receiving",
+      "response to credit pack purchase confirmation",
+      result
+    );
+    return result;
+  }
+
+  async creditPackPurchaseCompletionAnnouncement(
+    supernodeURL,
+    creditPackPurchaseRequestConfirmation
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = creditPackPurchaseRequestConfirmation;
+    logActionWithPayload(
+      "sending",
+      "purchase completion announcement message",
+      payload
+    );
+    await axios.post(
+      `${supernodeURL}/credit_pack_purchase_completion_announcement`,
+      {
+        confirmation: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+  }
+
+  async creditPackStorageRetryRequest(
+    supernodeURL,
+    creditPackStorageRetryRequest
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = creditPackStorageRetryRequest;
+    logActionWithPayload(
+      "sending",
+      "credit pack storage retry request",
+      payload
+    );
+    const response = await axios.post(
+      `${supernodeURL}/credit_pack_storage_retry_request`,
+      {
+        request: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload(
+      "receiving",
+      "response to credit pack storage retry request",
+      result
+    );
+    return result;
+  }
+
+  async creditPackStorageRetryCompletionAnnouncement(
+    supernodeURL,
+    creditPackStorageRetryRequestResponse
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = creditPackStorageRetryRequestResponse;
+    logActionWithPayload(
+      "sending",
+      "storage retry completion announcement message",
+      payload
+    );
+    await axios.post(
+      `${supernodeURL}/credit_pack_storage_retry_completion_announcement`,
+      {
+        response: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+  }
+
+  async makeInferenceAPIUsageRequest(supernodeURL, requestData) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = requestData;
+    logActionWithPayload("making", "inference usage request", payload);
+    const response = await axios.post(
+      `${supernodeURL}/make_inference_api_usage_request`,
+      {
+        inference_api_usage_request: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 3 * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload(
+      "received",
+      "response to inference usage request",
+      result
+    );
+    return result;
+  }
+
+  async sendInferenceConfirmation(supernodeURL, confirmationData) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const payload = confirmationData;
+    logActionWithPayload("sending", "inference confirmation", payload);
+    const response = await axios.post(
+      `${supernodeURL}/confirm_inference_request`,
+      {
+        inference_confirmation: payload,
+        challenge,
+        challenge_id,
+        challenge_signature: challengeSignature,
+      },
+      {
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 4 * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload(
+      "receiving",
+      "response to inference confirmation",
+      result
+    );
+    return result;
+  }
+
+  async checkStatusOfInferenceRequestResults(
+    supernodeURL,
+    inferenceResponseID
+  ) {
+    try {
+      logger.info(
+        `Checking status of inference request results for ID ${inferenceResponseID}`
+      );
+      const response = await axios.get(
+        `${supernodeURL}/check_status_of_inference_request_results/${inferenceResponseID}`,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+      response.data;
+      logActionWithPayload(
+        "receiving",
+        `status of inference request results for ID ${inferenceResponseID}`,
+        result
+      );
+      return typeof result === "boolean" ? result : false;
+    } catch (error) {
+      if (error.response) {
+        logger.error(
+          `HTTP error in checkStatusOfInferenceRequestResults from Supernode URL: ${supernodeURL}: ${error}`
+        );
+      } else {
+        logger.error(
+          `Error in checkStatusOfInferenceRequestResults from Supernode URL: ${supernodeURL}: ${error}`
+        );
+      }
+      return false;
+    }
+  }
+
+  async retrieveInferenceOutputResults(
+    supernodeURL,
+    inferenceRequestID,
+    inferenceResponseID
+  ) {
+    const challengeResult = await this.requestAndSignChallenge(supernodeURL);
+    const {
+      challenge,
+      challenge_id,
+      signature: challengeSignature,
+    } = challengeResult;
+    const params = {
+      inference_response_id: inferenceResponseID,
+      pastelid: this.pastelID,
+      challenge,
+      challenge_id,
+      challenge_signature: challengeSignature,
+    };
+    logActionWithPayload(
+      "attempting",
+      `to retrieve inference output results for response ID ${inferenceResponseID}`,
+      params
+    );
+    const response = await axios.post(
+      `${supernodeURL}/retrieve_inference_output_results`,
+      null,
+      {
+        params,
+        timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+      }
+    );
+    response.data;
+    logActionWithPayload("receiving", "inference output results", result);
+    return result;
+  }
+
+  async callAuditInferenceRequestResponse(supernodeURL, inferenceResponseID) {
+    try {
+      const signature = await signMessageWithPastelID(
+        this.pastelID,
+        inferenceResponseID,
+        this.passphrase
+      );
+      const payload = {
+        inference_response_id: inferenceResponseID,
+        pastel_id: this.pastelID,
+        signature,
+      };
+      logActionWithPayload(
+        "calling",
+        "audit inference request response",
+        payload
+      );
+      const response = await axios.post(
+        `${supernodeURL}/audit_inference_request_response`,
+        payload,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 2 * 1000,
+        }
+      );
+      response.data;
+      logActionWithPayload(
+        "receiving",
+        "response to audit inference request response",
+        result
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        `Error in auditInferenceRequestResponse from Supernode URL: ${supernodeURL}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async callAuditInferenceRequestResult(supernodeURL, inferenceResponseID) {
+    try {
+      const signature = await signMessageWithPastelID(
+        this.pastelID,
+        inferenceResponseID,
+        this.passphrase
+      );
+      const payload = {
+        inference_response_id: inferenceResponseID,
+        pastel_id: this.pastelID,
+        signature,
+      };
+      logActionWithPayload(
+        "calling",
+        "audit inference request result",
+        payload
+      );
+      const response = await axios.post(
+        `${supernodeURL}/audit_inference_request_result`,
+        payload,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 2 * 1000,
+        }
+      );
+      response.data;
+      logActionWithPayload(
+        "receiving",
+        "response to audit inference request result",
+        result
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        `Error in auditInferenceRequestResult from Supernode URL: ${supernodeURL}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async auditInferenceRequestResponseID(
+    inferenceResponseID,
+    pastelIDOfSupernodeToAudit
+  ) {
+    const supernodeListDF = await checkSupernodeList();
+    const n = 4;
+    const supernodeURLsAndPastelIDs = await getNClosestSupernodesToPastelIDURLs(
+      n,
+      this.pastelID,
+      supernodeListDF
+    );
+    const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs
+      .filter(({ pastelID }) => pastelID !== pastelIDOfSupernodeToAudit)
+      .map(({ pastelID }) => pastelID);
+    const listOfSupernodeURLs = supernodeURLsAndPastelIDs
+      .filter(({ pastelID }) => pastelID !== pastelIDOfSupernodeToAudit)
+      .map(({ url }) => url);
+    const listOfSupernodeIPs = listOfSupernodeURLs.map(
+      (url) => url.split("//")[1].split(":")[0]
+    );
+    logger.info(
+      `Now attempting to audit inference request response with ID ${inferenceResponseID} with ${listOfSupernodePastelIDs.length} closest supernodes (with Supernode IPs of ${listOfSupernodeIPs})...`
+    );
+    logger.info(
+      `Now attempting to audit inference request response with ID ${inferenceResponseID} by comparing information from other Supernodes to the information reported by the Responding Supernode...`
+    );
+    const responseAuditTasks = listOfSupernodeURLs.map((url) =>
+      this.callAuditInferenceRequestResponse(url, inferenceResponseID)
+    );
+    const responseAuditResults = await Promise.all(responseAuditTasks);
+    await new Promise((resolve) => setTimeout(resolve, 20000));
+    logger.info(
+      `Now attempting to audit inference request result for response ID ${inferenceResponseID} by comparing information from other Supernodes to the information reported by the Responding Supernode...`
+    );
+    const resultAuditTasks = listOfSupernodeURLs.map((url) =>
+      this.callAuditInferenceRequestResult(url, inferenceResponseID)
+    );
+    const resultAuditResults = await Promise.all(resultAuditTasks);
+    const auditResults = [...responseAuditResults, ...resultAuditResults];
+    logger.info(
+      `Audit results retrieved for inference response ID ${inferenceResponseID}`
+    );
+    return auditResults;
+  }
+
+  async checkIfSupernodeSupportsDesiredModel(
+    supernodeURL,
+    modelCanonicalString,
+    modelInferenceTypeString,
+    modelParametersJSON
+  ) {
+    try {
+      const response = await axios.get(
+        `${supernodeURL}/get_inference_model_menu`,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+      response.data;
+      const modelMenu = result;
+      const desiredParameters = JSON.parse(modelParametersJSON);
+      for (const model of modelMenu.models) {
+        if (
+          model.model_name === modelCanonicalString &&
+          model.supported_inference_type_strings.includes(
+            modelInferenceTypeString
+          )
+        ) {
+          const unsupportedParameters = [];
+          for (const [desiredParam, desiredValue] of Object.entries(
+            desiredParameters
+          )) {
+            let paramFound = false;
+            for (const param of model.model_parameters) {
+              if (param.name === desiredParam) {
+                if ("type" in param) {
+                  if (param.type === "int" && Number.isInteger(desiredValue)) {
+                    paramFound = true;
+                  } else if (
+                    param.type === "float" &&
+                    typeof desiredValue === "number"
+                  ) {
+                    paramFound = true;
+                  } else if (
+                    param.type === "string" &&
+                    typeof desiredValue === "string"
+                  ) {
+                    if (
+                      "options" in param &&
+                      param.options.includes(desiredValue)
+                    ) {
+                      paramFound = true;
+                    } else if (!("options" in param)) {
+                      paramFound = true;
+                    }
+                  }
+                } else {
+                  paramFound = true;
+                }
+                break;
+              }
+            }
+            if (!paramFound) {
+              unsupportedParameters.push(desiredParam);
+            }
+          }
+          if (unsupportedParameters.length === 0) {
+            return true;
+          } else {
+            const unsupportedParamStr = unsupportedParameters.join(", ");
+            logger.error(
+              `Unsupported model parameters for ${modelCanonicalString}: ${unsupportedParamStr}`
+            );
+            return false;
+          }
+        }
+      }
+      return false;
+    } catch (error) {
+      logger.error(
+        `Error in checkIfSupernodeSupportsDesiredModel from Supernode URL: ${supernodeURL}: ${error}`
+      );
+      return false;
+    }
+  }
+
+  async getClosestSupernodeURLThatSupportsDesiredModel(
+    desiredModelCanonicalString,
+    desiredModelInferenceTypeString,
+    desiredModelParametersJSON
+  ) {
+    const supernodeListDF = await checkSupernodeList();
+    const n = supernodeListDF.length;
+    const supernodeURLsAndPastelIDs = await getNClosestSupernodesToPastelIDURLs(
+      n,
+      this.pastelID,
+      supernodeListDF
+    );
+    const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs.map(
+      ({ pastelID }) => pastelID
+    );
+    const listOfSupernodeURLs = supernodeURLsAndPastelIDs.map(({ url }) => url);
+    const listOfSupernodeIPs = listOfSupernodeURLs.map(
+      (url) => url.split("//")[1].split(":")[0]
+    );
+    logger.info(
+      `Now attempting to check which supernodes support the desired model (${desiredModelCanonicalString}) with ${listOfSupernodePastelIDs.length} closest supernodes (with Supernode IPs of ${listOfSupernodeIPs})...`
+    );
+    const modelSupportTasks = listOfSupernodeURLs.map((url) =>
+      this.checkIfSupernodeSupportsDesiredModel(
+        url,
+        desiredModelCanonicalString,
+        desiredModelInferenceTypeString,
+        desiredModelParametersJSON
+      )
+    );
+    const modelSupportResults = await Promise.all(modelSupportTasks);
+    const supernodeSupportDict = listOfSupernodePastelIDs.reduce(
+      (dict, pastelID, index) => {
+        dict[pastelID] = modelSupportResults[index];
+        return dict;
+      },
+      {}
+    );
+    logger.info(
+      `Found ${
+        modelSupportResults.filter(Boolean).length
+      } supernodes that support the desired model (${desiredModelCanonicalString}) out of ${
+        modelSupportResults.length
+      } checked.`
+    );
+    const closestSupportingSupernodePastelID =
+      modelSupportResults.indexOf(true) !== -1
+        ? listOfSupernodePastelIDs[modelSupportResults.indexOf(true)]
+        : null;
+    const closestSupportingSupernodeURL =
+      modelSupportResults.indexOf(true) !== -1
+        ? listOfSupernodeURLs[modelSupportResults.indexOf(true)]
+        : null;
+    logger.info(
+      `Closest supporting supernode PastelID: ${closestSupportingSupernodePastelID} | URL: ${closestSupportingSupernodeURL}`
+    );
+    return {
+      supernodeSupportDict,
+      closestSupportingSupernodePastelID,
+      closestSupportingSupernodeURL,
+    };
+  }
+}
+
+module.exports = {
+    PastelInferenceClient,
+    };
