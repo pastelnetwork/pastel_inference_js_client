@@ -1,10 +1,83 @@
-const { Sequelize, DataTypes } = require('sequelize');
+require("dotenv").config();
+const { Sequelize, DataTypes } = require("sequelize");
 
-const sequelize = new Sequelize("database", "username", "password", {
-  // Configure the database connection
-  // ...
+// SQLite database in project root directory
+const sequelize = new Sequelize({
+  dialect: "sqlite",
+  storage: "pastel_inference_client.sqlite", // Path to the database file
+  logging: false, // Disable logging; default: console.log
 });
-const Message = sequelize.define('Message', {
+
+const SupernodeList = sequelize.define(
+  "SupernodeList",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    supernode_status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    protocol_version: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    supernode_psl_address: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    lastseentime: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    activeseconds: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    lastpaidtime: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    lastpaidblock: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    ipaddress_port: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    rank: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    pubkey: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    extAddress: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    extP2P: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    extKey: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: "supernode_lists",
+    timestamps: false,
+  }
+);
+
+const Message = sequelize.define(
+  "Message",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -41,14 +114,18 @@ const Message = sequelize.define('Message', {
     timestamp: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
     },
-  }, {
-    tableName: 'messages',
+  },
+  {
+    tableName: "messages",
     timestamps: false,
-  });
-  
-  const UserMessage = sequelize.define('UserMessage', {
+  }
+);
+
+const UserMessage = sequelize.define(
+  "UserMessage",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -73,14 +150,18 @@ const Message = sequelize.define('Message', {
     timestamp: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
     },
-  }, {
-    tableName: 'user_messages',
+  },
+  {
+    tableName: "user_messages",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequest = sequelize.define('CreditPackPurchaseRequest', {
+  }
+);
+
+const CreditPackPurchaseRequest = sequelize.define(
+  "CreditPackPurchaseRequest",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -123,12 +204,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-  }, {
-    tableName: 'credit_pack_purchase_requests',
+  },
+  {
+    tableName: "credit_pack_purchase_requests",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestRejection = sequelize.define('CreditPackPurchaseRequestRejection', {
+  }
+);
+
+const CreditPackPurchaseRequestRejection = sequelize.define(
+  "CreditPackPurchaseRequestRejection",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -161,16 +246,21 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    responding_supernode_signature_on_credit_pack_purchase_request_rejection_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_rejections',
+    responding_supernode_signature_on_credit_pack_purchase_request_rejection_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_rejections",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestPreliminaryPriceQuote = sequelize.define('CreditPackPurchaseRequestPreliminaryPriceQuote', {
+  }
+);
+
+const CreditPackPurchaseRequestPreliminaryPriceQuote = sequelize.define(
+  "CreditPackPurchaseRequestPreliminaryPriceQuote",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -207,28 +297,35 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    responding_supernode_signature_on_credit_pack_purchase_request_preliminary_price_quote_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_preliminary_price_quotes',
+    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+    responding_supernode_signature_on_credit_pack_purchase_request_preliminary_price_quote_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_preliminary_price_quotes",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define('CreditPackPurchaseRequestPreliminaryPriceQuoteResponse', {
+  }
+);
+
+const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define(
+  "CreditPackPurchaseRequestPreliminaryPriceQuoteResponse",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
+    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
     credit_pack_purchase_request_fields_json: {
       type: DataTypes.JSON,
       allowNull: false,
@@ -261,20 +358,26 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    requesting_end_user_pastelid_signature_on_preliminary_price_quote_response_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_preliminary_price_quote_responses',
+    sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+    requesting_end_user_pastelid_signature_on_preliminary_price_quote_response_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_preliminary_price_quote_responses",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestResponseTermination = sequelize.define('CreditPackPurchaseRequestResponseTermination', {
+  }
+);
+
+const CreditPackPurchaseRequestResponseTermination = sequelize.define(
+  "CreditPackPurchaseRequestResponseTermination",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -307,16 +410,21 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    responding_supernode_signature_on_credit_pack_purchase_request_termination_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_response_terminations',
+    responding_supernode_signature_on_credit_pack_purchase_request_termination_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_response_terminations",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestResponse = sequelize.define('CreditPackPurchaseRequestResponse', {
+  }
+);
+
+const CreditPackPurchaseRequestResponse = sequelize.define(
+  "CreditPackPurchaseRequestResponse",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -326,8 +434,8 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'credit_pack_purchase_requests',
-        key: 'sha3_256_hash_of_credit_pack_purchase_request_fields',
+        model: "credit_pack_purchase_requests",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
       },
     },
     credit_pack_purchase_request_fields_json: {
@@ -366,29 +474,36 @@ const Message = sequelize.define('Message', {
       type: DataTypes.JSON,
       allowNull: false,
     },
-    list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash: {
-      type: DataTypes.JSON,
-      allowNull: false,
-    },
-    list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
-      allowNull: false,
-    },
+    list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash:
+      {
+        type: DataTypes.JSON,
+        allowNull: false,
+      },
+    list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json:
+      {
+        type: DataTypes.JSON,
+        allowNull: false,
+      },
     sha3_256_hash_of_credit_pack_purchase_request_response_fields: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
     },
-    responding_supernode_signature_on_credit_pack_purchase_request_response_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_responses',
+    responding_supernode_signature_on_credit_pack_purchase_request_response_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_responses",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestConfirmation = sequelize.define('CreditPackPurchaseRequestConfirmation', {
+  }
+);
+
+const CreditPackPurchaseRequestConfirmation = sequelize.define(
+  "CreditPackPurchaseRequestConfirmation",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -398,16 +513,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'credit_pack_purchase_requests',
-        key: 'sha3_256_hash_of_credit_pack_purchase_request_fields',
+        model: "credit_pack_purchase_requests",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
       },
     },
     sha3_256_hash_of_credit_pack_purchase_request_response_fields: {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'credit_pack_purchase_request_responses',
-        key: 'sha3_256_hash_of_credit_pack_purchase_request_response_fields',
+        model: "credit_pack_purchase_request_responses",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_response_fields",
       },
     },
     credit_pack_purchase_request_fields_json: {
@@ -439,16 +554,21 @@ const Message = sequelize.define('Message', {
       allowNull: false,
       unique: true,
     },
-    requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_confirmations',
+    requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_confirmations",
     timestamps: false,
-  });
-  
-  const CreditPackRequestStatusCheck = sequelize.define('CreditPackRequestStatusCheck', {
+  }
+);
+
+const CreditPackRequestStatusCheck = sequelize.define(
+  "CreditPackRequestStatusCheck",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -457,30 +577,35 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_request_status_checks',
+    requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_request_status_checks",
     timestamps: false,
-  });
-  
-  const CreditPackPurchaseRequestStatus = sequelize.define('CreditPackPurchaseRequestStatus', {
+  }
+);
+
+const CreditPackPurchaseRequestStatus = sequelize.define(
+  "CreditPackPurchaseRequestStatus",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'credit_pack_purchase_requests',
-        key: 'sha3_256_hash_of_credit_pack_purchase_request_fields',
+        model: "credit_pack_purchase_requests",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
       },
     },
     sha3_256_hash_of_credit_pack_purchase_request_response_fields: {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'credit_pack_purchase_request_responses',
-        key: 'sha3_256_hash_of_credit_pack_purchase_request_response_fields',
+        model: "credit_pack_purchase_request_responses",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_response_fields",
       },
     },
     status: {
@@ -512,16 +637,21 @@ const Message = sequelize.define('Message', {
       allowNull: false,
       unique: true,
     },
-    responding_supernode_signature_on_credit_pack_purchase_request_status_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_purchase_request_statuses',
+    responding_supernode_signature_on_credit_pack_purchase_request_status_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_statuses",
     timestamps: false,
-  });
-  
-  const CreditPackStorageRetryRequest = sequelize.define('CreditPackStorageRetryRequest', {
+  }
+);
+
+const CreditPackStorageRetryRequest = sequelize.define(
+  "CreditPackStorageRetryRequest",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_response_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -554,16 +684,21 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    requesting_end_user_pastelid_signature_on_credit_pack_storage_retry_request_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_storage_retry_requests',
+    requesting_end_user_pastelid_signature_on_credit_pack_storage_retry_request_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_storage_retry_requests",
     timestamps: false,
-  });
-  
-  const CreditPackStorageRetryRequestResponse = sequelize.define('CreditPackStorageRetryRequestResponse', {
+  }
+);
+
+const CreditPackStorageRetryRequestResponse = sequelize.define(
+  "CreditPackStorageRetryRequestResponse",
+  {
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -604,16 +739,21 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    closest_agreeing_supernode_to_retry_storage_pastelid_signature_on_credit_pack_storage_retry_confirmation_response_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-  }, {
-    tableName: 'credit_pack_storage_retry_request_responses',
+    closest_agreeing_supernode_to_retry_storage_pastelid_signature_on_credit_pack_storage_retry_confirmation_response_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_storage_retry_request_responses",
     timestamps: false,
-  });
-  
-  const InferenceAPIUsageRequest = sequelize.define('InferenceAPIUsageRequest', {
+  }
+);
+
+const InferenceAPIUsageRequest = sequelize.define(
+  "InferenceAPIUsageRequest",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -672,12 +812,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-  }, {
-    tableName: 'inference_api_usage_requests',
+  },
+  {
+    tableName: "inference_api_usage_requests",
     timestamps: false,
-  });
-  
-  const InferenceAPIUsageResponse = sequelize.define('InferenceAPIUsageResponse', {
+  }
+);
+
+const InferenceAPIUsageResponse = sequelize.define(
+  "InferenceAPIUsageResponse",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -692,8 +836,8 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'inference_api_usage_requests',
-        key: 'inference_request_id',
+        model: "inference_api_usage_requests",
+        key: "inference_request_id",
       },
     },
     proposed_cost_of_request_in_inference_credits: {
@@ -736,12 +880,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-  }, {
-    tableName: 'inference_api_usage_responses',
+  },
+  {
+    tableName: "inference_api_usage_responses",
     timestamps: false,
-  });
-  
-  const InferenceAPIOutputResult = sequelize.define('InferenceAPIOutputResult', {
+  }
+);
+
+const InferenceAPIOutputResult = sequelize.define(
+  "InferenceAPIOutputResult",
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -756,16 +904,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'inference_api_usage_requests',
-        key: 'inference_request_id',
+        model: "inference_api_usage_requests",
+        key: "inference_request_id",
       },
     },
     inference_response_id: {
       type: DataTypes.STRING,
       allowNull: false,
       references: {
-        model: 'inference_api_usage_responses',
-        key: 'inference_response_id',
+        model: "inference_api_usage_responses",
+        key: "inference_response_id",
       },
     },
     responding_supernode_pastelid: {
@@ -800,12 +948,16 @@ const Message = sequelize.define('Message', {
       type: DataTypes.STRING,
       allowNull: false,
     },
-  }, {
-    tableName: 'inference_api_output_results',
+  },
+  {
+    tableName: "inference_api_output_results",
     timestamps: false,
-  });
-  
-  const InferenceConfirmation = sequelize.define('InferenceConfirmation', {
+  }
+);
+
+const InferenceConfirmation = sequelize.define(
+  "InferenceConfirmation",
+  {
     inference_request_id: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -818,27 +970,35 @@ const Message = sequelize.define('Message', {
       type: DataTypes.JSON,
       allowNull: false,
     },
-  }, {
-    tableName: 'inference_confirmations',
+  },
+  {
+    tableName: "inference_confirmations",
     timestamps: false,
-  });
+  }
+);
 
-  module.exports = {
-    Message,
-    UserMessage,
-    CreditPackPurchaseRequest,
-    CreditPackPurchaseRequestRejection,
-    CreditPackPurchaseRequestPreliminaryPriceQuote,
-    CreditPackPurchaseRequestPreliminaryPriceQuoteResponse,
-    CreditPackPurchaseRequestResponseTermination,
-    CreditPackPurchaseRequestResponse,
-    CreditPackPurchaseRequestConfirmation,
-    CreditPackRequestStatusCheck,
-    CreditPackPurchaseRequestStatus,
-    CreditPackStorageRetryRequest,
-    CreditPackStorageRetryRequestResponse,
-    InferenceAPIUsageRequest,
-    InferenceAPIUsageResponse,
-    InferenceAPIOutputResult,
-    InferenceConfirmation,
-  };
+// Sync all defined models to the DB
+sequelize.sync({ force: true }).then(() => {
+  console.log("Database & tables created!");
+});
+
+module.exports = {
+  SupernodeList,
+  Message,
+  UserMessage,
+  CreditPackPurchaseRequest,
+  CreditPackPurchaseRequestRejection,
+  CreditPackPurchaseRequestPreliminaryPriceQuote,
+  CreditPackPurchaseRequestPreliminaryPriceQuoteResponse,
+  CreditPackPurchaseRequestResponseTermination,
+  CreditPackPurchaseRequestResponse,
+  CreditPackPurchaseRequestConfirmation,
+  CreditPackRequestStatusCheck,
+  CreditPackPurchaseRequestStatus,
+  CreditPackStorageRetryRequest,
+  CreditPackStorageRetryRequestResponse,
+  InferenceAPIUsageRequest,
+  InferenceAPIUsageResponse,
+  InferenceAPIOutputResult,
+  InferenceConfirmation,
+};

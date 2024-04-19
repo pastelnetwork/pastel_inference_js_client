@@ -1,54 +1,29 @@
+require("dotenv").config();
 const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
 const winston = require("winston");
-const {
-  Message,
-  UserMessage,
-  CreditPackPurchaseRequest,
-  CreditPackPurchaseRequestRejection,
-  CreditPackPurchaseRequestPreliminaryPriceQuote,
-  CreditPackPurchaseRequestPreliminaryPriceQuoteResponse,
-  CreditPackPurchaseRequestResponseTermination,
-  CreditPackPurchaseRequestResponse,
-  CreditPackPurchaseRequestConfirmation,
-  CreditPackRequestStatusCheck,
-  CreditPackPurchaseRequestStatus,
-  CreditPackStorageRetryRequest,
-  CreditPackStorageRetryRequestResponse,
-  InferenceAPIUsageRequest,
-  InferenceAPIUsageResponse,
-  InferenceAPIOutputResult,
-  InferenceConfirmation,
-} = require("./sequelize_data_models");
 
 const {
-  supernodeListSchema,  
-  messageSchema,
-  userMessageSchema,
-  creditPackPurchaseRequestSchema,
-  creditPackPurchaseRequestRejectionSchema,
-  creditPackPurchaseRequestPreliminaryPriceQuoteSchema,
-  creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema,
-  creditPackPurchaseRequestResponseTerminationSchema,
-  creditPackPurchaseRequestResponseSchema,
-  creditPackPurchaseRequestConfirmationSchema,
-  creditPackRequestStatusCheckSchema,
-  creditPackPurchaseRequestStatusSchema,
-  creditPackStorageRetryRequestSchema,
-  creditPackStorageRetryRequestResponseSchema,
-  inferenceAPIUsageRequestSchema,
-  inferenceAPIUsageResponseSchema,
-  inferenceAPIOutputResultSchema,
-  inferenceConfirmationSchema,
-} = require("./validation_schemas");
+  rpc_connection,
+  verifyMessageWithPastelID,
+  getBestBlockHashAndMerkleRoot,
+} = require("./rpc_functions");
 
-const {
-  TARGET_VALUE_PER_CREDIT_IN_USD,
-  TARGET_PROFIT_MARGIN,
-  MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING,
-  MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS,
-} = require("./constants");
+const { SupernodeList } = require("./sequelize_data_models");
+const { supernodeListSchema, messageSchema } = require("./validation_schemas");
+
+const TARGET_VALUE_PER_CREDIT_IN_USD = parseFloat(
+  process.env.TARGET_VALUE_PER_CREDIT_IN_USD
+);
+const TARGET_PROFIT_MARGIN = parseFloat(process.env.TARGET_PROFIT_MARGIN);
+const MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING =
+  parseFloat(
+    process.env.MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
+  );
+const MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS = parseInt(
+  process.env.MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS
+);
 
 // Logging setup
 const logger = winston.createLogger({
@@ -60,6 +35,7 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.File({ filename: "error.log", level: "error" }),
     new winston.transports.File({ filename: "combined.log" }),
+    new winston.transports.Console(), // Logs to the Node.js console
   ],
 });
 
@@ -80,28 +56,22 @@ async function fetchCurrentPSLMarketPrice() {
           "https://api.coingecko.com/api/v3/simple/price?ids=pastel&vs_currencies=usd"
         ),
       ]);
-
       const priceCMC = parseFloat(
-        responseCMC.data.match(/price today is \$([0-9\.]+) USD/)[1]
+        responseCMC.data.match(/price today is \$([0-9.]+) USD/)[1]
       );
       const priceCG = responseCG.data.pastel.usd;
-
       return { priceCMC, priceCG };
     } catch (error) {
       logger.error(`Error fetching PSL market prices: ${error.message}`);
       return { priceCMC: null, priceCG: null };
     }
   }
-
   let { priceCMC, priceCG } = await checkPrices();
-
   if (priceCMC === null && priceCG === null) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     ({ priceCMC, priceCG } = await checkPrices());
   }
-
   const prices = [priceCMC, priceCG].filter((price) => price !== null);
-
   if (prices.length === 0) {
     throw new Error("Could not retrieve PSL price from any source.");
   }
@@ -178,87 +148,103 @@ function logActionWithPayload(action, payloadName, jsonPayload) {
 }
 
 async function checkSupernodeList() {
-    try {
-      const [
-        masternodeListFull,
-        masternodeListRank,
-        masternodeListPubkey,
-        masternodeListExtra,
-      ] = await Promise.all([
-        rpc_connection.call("masternodelist", "full"),
-        rpc_connection.call("masternodelist", "rank"),
-        rpc_connection.call("masternodelist", "pubkey"),
-        rpc_connection.call("masternodelist", "extra"),
-      ]);
-  
-      const masternodeListFullData = Object.entries(masternodeListFull).map(
-        ([txidVout, data]) => {
-          const [
-            supernodeStatus,
-            protocolVersion,
-            supernodePslAddress,
-            lastSeenTime,
-            activeSeconds,
-            lastPaidTime,
-            lastPaidBlock,
-            ipAddressPort,
-          ] = data.split(" ");
-  
-          return {
-            supernode_status: supernodeStatus,
-            protocol_version: Number(protocolVersion),
-            supernode_psl_address: supernodePslAddress,
-            lastseentime: Number(lastSeenTime),
-            activeseconds: Number(activeSeconds),
-            lastpaidtime: Number(lastPaidTime),
-            lastpaidblock: Number(lastPaidBlock),
-            "ipaddress:port": ipAddressPort,
-            txid_vout: txidVout,
-          };
-        }
-      );
-  
-      const masternodeListFullDF = masternodeListFullData.map((data) => {
-        const { txid_vout, ...rest } = data;
-        const rank = masternodeListRank[txid_vout];
-        const pubkey = masternodeListPubkey[txid_vout];
-        const extra = masternodeListExtra[txid_vout];
-  
+  try {
+    const [
+      masternodeListFull,
+      masternodeListRank,
+      masternodeListPubkey,
+      masternodeListExtra,
+    ] = await Promise.all([
+      rpc_connection.call("masternodelist", "full"),
+      rpc_connection.call("masternodelist", "rank"),
+      rpc_connection.call("masternodelist", "pubkey"),
+      rpc_connection.call("masternodelist", "extra"),
+    ]);
+    const masternodeListFullData = Object.entries(masternodeListFull).map(
+      ([txidVout, data]) => {
+        const [
+          supernodeStatus,
+          protocolVersion,
+          supernodePslAddress,
+          lastSeenTime,
+          activeSeconds,
+          lastPaidTime,
+          lastPaidBlock,
+          ipAddressPort,
+        ] = data.split(" ");
         return {
-          ...rest,
-          rank: Number(rank),
-          pubkey,
-          extAddress: extra.extAddress,
-          extP2P: extra.extP2P,
-          extKey: extra.extKey,
-          activedays: Number(rest.activeseconds) / 86400,
+          supernode_status: supernodeStatus,
+          protocol_version: Number(protocolVersion),
+          supernode_psl_address: supernodePslAddress,
+          lastseentime: Number(lastSeenTime),
+          activeseconds: Number(activeSeconds),
+          lastpaidtime: Number(lastPaidTime),
+          lastpaidblock: Number(lastPaidBlock),
+          "ipaddress:port": ipAddressPort,
+          txid_vout: txidVout,
         };
-      });
-  
-      const validMasternodeListFullDF = masternodeListFullDF.filter(
-        (data) =>
-          ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
-          data["ipaddress:port"] !== "154.38.164.75:29933"
-      );
-  
-      const { error } = supernodeListSchema.validate(validMasternodeListFullDF[0]);
-      if (error) {
-        throw new Error(`Invalid supernode list data: ${error.message}`);
       }
-  
-      const masternodeListFullDFJSON = JSON.stringify(
-        Object.fromEntries(
-          validMasternodeListFullDF.map((data) => [data.txid_vout, data])
-        )
-      );
-  
-      return { supernodeListDF: validMasternodeListFullDF, supernodeListJSON: masternodeListFullDFJSON };
-    } catch (error) {
-      logger.error(`Error in checkSupernodeList: ${error.message}`);
-      throw error;
+    );
+    const masternodeListFullDF = masternodeListFullData.map((data) => {
+      const { txid_vout, ...rest } = data;
+      const rank = masternodeListRank[txid_vout];
+      const pubkey = masternodeListPubkey[txid_vout];
+      const extra = masternodeListExtra[txid_vout];
+      return {
+        ...rest,
+        rank: Number(rank),
+        pubkey,
+        extAddress: extra.extAddress,
+        extP2P: extra.extP2P,
+        extKey: extra.extKey,
+        activedays: Number(rest.activeseconds) / 86400,
+      };
+    });
+    const validMasternodeListFullDF = masternodeListFullDF.filter(
+      (data) =>
+        ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
+        data["ipaddress:port"] !== "154.38.164.75:29933"
+    );
+    const { error } = supernodeListSchema.validate(
+      validMasternodeListFullDF[0]
+    );
+    if (error) {
+      throw new Error(`Invalid supernode list data: ${error.message}`);
     }
+    const masternodeListFullDFJSON = JSON.stringify(
+      Object.fromEntries(
+        validMasternodeListFullDF.map((data) => [data.txid_vout, data])
+      )
+    );
+
+    await SupernodeList.bulkCreate(validMasternodeListFullDF, {
+      updateOnDuplicate: [
+        "supernode_status",
+        "protocol_version",
+        "supernode_psl_address",
+        "lastseentime",
+        "activeseconds",
+        "lastpaidtime",
+        "lastpaidblock",
+        "ipaddress_port",
+        "rank",
+        "pubkey",
+        "extAddress",
+        "extP2P",
+        "extKey",
+      ],
+    });
+
+    return {
+      supernodeListDF: validMasternodeListFullDF,
+      supernodeListJSON: masternodeListFullDFJSON,
+    };
+  } catch (error) {
+    logger.error(`Error in checkSupernodeList: ${error.message}`);
+    throw error;
   }
-  
+}
+
 function transformCreditPackPurchaseRequestResponse(result) {
   const transformedResult = { ...result };
   const fieldsToConvert = [
@@ -266,13 +252,11 @@ function transformCreditPackPurchaseRequestResponse(result) {
     "list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash",
     "list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json",
   ];
-
   fieldsToConvert.forEach((field) => {
     if (transformedResult[field]) {
       transformedResult[field] = JSON.stringify(transformedResult[field]);
     }
   });
-
   return transformedResult;
 }
 
@@ -314,7 +298,6 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
   const responseFields = {};
   let lastHashFieldName = null;
   let lastSignatureFieldName = null;
-
   for (const fieldName in modelInstance) {
     if (fieldName.startsWith("sha3_256_hash_of")) {
       lastHashFieldName = fieldName;
@@ -322,7 +305,6 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       lastSignatureFieldName = fieldName;
     }
   }
-
   for (const [fieldName, fieldValue] of Object.entries(modelInstance)) {
     if (
       fieldName === lastHashFieldName ||
@@ -428,7 +410,6 @@ async function validateHashFields(modelInstance, validationErrors) {
       break;
     }
   }
-
   if (hashFieldName) {
     const actualHash = modelInstance[hashFieldName];
     if (actualHash !== expectedHash) {
@@ -437,6 +418,25 @@ async function validateHashFields(modelInstance, validationErrors) {
       );
     }
   }
+}
+
+async function getClosestSupernodePastelIDFromList(
+  localPastelID,
+  supernodePastelIDs
+) {
+  const xorDistances = await Promise.all(
+    supernodePastelIDs.map(async (supernodePastelID) => {
+      const distance = await calculateXORDistance(
+        localPastelID,
+        supernodePastelID
+      );
+      return { pastelID: supernodePastelID, distance };
+    })
+  );
+  const sortedXorDistances = xorDistances.sort(
+    (a, b) => a.distance - b.distance
+  );
+  return sortedXorDistances[0].pastelID;
 }
 
 async function validatePastelIDSignatureFields(
@@ -454,17 +454,6 @@ async function validatePastelIDSignatureFields(
     }
   }
 
-  async function getClosestSupernodePastelIDFromList(localPastelID, supernodePastelIDs) {
-    const xorDistances = await Promise.all(
-      supernodePastelIDs.map(async (supernodePastelID) => {
-        const distance = await calculateXORDistance(localPastelID, supernodePastelID);
-        return { pastelID: supernodePastelID, distance };
-      })
-    );
-  
-    const sortedXorDistances = xorDistances.sort((a, b) => a.distance - b.distance);
-    return sortedXorDistances[0].pastelID;
-  }
   for (const fieldName in modelInstance) {
     if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
@@ -857,7 +846,7 @@ module.exports = {
   validatePastelBlockHeightFields,
   validateHashFields,
   validatePastelIDSignatureFields,
-  getClosestSupernodePastelIDFromList,  
+  getClosestSupernodePastelIDFromList,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceResponseFields,

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const Joi = require('joi');
 
 const supernodeListSchema = Joi.object({
@@ -226,34 +227,6 @@ const messageSchema = Joi.object({
     confirmation_transaction: Joi.object().required(),
   });
   
-  async function createInferenceAPIUsageResponse(data) {
-    const { error, value } = inferenceAPIUsageResponseSchema.validate(data);
-    if (error) {
-      throw new Error(`Invalid data: ${error.details[0].message}`);
-    }
-    const inferenceAPIUsageResponse = await InferenceAPIUsageResponse.create(value);
-    return inferenceAPIUsageResponse;
-  }
-  
-  async function createInferenceAPIOutputResult(data) {
-    const { error, value } = inferenceAPIOutputResultSchema.validate(data);
-    if (error) {
-      throw new Error(`Invalid data: ${error.details[0].message}`);
-    }
-    const inferenceAPIOutputResult = await InferenceAPIOutputResult.create(value);
-    return inferenceAPIOutputResult;
-  }
-  
-  async function createInferenceConfirmation(data) {
-    const { error, value } = inferenceConfirmationSchema.validate(data);
-    if (error) {
-      throw new Error(`Invalid data: ${error.details[0].message}`);
-    }
-    const inferenceConfirmation = await InferenceConfirmation.create(value);
-    return inferenceConfirmation;
-  }
-
-
   module.exports = {
     supernodeListSchema,
     messageSchema,

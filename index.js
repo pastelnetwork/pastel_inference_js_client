@@ -4,7 +4,10 @@ const { logger } = require("./utility_functions");
 const {
   getLocalRPCSettings,
   initializeRPCConnection,
+  createAndFundNewPSLCreditTrackingAddress,
+  lookupCreditPackTicketTrackingAddress,
 } = require("./rpc_functions");
+const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
   sendMessageAndCheckForNewIncomingMessages,
   handleCreditPackTicketEndToEnd,
@@ -12,22 +15,18 @@ const {
   handleInferenceRequestEndToEnd,
 } = require("./end_to_end_functions");
 
-
 async function main() {
-  let rpcConnection;
-  const { rpcHost, rpcPort, rpcUser, rpcPassword, otherFlags } =
-    await getLocalRPCSettings();
+  const { rpcPort } = await getLocalRPCSettings();
   await initializeRPCConnection();
 
-  
-let burnAddress;
-if (rpcPort === "9932") {
-  burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
-} else if (rpcPort === "19932") {
-  burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
-} else if (rpcPort === "29932") {
-  burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
-}
+  let burnAddress;
+  if (rpcPort === "9932") {
+    burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
+  } else if (rpcPort === "19932") {
+    burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
+  } else if (rpcPort === "29932") {
+    burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
+  }
 
   const useTestMessagingFunctionality = false;
   const useTestCreditPackTicketFunctionality = true;
@@ -36,7 +35,31 @@ if (rpcPort === "9932") {
   const useTestLLMTextCompletion = true;
   const useTestImageGeneration = false;
 
-  const inferenceClient = new PastelInferenceClient(process.env.MY_LOCAL_PASTELID, process.env.MY_PASTELID_PASSPHRASE);
+  const inferenceClient = new PastelInferenceClient(
+    process.env.MY_LOCAL_PASTELID,
+    process.env.MY_PASTELID_PASSPHRASE
+  );
+
+  // Define variables to store the credit pack ticket TXID and tracking address
+  let creditPackTicketPastelTxid;
+  let creditUsageTrackingPSLAddress;
+
+  // Check if a previously created credit pack ticket TXID is provided
+  const previouslyCreditPackTicketPastelTxid =
+    process.env.PREVIOUSLY_CREATED_CREDIT_PACK_TICKET_TXID;
+  if (previouslyCreditPackTicketPastelTxid) {
+    // Look up the corresponding PSL tracking address in the local database
+    creditPackTicketPastelTxid = previouslyCreditPackTicketPastelTxid;
+    creditUsageTrackingPSLAddress = await lookupCreditPackTicketTrackingAddress(
+      creditPackTicketPastelTxid
+    );
+    if (!creditUsageTrackingPSLAddress) {
+      logger.error(
+        `No tracking address found for credit pack ticket TXID: ${creditPackTicketPastelTxid}`
+      );
+      process.exit(1);
+    }
+  }
 
   if (useTestMessagingFunctionality) {
     const messageBody =
@@ -50,7 +73,7 @@ if (rpcPort === "9932") {
     logger.info(`Message data: ${JSON.stringify(messageDict)}`);
   }
 
-  if (useTestCreditPackTicketFunctionality) {
+  if (useTestCreditPackTicketFunctionality && !creditPackTicketPastelTxid) {
     const desiredNumberOfCredits = 1500;
     const amountOfPSLForTrackingTransactions = 10.0;
     const creditPriceCushionPercentage = 0.15;
@@ -61,7 +84,6 @@ if (rpcPort === "9932") {
         desiredNumberOfCredits,
         creditPriceCushionPercentage
       );
-
 
     if (
       estimatedTotalCostInPSLForCreditPack >
@@ -90,14 +112,15 @@ if (rpcPort === "9932") {
         burnAddress
       );
 
-      let creditPackTicketPastelTxid;
-      creditPackTicketPastelTxid = creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid;
-      creditUsageTrackingPSLAddress = creditPackPurchaseRequestConfirmationResponse.credit_usage_tracking_psl_address;
-      
-
     if (creditPackPurchaseRequestConfirmationResponse) {
+      // Store the TXID and tracking address from the credit pack ticket creation response
+      creditPackTicketPastelTxid =
+        creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid;
+      const creditUsageTrackingPSLAddress =
+        creditPackPurchaseRequestConfirmationResponse.credit_usage_tracking_psl_address;
+
       logger.info(
-        `Credit pack ticket stored on the blockchain with transaction ID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid}`
+        `Credit pack ticket stored on the blockchain with transaction ID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid} (corresponding to tracking address: ${creditUsageTrackingPSLAddress})`
       );
       logger.info(
         `Credit pack details: ${JSON.stringify(
@@ -109,193 +132,209 @@ if (rpcPort === "9932") {
     }
   }
 
-
   if (useTestCreditPackTicketUsage) {
-    const startTime = Date.now();
-    const creditTicketObject = await getCreditPackTicketInfoEndToEnd(
-      creditPackTicketPastelTxid
-    );
-    const creditPackPurchaseRequestDict = JSON.parse(
-      creditTicketObject.credit_pack_purchase_request_fields_json
-    );
-    const initialCreditPackBalance =
-      creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;
+    // Check if a credit pack ticket TXID is available
+    if (creditPackTicketPastelTxid) {
+      const startTime = Date.now();
+      const creditTicketObject = await getCreditPackTicketInfoEndToEnd(
+        creditPackTicketPastelTxid
+      );
 
+      const creditPackPurchaseRequestDict = JSON.parse(
+        creditTicketObject.credit_pack_purchase_request_fields_json
+      );
+      const initialCreditPackBalance =
+        creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;
 
-    logger.info(
-      `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`
-    );
-    logger.info(
-      `Corresponding credit pack request dict: ${JSON.stringify(
-        creditPackPurchaseRequestDict
-      )}`
-    );
+      logger.info(
+        `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`
+      );
+      logger.info(
+        `Corresponding credit pack request dict: ${JSON.stringify(
+          creditPackPurchaseRequestDict
+        )}`
+      );
 
-    const endTime = Date.now();
-    const durationInSeconds = (endTime - startTime) / 1000;
-    logger.info(
-      `Total time taken for credit pack ticket lookup: ${durationInSeconds.toFixed(
-        2
-      )} seconds`
-    );
+      const endTime = Date.now();
+      const durationInSeconds = (endTime - startTime) / 1000;
+      logger.info(
+        `Total time taken for credit pack ticket lookup: ${durationInSeconds.toFixed(
+          2
+        )} seconds`
+      );
+    }
   }
 
   if (useTestInferenceRequestFunctionality) {
     if (useTestLLMTextCompletion) {
-      const startTime = Date.now();
-      const inputPromptTextToLLM =
-        "how do you measure the speed of an earthquake?";
-      const requestedModelCanonicalString = "claude3-opus";
-      const modelInferenceTypeString = "text_completion";
-      const modelParameters = {
-        number_of_tokens_to_generate: 2000,
-        number_of_completions_to_generate: 1,
-      };
-      const maxCreditCostToApproveInferenceRequest = 200.0;
+      // Check if a credit pack ticket TXID is available
+      if (creditPackTicketPastelTxid) {
+        const startTime = Date.now();
+        const inputPromptTextToLLM =
+          "how do you measure the speed of an earthquake?";
+        const requestedModelCanonicalString = "claude3-opus";
+        const modelInferenceTypeString = "text_completion";
+        const modelParameters = {
+          number_of_tokens_to_generate: 2000,
+          number_of_completions_to_generate: 1,
+        };
+        const maxCreditCostToApproveInferenceRequest = 200.0;
 
-      const { inferenceResultDict, auditResults, validationResults } =
-        await handleInferenceRequestEndToEnd(
-          creditPackTicketPastelTxid,
-          inputPromptTextToLLM,
-          requestedModelCanonicalString,
-          modelInferenceTypeString,
-          modelParameters,
-          maxCreditCostToApproveInferenceRequest,
-          burnAddress
+        const { inferenceResultDict, auditResults, validationResults } =
+          await handleInferenceRequestEndToEnd(
+            creditPackTicketPastelTxid,
+            inputPromptTextToLLM,
+            requestedModelCanonicalString,
+            modelInferenceTypeString,
+            modelParameters,
+            maxCreditCostToApproveInferenceRequest,
+            burnAddress
+          );
+
+        logger.info(
+          `Inference result data:\n\n${JSON.stringify(inferenceResultDict)}`
         );
-
-      logger.info(
-        `Inference result data:\n\n${JSON.stringify(inferenceResultDict)}`
-      );
-      logger.info(
-        "\n_____________________________________________________________________\n"
-      );
-      logger.info(
-        `\n\nFinal Decoded Inference Result:\n\n${inferenceResultDict.inference_result_decoded}`
-      );
-
-      const endTime = Date.now();
-      const durationInMinutes = (endTime - startTime) / 60000;
-      logger.info(
-        `Total time taken for inference request: ${durationInMinutes.toFixed(
-          2
-        )} minutes`
-      );
+        logger.info(`Audit results:\n\n${JSON.stringify(auditResults)}`);
+        logger.info(
+          `Validation results:\n\n${JSON.stringify(validationResults)}`
+        );
+        logger.info(
+          "\n_____________________________________________________________________\n"
+        );
+        logger.info(
+          `\n\nFinal Decoded Inference Result:\n\n${inferenceResultDict.inference_result_decoded}`
+        );
+        const endTime = Date.now();
+        const durationInMinutes = (endTime - startTime) / 60000;
+        logger.info(
+          `Total time taken for inference request: ${durationInMinutes.toFixed(
+            2
+          )} minutes`
+        );
+      }
     }
 
     if (useTestImageGeneration) {
-      const startTime = Date.now();
-      const inputPromptTextToLLM =
-        "A picture of a clown holding a sign that says PASTEL";
-      const requestedModelCanonicalString = "stability-core";
-      const modelInferenceTypeString = "text_to_image";
-      const styleStringsList = [
-        "3d-model",
-        "analog-film",
-        "anime",
-        "cinematic",
-        "comic-book",
-        "digital-art",
-        "enhance",
-        "fantasy-art",
-        "isometric",
-        "line-art",
-        "low-poly",
-        "modeling-compound",
-        "neon-punk",
-        "origami",
-        "photographic",
-        "pixel-art",
-        "tile-texture",
-      ];
-      const stylePresetString = styleStringsList[styleStringsList.length - 3];
-      const outputFormatList = ["png", "jpeg", "webp"];
-      const outputFormatString = outputFormatList[0];
-      const aspectRatioList = [
-        "16:9",
-        "1:1",
-        "21:9",
-        "2:3",
-        "3:2",
-        "4:5",
-        "5:4",
-        "9:16",
-        "9:21",
-      ];
-      const aspectRatioString = aspectRatioList[0];
-      const randomSeed = Math.floor(Math.random() * 1001);
+      // Check if a credit pack ticket TXID is available
+      if (creditPackTicketPastelTxid) {
+        const startTime = Date.now();
+        const inputPromptTextToLLM =
+          "A picture of a clown holding a sign that says PASTEL";
+        const requestedModelCanonicalString = "stability-core";
+        const modelInferenceTypeString = "text_to_image";
+        const styleStringsList = [
+          "3d-model",
+          "analog-film",
+          "anime",
+          "cinematic",
+          "comic-book",
+          "digital-art",
+          "enhance",
+          "fantasy-art",
+          "isometric",
+          "line-art",
+          "low-poly",
+          "modeling-compound",
+          "neon-punk",
+          "origami",
+          "photographic",
+          "pixel-art",
+          "tile-texture",
+        ];
+        const stylePresetString = styleStringsList[styleStringsList.length - 3];
+        const outputFormatList = ["png", "jpeg", "webp"];
+        const outputFormatString = outputFormatList[0];
+        const aspectRatioList = [
+          "16:9",
+          "1:1",
+          "21:9",
+          "2:3",
+          "3:2",
+          "4:5",
+          "5:4",
+          "9:16",
+          "9:21",
+        ];
+        const aspectRatioString = aspectRatioList[0];
+        const randomSeed = Math.floor(Math.random() * 1001);
 
-      let modelParameters;
-      if (requestedModelCanonicalString.includes("core")) {
-        modelParameters = {
-          aspect_ratio: aspectRatioString,
-          seed: randomSeed,
-          style_preset: stylePresetString,
-          output_format: outputFormatString,
-          negative_prompt: "low quality, blurry, pixelated",
-        };
-      } else {
-        modelParameters = {
-          height: 512,
-          width: 512,
-          steps: 50,
-          seed: 0,
-          num_samples: 1,
-          negative_prompt: "low quality, blurry, pixelated",
-          style_preset: stylePresetString,
-        };
-      }
+        let modelParameters;
+        if (requestedModelCanonicalString.includes("core")) {
+          modelParameters = {
+            aspect_ratio: aspectRatioString,
+            seed: randomSeed,
+            style_preset: stylePresetString,
+            output_format: outputFormatString,
+            negative_prompt: "low quality, blurry, pixelated",
+          };
+        } else {
+          modelParameters = {
+            height: 512,
+            width: 512,
+            steps: 50,
+            seed: 0,
+            num_samples: 1,
+            negative_prompt: "low quality, blurry, pixelated",
+            style_preset: stylePresetString,
+          };
+        }
 
-      const maxCreditCostToApproveInferenceRequest = 200.0;
-      const { inferenceResultDict, auditResults, validationResults } =
-        await handleInferenceRequestEndToEnd(
-          creditPackTicketPastelTxid,
-          inputPromptTextToLLM,
-          requestedModelCanonicalString,
-          modelInferenceTypeString,
-          modelParameters,
-          maxCreditCostToApproveInferenceRequest,
-          burnAddress
+        const maxCreditCostToApproveInferenceRequest = 200.0;
+        const { inferenceResultDict, auditResults, validationResults } =
+          await handleInferenceRequestEndToEnd(
+            creditPackTicketPastelTxid,
+            inputPromptTextToLLM,
+            requestedModelCanonicalString,
+            modelInferenceTypeString,
+            modelParameters,
+            maxCreditCostToApproveInferenceRequest,
+            burnAddress
+          );
+
+        logger.info(
+          `Inference result data received at ${new Date()}; decoded image size in megabytes: ${
+            inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
+          }`
+        );
+        logger.info(`Audit results:\n\n${JSON.stringify(auditResults)}`);
+        logger.info(
+          `Validation results:\n\n${JSON.stringify(validationResults)}`
         );
 
-      logger.info(
-        `Inference result data received at ${new Date()}; decoded image size in megabytes: ${
-          inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
-        }`
-      );
-      logger.info(
-        "\n_____________________________________________________________________\n"
-      );
+        logger.info(
+          "\n_____________________________________________________________________\n"
+        );
 
-      const currentDatetimeString = new Date()
-        .toISOString()
-        .replace(/[-:.]/g, "_")
-        .slice(0, -5);
-      const imageGenerationPromptWithoutWhitespaceOrNewlinesAbbreviatedTo100Characters =
-        inputPromptTextToLLM.replace(/\s+/g, "_").slice(0, 100);
-      const generatedImageFilename = `generated_image__prompt__${imageGenerationPromptWithoutWhitespaceOrNewlinesAbbreviatedTo100Characters}__generated_on_${currentDatetimeString}.${outputFormatString}`;
-      const generatedImageFolderName = "generated_images";
+        const currentDatetimeString = new Date()
+          .toISOString()
+          .replace(/[-:.]/g, "_")
+          .slice(0, -5);
+        const imageGenerationPromptWithoutWhitespaceOrNewlinesAbbreviatedTo100Characters =
+          inputPromptTextToLLM.replace(/\s+/g, "_").slice(0, 100);
+        const generatedImageFilename = `generated_image__prompt__${imageGenerationPromptWithoutWhitespaceOrNewlinesAbbreviatedTo100Characters}__generated_on_${currentDatetimeString}.${outputFormatString}`;
+        const generatedImageFolderName = "generated_images";
 
-      if (!fs.existsSync(generatedImageFolderName)) {
-        fs.mkdirSync(generatedImageFolderName);
+        if (!fs.existsSync(generatedImageFolderName)) {
+          fs.mkdirSync(generatedImageFolderName);
+        }
+
+        const generatedImageFilePath = path.join(
+          generatedImageFolderName,
+          generatedImageFilename
+        );
+        const imageData = inferenceResultDict.generated_image_decoded;
+        fs.writeFileSync(generatedImageFilePath, imageData);
+
+        logger.info(`Generated image saved as '${generatedImageFilePath}'`);
+
+        const endTime = Date.now();
+        const durationInMinutes = (endTime - startTime) / 60000;
+        logger.info(
+          `Total time taken for inference request: ${durationInMinutes.toFixed(
+            2
+          )} minutes`
+        );
       }
-
-      const generatedImageFilePath = path.join(
-        generatedImageFolderName,
-        generatedImageFilename
-      );
-      const imageData = inferenceResultDict.generated_image_decoded;
-      fs.writeFileSync(generatedImageFilePath, imageData);
-
-      logger.info(`Generated image saved as '${generatedImageFilePath}'`);
-
-      const endTime = Date.now();
-      const durationInMinutes = (endTime - startTime) / 60000;
-      logger.info(
-        `Total time taken for inference request: ${durationInMinutes.toFixed(
-          2
-        )} minutes`
-      );
     }
   }
 }

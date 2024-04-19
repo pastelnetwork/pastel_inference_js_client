@@ -1,50 +1,14 @@
-const axios = require("axios");
-const { URL } = require("url");
+require("dotenv").config();
+const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const {
-  Message,
-  UserMessage,
-  CreditPackPurchaseRequest,
-  CreditPackPurchaseRequestRejection,
-  CreditPackPurchaseRequestPreliminaryPriceQuote,
-  CreditPackPurchaseRequestPreliminaryPriceQuoteResponse,
-  CreditPackPurchaseRequestResponseTermination,
-  CreditPackPurchaseRequestResponse,
-  CreditPackPurchaseRequestConfirmation,
-  CreditPackRequestStatusCheck,
-  CreditPackPurchaseRequestStatus,
-  CreditPackStorageRetryRequest,
-  CreditPackStorageRetryRequestResponse,
-  InferenceAPIUsageRequest,
-  InferenceAPIUsageResponse,
-  InferenceAPIOutputResult,
-  InferenceConfirmation,
-} = require("./sequelize_data_models");
-
-const {
-  messageSchema,
-  userMessageSchema,
-  creditPackPurchaseRequestSchema,
-  creditPackPurchaseRequestRejectionSchema,
-  creditPackPurchaseRequestPreliminaryPriceQuoteSchema,
-  creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema,
-  creditPackPurchaseRequestResponseTerminationSchema,
-  creditPackPurchaseRequestResponseSchema,
-  creditPackPurchaseRequestConfirmationSchema,
-  creditPackRequestStatusCheckSchema,
-  creditPackPurchaseRequestStatusSchema,
-  creditPackStorageRetryRequestSchema,
-  creditPackStorageRetryRequestResponseSchema,
-  inferenceAPIUsageRequestSchema,
-  inferenceAPIUsageResponseSchema,
-  inferenceAPIOutputResultSchema,
-  inferenceConfirmationSchema,
-} = require("./validation_schemas");
+const { URL } = require("url");
+const axios = require("axios");
 const { logger } = require("./utility_functions");
+const { messageSchema } = require("./validation_schemas");
 
 let rpc_connection;
-let burn_address;
 
 function getLocalRPCSettings(
   directoryWithPastelConf = path.join(process.env.HOME, ".pastel")
@@ -297,14 +261,6 @@ async function initializeRPCConnection() {
   rpc_connection = new AsyncAuthServiceProxy(
     `http://${rpcuser}:${rpcpassword}@${rpchost}:${rpcport}`
   );
-
-  if (rpcport === "9932") {
-    burn_address = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
-  } else if (rpcport === "19932") {
-    burn_address = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
-  } else if (rpcport === "29932") {
-    burn_address = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
-  }
 }
 
 async function checkMasternodeTop() {
@@ -335,7 +291,7 @@ async function verifyMessageWithPastelID(
   messageToVerify,
   pastelIDSignatureOnMessage
 ) {
-  const { error, value } = messageSchema.validate({
+  const { error } = messageSchema.validate({
     pastelid,
     messageToVerify,
     pastelIDSignatureOnMessage,
@@ -567,7 +523,9 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
   }
 }
 
-async function createAndFundNewPSLCreditTrackingAddress(amountOfPSLToFundAddressWith) {
+async function createAndFundNewPSLCreditTrackingAddress(
+  amountOfPSLToFundAddressWith
+) {
   try {
     const newCreditTrackingAddress = await rpc_connection.call("getnewaddress");
     const txid = await sendToAddress(
@@ -582,7 +540,9 @@ async function createAndFundNewPSLCreditTrackingAddress(amountOfPSLToFundAddress
     );
     return { newCreditTrackingAddress, txid };
   } catch (error) {
-    logger.error(`Error creating and funding new PSL credit tracking address: ${error.message}`);
+    logger.error(
+      `Error creating and funding new PSL credit tracking address: ${error.message}`
+    );
     throw error;
   }
 }
@@ -592,6 +552,7 @@ module.exports = {
   JSONRPCException,
   asyncAuthServiceProxy,
   AsyncAuthServiceProxy,
+  new_AsyncAuthServiceProxy,
   initializeRPCConnection,
   checkMasternodeTop,
   getCurrentPastelBlockHeight,
@@ -608,5 +569,6 @@ module.exports = {
   getBlockHash,
   getBlock,
   signMessageWithPastelID,
-  createAndFundNewPSLCreditTrackingAddress,  
+  createAndFundNewPSLCreditTrackingAddress,
+  rpc_connection,
 };
