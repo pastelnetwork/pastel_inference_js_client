@@ -29,6 +29,10 @@ const { logger, safeStringify } = require("./logger");
 const {
   signMessageWithPastelID,
   checkSupernodeList,
+  getCurrentPastelBlockHeight,
+  sendToAddress,
+  sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferenceRequest,
+  checkPSLAddressBalanceAlternative,
 } = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
@@ -36,10 +40,6 @@ const {
   validateCreditPackTicketMessageData,
   validateInferenceData,
   computeSHA3256HashOfSQLModelResponseFields,
-  getCurrentPastelBlockHeight,
-  sendToAddress,
-  checkPSLAddressBalanceAlternative,
-  sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferenceRequest,
   checkIfPastelIDIsValid,
   getSupernodeURLFromPastelID,
   getClosestSupernodePastelIDFromList,
