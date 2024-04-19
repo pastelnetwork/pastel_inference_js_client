@@ -133,3 +133,6 @@ dist
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Logs:
+*.log   
