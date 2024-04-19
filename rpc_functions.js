@@ -79,7 +79,6 @@ class Semaphore {
     }
   }
 }
-
 class AsyncAuthServiceProxy {
   static maxConcurrentRequests = 5000;
   static semaphore = new Semaphore(AsyncAuthServiceProxy.maxConcurrentRequests);
@@ -103,22 +102,20 @@ class AsyncAuthServiceProxy {
     this.idCount = 0;
     const { username, password } = this.url;
     const authPair = `${username}:${password}`;
-    this.authHeader = `Basic ${Buffer.from(authPair, "utf-8").toString(
-      "base64"
-    )}`;
+    this.authHeader = `Basic ${Buffer.from(authPair).toString("base64")}`;
     this.reconnectTimeout = reconnectTimeout;
     this.reconnectAmount = reconnectAmount;
     this.requestTimeout = requestTimeout;
   }
 
-  async call(methodName, ...params) {
+  async call(...args) {
     await AsyncAuthServiceProxy.semaphore.acquire();
     try {
       this.idCount += 1;
-      const postData = safeStringify({
+      const postData = JSON.stringify({
         version: "1.1",
-        method: methodName,
-        params: params,
+        method: this.serviceName,
+        params: args,
         id: this.idCount,
       });
       const headers = {
@@ -141,18 +138,14 @@ class AsyncAuthServiceProxy {
           response = await this.client.post(this.serviceUrl, postData, {
             headers,
           });
-          if (response && response.data && response.data.error === null) {
-            break; // Exit loop if response is successful
-          } else if (response && response.data && response.data.error) {
-            throw new JSONRPCException(response.data.error); // Throw if JSON-RPC error
-          }
+          break;
         } catch (error) {
           logger.error(
             `Error occurred on attempt ${i + 1}: ${safeStringify(error)}`
           );
           if (i === this.reconnectAmount - 1) {
             logger.error("Reconnect tries exceeded.");
-            throw error; // Rethrow error on last attempt
+            throw error;
           }
         }
       }
@@ -173,8 +166,23 @@ class AsyncAuthServiceProxy {
       AsyncAuthServiceProxy.semaphore.release();
     }
   }
+
   new(serviceName) {
-    return new AsyncAuthServiceProxy(this.serviceUrl, serviceName);
+    return new Proxy(this, {
+      get(target, prop) {
+        if (prop in target) {
+          return target[prop];
+        }
+        if (serviceName !== null) {
+          serviceName = `${serviceName}.${prop}`;
+        } else {
+          serviceName = prop;
+        }
+        return (...args) => {
+          return target.call(serviceName, ...args);
+        };
+      },
+    });
   }
 }
 
@@ -189,36 +197,20 @@ const new_AsyncAuthServiceProxy = (
     {},
     {
       get(target, prop) {
-        if (prop === "then") {
-          if (serviceName.indexOf("undefined") !== -1) {
-            return undefined;
-          }
-          return (onFulfilled, onRejected) => {
-            const promise = asyncAuthServiceProxy.call(serviceName);
-            return promise.then(onFulfilled, onRejected);
-          };
-        }
-        if (prop === "catch") {
-          if (serviceName.indexOf("undefined") !== -1) {
-            return undefined;
-          }
-          return (onRejected) => {
-            const promise = asyncAuthServiceProxy.call(serviceName);
-            return promise.catch(onRejected);
-          };
-        }
         if (serviceName !== null) {
           serviceName = `${serviceName}.${prop}`;
         } else {
           serviceName = prop;
         }
-        return new_AsyncAuthServiceProxy(
-          serviceUrl,
-          serviceName,
-          reconnectTimeout,
-          reconnectAmount,
-          requestTimeout
-        );
+        return (...args) => {
+          return asyncAuthServiceProxy(
+            serviceUrl,
+            serviceName,
+            reconnectTimeout,
+            reconnectAmount,
+            requestTimeout
+          ).call(...args);
+        };
       },
     }
   );
@@ -265,24 +257,21 @@ async function waitForRPCConnection(maxRetries = 5, interval = 1000) {
 }
 
 async function checkMasternodeTop() {
-  const masternodeTopOutput = await rpc_connection.call("masternode", "top");
+  const masternodeTopOutput = await rpc_connection.masternode("top");
   return masternodeTopOutput;
 }
 
 async function getCurrentPastelBlockHeight() {
-  const bestBlockHash = await rpc_connection.call("getbestblockhash");
-  const bestBlockDetails = await rpc_connection.call("getblock", bestBlockHash);
+  const bestBlockHash = await rpc_connection.getbestblockhash();
+  const bestBlockDetails = await rpc_connection.getblock(bestBlockHash);
   const currentBlockHeight = bestBlockDetails.height;
   return currentBlockHeight;
 }
 
 async function getBestBlockHashAndMerkleRoot() {
   const bestBlockHeight = await getCurrentPastelBlockHeight();
-  const bestBlockHash = await rpc_connection.call(
-    "getblockhash",
-    bestBlockHeight
-  );
-  const bestBlockDetails = await rpc_connection.call("getblock", bestBlockHash);
+  const bestBlockHash = await rpc_connection.getblockhash(bestBlockHeight);
+  const bestBlockDetails = await rpc_connection.getblock(bestBlockHash);
   const bestBlockMerkleRoot = bestBlockDetails.merkleroot;
   return [bestBlockHash, bestBlockMerkleRoot, bestBlockHeight];
 }
@@ -305,8 +294,7 @@ async function verifyMessageWithPastelID(
       `Invalid data for verifyMessageWithPastelID: ${error.message}`
     );
   }
-  const verificationResult = await rpc_connection.call(
-    "pastelid",
+  const verificationResult = await rpc_connection.pastelid(
     "verify",
     messageToVerify,
     pastelIDSignatureOnMessage,
@@ -324,8 +312,7 @@ async function sendToAddress(
   subtractFeeFromAmount = false
 ) {
   try {
-    const result = await rpc_connection.call(
-      "sendtoaddress",
+    const result = await rpc_connection.sendtoaddress(
       address,
       amount,
       comment,
@@ -347,8 +334,7 @@ async function sendMany(
 ) {
   try {
     const fromAccount = "";
-    const result = await rpc_connection.call(
-      "sendmany",
+    const result = await rpc_connection.sendmany(
       fromAccount,
       amounts,
       minConf,
@@ -364,12 +350,12 @@ async function sendMany(
 }
 
 async function checkPSLAddressBalance(addressToCheck) {
-  const balance = await rpc_connection.call("z_getbalance", addressToCheck);
+  const balance = await rpc_connection.z_getbalance(addressToCheck);
   return balance;
 }
 
 async function checkIfAddressIsAlreadyImportedInLocalWallet(addressToCheck) {
-  const addressAmounts = await rpc_connection.call("listaddressamounts");
+  const addressAmounts = await rpc_connection.listaddressamounts();
   const addressAmountsArray = Object.entries(addressAmounts).map(
     ([address, amount]) => ({ address, amount })
   );
@@ -381,8 +367,7 @@ async function checkIfAddressIsAlreadyImportedInLocalWallet(addressToCheck) {
 
 async function getAndDecodeRawTransaction(txid, blockhash = null) {
   try {
-    const rawTxData = await rpc_connection.call(
-      "getrawtransaction",
+    const rawTxData = await rpc_connection.getrawtransaction(
       txid,
       0,
       blockhash
@@ -391,16 +376,11 @@ async function getAndDecodeRawTransaction(txid, blockhash = null) {
       logger.error(`Failed to retrieve raw transaction data for ${txid}`);
       return {};
     }
-
-    const decodedTxData = await rpc_connection.call(
-      "decoderawtransaction",
-      rawTxData
-    );
+    const decodedTxData = await rpc_connection.decoderawtransaction(rawTxData);
     if (!decodedTxData) {
       logger.error(`Failed to decode raw transaction data for ${txid}`);
       return {};
     }
-
     logger.debug(
       `Decoded transaction details for ${txid}:`,
       safeStringify(decodedTxData)
@@ -417,8 +397,7 @@ async function getAndDecodeRawTransaction(txid, blockhash = null) {
 
 async function getTransactionDetails(txid, includeWatchonly = false) {
   try {
-    const transactionDetails = await rpc_connection.call(
-      "gettransaction",
+    const transactionDetails = await rpc_connection.gettransaction(
       txid,
       includeWatchonly
     );
@@ -457,7 +436,7 @@ async function sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferen
       logger.info(
         `Sent ${creditUsageTrackingAmountInPSL} PSL from ${creditUsageTrackingPSLAddress} to ${burnAddress} to confirm inference request ${inferenceRequestId}. TXID: ${txid}`
       );
-      const transactionInfo = await rpc_connection.call("gettransaction", txid);
+      const transactionInfo = await rpc_connection.gettransaction(txid);
       if (transactionInfo) {
         return txid;
       } else {
@@ -483,7 +462,7 @@ async function sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferen
 
 async function importAddress(address, label = "", rescan = false) {
   try {
-    await rpc_connection.call("importaddress", address, label, rescan);
+    await rpc_connection.importaddress(address, label, rescan);
     logger.info(`Imported address: ${address}`);
   } catch (error) {
     logger.error(
@@ -495,7 +474,7 @@ async function importAddress(address, label = "", rescan = false) {
 
 async function getBlockHash(blockHeight) {
   try {
-    const blockHash = await rpc_connection.call("getblockhash", blockHeight);
+    const blockHash = await rpc_connection.getblockhash(blockHeight);
     return blockHash;
   } catch (error) {
     logger.error(
@@ -508,7 +487,7 @@ async function getBlockHash(blockHeight) {
 
 async function getBlock(blockHash) {
   try {
-    const block = await rpc_connection.call("getblock", blockHash);
+    const block = await rpc_connection.getblock(blockHash);
     return block;
   } catch (error) {
     logger.error(
@@ -521,8 +500,7 @@ async function getBlock(blockHash) {
 
 async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
   try {
-    const signature = await rpc_connection.call(
-      "pastelid",
+    const signature = await rpc_connection.pastelid(
       "sign",
       messageToSign,
       pastelid,
@@ -536,11 +514,34 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
   }
 }
 
+async function checkPSLAddressBalanceAlternative(addressToCheck) {
+  try {
+    const addressAmountsDict = await rpc_connection.listaddressamounts();
+    // Convert the object into an array of objects, each representing a row
+    const data = Object.entries(addressAmountsDict).map(
+      ([address, amount]) => ({ address, amount })
+    );
+    // Filter the array for the specified address
+    const filteredData = data.filter((item) => item.address === addressToCheck);
+    // Calculate the sum of the 'amount' column for the filtered array
+    const balanceAtAddress = filteredData.reduce(
+      (acc, item) => acc + item.amount,
+      0
+    );
+    return balanceAtAddress;
+  } catch (error) {
+    logger.error(
+      `Error in checkPSLAddressBalanceAlternative: ${safeStringify(error)}`
+    );
+    throw error;
+  }
+}
+
 async function createAndFundNewPSLCreditTrackingAddress(
   amountOfPSLToFundAddressWith
 ) {
   try {
-    const newCreditTrackingAddress = await rpc_connection.call("getnewaddress");
+    const newCreditTrackingAddress = await rpc_connection.getnewaddress();
     const txid = await sendToAddress(
       newCreditTrackingAddress,
       amountOfPSLToFundAddressWith,
@@ -575,10 +576,10 @@ async function checkSupernodeList() {
       masternodeListPubkey,
       masternodeListExtra,
     ] = await Promise.all([
-      rpc_connection.call("masternodelist", "full"),
-      rpc_connection.call("masternodelist", "rank"),
-      rpc_connection.call("masternodelist", "pubkey"),
-      rpc_connection.call("masternodelist", "extra"),
+      rpc_connection.masternodelist("full"),
+      rpc_connection.masternodelist("rank"),
+      rpc_connection.masternodelist("pubkey"),
+      rpc_connection.masternodelist("extra"),
     ]);
     const masternodeListFullData = Object.entries(masternodeListFull).map(
       ([txidVout, data]) => {
@@ -689,6 +690,7 @@ module.exports = {
   getBlockHash,
   getBlock,
   signMessageWithPastelID,
+  checkPSLAddressBalanceAlternative,
   createAndFundNewPSLCreditTrackingAddress,
   rpc_connection,
   checkSupernodeList,

@@ -319,6 +319,35 @@ async function getClosestSupernodePastelIDFromList(
   return sortedXorDistances[0].pastelID;
 }
 
+function checkIfPastelIDIsValid(inputString) {
+  // Define the regex pattern to match the conditions:
+  // Starts with 'jX'; Followed by characters that are only alphanumeric and are shown in the example;
+  const pattern = /^jX[A-Za-z0-9]{84}$/;
+  return pattern.test(inputString);
+}
+
+async function getSupernodeUrlFromPastelID(pastelID, supernodeListDF) {
+  const isValidPastelID = checkIfPastelIDIsValid(pastelID); // Ensure this function is defined to validate PastelIDs
+  if (!isValidPastelID) {
+    throw new Error(`Invalid PastelID: ${pastelID}`);
+  }
+
+  // Find the supernode entry with the matching 'extKey'
+  const supernodeEntry = supernodeListDF.find(
+    (node) => node.extKey === pastelID
+  );
+  if (!supernodeEntry) {
+    throw new Error(
+      `Supernode with PastelID ${pastelID} not found in the supernode list`
+    );
+  }
+
+  // Extract the IP address from the 'ipaddress:port' string
+  const ipaddress = supernodeEntry["ipaddress:port"].split(":")[0];
+  const supernodeURL = `http://${ipaddress}:7123`;
+  return supernodeURL;
+}
+
 async function validatePastelIDSignatureFields(
   modelInstance,
   validationErrors
@@ -728,6 +757,8 @@ module.exports = {
   validateHashFields,
   validatePastelIDSignatureFields,
   getClosestSupernodePastelIDFromList,
+  checkIfPastelIDIsValid,
+  getSupernodeUrlFromPastelID,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceResponseFields,
