@@ -8,6 +8,11 @@ const sequelize = new Sequelize({
   logging: false, // Disable logging; default: console.log
 });
 
+sequelize
+  .authenticate()
+  .then(() => console.log("Connection has been established successfully."))
+  .catch((err) => console.error("Unable to connect to the database:", err));
+
 const SupernodeList = sequelize.define(
   "SupernodeList",
   {

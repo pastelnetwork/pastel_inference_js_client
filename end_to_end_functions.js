@@ -158,7 +158,7 @@ async function handleCreditPackTicketEndToEnd(
     const creditPackRequest = CreditPackPurchaseRequest.build({
       requesting_end_user_pastelid: MY_LOCAL_PASTELID,
       requested_initial_credits_in_credit_pack: numberOfCredits,
-      list_of_authorized_pastelids_allowed_to_use_credit_pack: safeStringify([
+      list_of_authorized_pastelids_allowed_to_use_credit_pack: JSON.stringify([
         MY_LOCAL_PASTELID,
       ]),
       credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,

@@ -11,7 +11,7 @@ const supernodeListSchema = Joi.object({
   activedays: Joi.number().required(),
   lastpaidtime: Joi.number().required(),
   lastpaidblock: Joi.number().required(),
-  "ipaddress:port": Joi.string().required(),
+  ipaddress_port: Joi.string().required(),
   rank: Joi.number().required(),
   pubkey: Joi.string().required(),
   extAddress: Joi.string().required(),
@@ -41,9 +41,8 @@ const userMessageSchema = Joi.object({
 const creditPackPurchaseRequestSchema = Joi.object({
   requesting_end_user_pastelid: Joi.string().required(),
   requested_initial_credits_in_credit_pack: Joi.number().integer().required(),
-  list_of_authorized_pastelids_allowed_to_use_credit_pack: Joi.array()
-    .items(Joi.string())
-    .required(),
+  list_of_authorized_pastelids_allowed_to_use_credit_pack:
+    Joi.string().required(),
   credit_usage_tracking_psl_address: Joi.string().required(),
   request_timestamp_utc_iso_string: Joi.string().required(),
   request_pastel_block_height: Joi.number().integer().required(),
@@ -138,11 +137,11 @@ const creditPackPurchaseRequestResponseSchema = Joi.object({
     Joi.string().required(),
   responding_supernode_pastelid: Joi.string().required(),
   list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms:
-    Joi.array().items(Joi.string()).required(),
+    Joi.string().required(),
   list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash:
-    Joi.array().items(Joi.string()).required(),
+    Joi.string().required(),
   list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json:
-    Joi.array().items(Joi.string()).required(),
+    Joi.string().required(),
   sha3_256_hash_of_credit_pack_purchase_request_response_fields:
     Joi.string().required(),
   responding_supernode_signature_on_credit_pack_purchase_request_response_hash:

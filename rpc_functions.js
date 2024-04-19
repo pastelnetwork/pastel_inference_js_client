@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
 const axios = require("axios");
+const Joi = require("joi");
 const { SupernodeList } = require("./sequelize_data_models");
 const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
@@ -126,8 +127,8 @@ class AsyncAuthServiceProxy {
         try {
           if (i > 0) {
             const sleepTime = this.reconnectTimeout * 2 ** i;
-            console.warn(`Reconnect try #${i + 1}`);
-            console.info(`Waiting for ${sleepTime} seconds before retrying.`);
+            logger.error(`Reconnect try #${i + 1}`);
+            logger.info(`Waiting for ${sleepTime} seconds before retrying.`);
             await new Promise((resolve) =>
               setTimeout(resolve, sleepTime * 1000)
             );
@@ -596,16 +597,11 @@ async function createAndFundNewPSLCreditTrackingAddress(
 }
 
 async function checkSupernodeList() {
-  const isConnectionReady = await waitForRPCConnection();
-  if (!isConnectionReady) {
-    logger.error("RPC connection is not available. Cannot proceed.");
-    return; // Stop the function if the connection is not available
-  }
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
       logger.error("RPC connection is not available. Cannot proceed.");
-      return; // Stop the function if the connection is not available
+      return;
     }
     const [
       masternodeListFull,
@@ -618,7 +614,6 @@ async function checkSupernodeList() {
       rpc_connection.masternodelist("pubkey"),
       rpc_connection.masternodelist("extra"),
     ]);
-    // Use a regex to split on one or more spaces
     const masternodeListFullData = Object.entries(masternodeListFull).map(
       ([txidVout, data]) => {
         const splitData = data.trim().split(/\s+/);
@@ -631,11 +626,10 @@ async function checkSupernodeList() {
           activeseconds: Number(splitData[4]),
           lastpaidtime: Number(splitData[5]),
           lastpaidblock: Number(splitData[6]),
-          "ipaddress:port": splitData[7],
+          ipaddress_port: splitData[7],
         };
       }
     );
-    // Enrich data with rank, pubkey, and extra info
     const masternodeListFullDF = masternodeListFullData.map((data) => {
       const rank = masternodeListRank[data.txid_vout];
       const pubkey = masternodeListPubkey[data.txid_vout];
@@ -650,7 +644,6 @@ async function checkSupernodeList() {
         activedays: data.activeseconds / 86400,
       };
     });
-    // Filter valid data
     const validMasternodeListFullDF = masternodeListFullDF.filter(
       (data) =>
         ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
@@ -660,37 +653,37 @@ async function checkSupernodeList() {
       logger.error("No valid masternodes found.");
       return;
     }
-    // Validate the first item as a sample
-    const { error } = supernodeListSchema.validate(
-      validMasternodeListFullDF[0]
-    );
-    if (error) {
-      throw new Error(`Invalid supernode list data: ${error.message}`);
+    const validationSchema = Joi.array().items(supernodeListSchema);
+    const validation = validationSchema.validate(validMasternodeListFullDF);
+    if (validation.error) {
+      throw new Error(`Validation error: ${validation.error.message}`);
     }
-    // Stringify safely the valid data
+    try {
+      const _ = await SupernodeList.bulkCreate(validMasternodeListFullDF, {
+        updateOnDuplicate: [
+          "supernode_status",
+          "protocol_version",
+          "supernode_psl_address",
+          "lastseentime",
+          "activeseconds",
+          "lastpaidtime",
+          "lastpaidblock",
+          "ipaddress_port",
+          "rank",
+          "pubkey",
+          "extAddress",
+          "extP2P",
+          "extKey",
+        ],
+      });
+    } catch (error) {
+      console.error("Failed to insert data:", error);
+    }
     const masternodeListFullDFJSON = JSON.stringify(
       Object.fromEntries(
         validMasternodeListFullDF.map((data) => [data.txid_vout, data])
       )
     );
-    // Add to the database
-    await SupernodeList.bulkCreate(validMasternodeListFullDF, {
-      updateOnDuplicate: [
-        "supernode_status",
-        "protocol_version",
-        "supernode_psl_address",
-        "lastseentime",
-        "activeseconds",
-        "lastpaidtime",
-        "lastpaidblock",
-        "ipaddress_port",
-        "rank",
-        "pubkey",
-        "extAddress",
-        "extP2P",
-        "extKey",
-      ],
-    });
     return { validMasternodeListFullDF, masternodeListFullDFJSON };
   } catch (error) {
     logger.error(`An error occurred: ${error.message}`);

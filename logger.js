@@ -35,12 +35,12 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
-function safeStringify(obj, replacer = null, space = 2) {
+function safeStringify(obj) {
+  const space = 2;
   const seen = new WeakSet(); // Track circular references
   return JSON.stringify(
     obj,
     (key, value) => {
-      if (replacer) value = replacer(key, value);
       // Detect value type and process accordingly
       if (typeof value === "object" && value !== null) {
         if (seen.has(value)) {
