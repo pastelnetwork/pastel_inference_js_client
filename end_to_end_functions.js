@@ -25,11 +25,10 @@ const {
   inferenceAPIOutputResultSchema,
   inferenceConfirmationSchema,
 } = require("./validation_schemas");
-
+const { logger, safeStringify } = require("./logger");
 const { signMessageWithPastelID } = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
-  logger,
   checkSupernodeList,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
@@ -73,7 +72,7 @@ async function sendMessageAndCheckForNewIncomingMessages(
     const userMessage = UserMessage.build({
       from_pastelid: MY_LOCAL_PASTELID,
       to_pastelid: toPastelID,
-      message_body: JSON.stringify(messageBody),
+      message_body: safeStringify(messageBody),
       message_signature: await signMessageWithPastelID(
         MY_LOCAL_PASTELID,
         messageBody,
@@ -90,7 +89,7 @@ async function sendMessageAndCheckForNewIncomingMessages(
       inferenceClient.sendUserMessage(url, userMessage)
     );
     const sendResults = await Promise.all(sendTasks);
-    logger.info(`Sent user messages: ${JSON.stringify(sendResults)}`);
+    logger.info(`Sent user messages: ${safeStringify(sendResults)}`);
 
     logger.info("Retrieving incoming user messages...");
     logger.info(`My local pastelid: ${inferenceClient.pastelID}`);
@@ -123,7 +122,7 @@ async function sendMessageAndCheckForNewIncomingMessages(
     }
 
     logger.info(
-      `Retrieved unique user messages: ${JSON.stringify(uniqueMessages)}`
+      `Retrieved unique user messages: ${safeStringify(uniqueMessages)}`
     );
 
     const messageDict = {
@@ -157,7 +156,7 @@ async function handleCreditPackTicketEndToEnd(
     const creditPackRequest = CreditPackPurchaseRequest.build({
       requesting_end_user_pastelid: MY_LOCAL_PASTELID,
       requested_initial_credits_in_credit_pack: numberOfCredits,
-      list_of_authorized_pastelids_allowed_to_use_credit_pack: JSON.stringify([
+      list_of_authorized_pastelids_allowed_to_use_credit_pack: safeStringify([
         MY_LOCAL_PASTELID,
       ]),
       credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,
@@ -367,7 +366,7 @@ async function handleCreditPackTicketEndToEnd(
         }
 
         logger.info(
-          `Credit pack purchase request status: ${JSON.stringify(
+          `Credit pack purchase request status: ${safeStringify(
             creditPackPurchaseRequestStatus
           )}`
         );
@@ -557,7 +556,7 @@ async function handleInferenceRequestEndToEnd(
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const modelParametersJSON = JSON.stringify(modelParameters);
+    const modelParametersJSON = safeStringify(modelParameters);
 
     const {
       closestSupportingSupernodePastelID,
@@ -637,7 +636,7 @@ async function handleInferenceRequestEndToEnd(
     }
 
     logger.info(
-      `Received inference API usage request response from SN:\n${JSON.stringify(
+      `Received inference API usage request response from SN:\n${safeStringify(
         usageRequestResponse
       )}`
     );
@@ -711,7 +710,7 @@ async function handleInferenceRequestEndToEnd(
             confirmationData
           );
         logger.info(
-          `Sent inference confirmation: ${JSON.stringify(confirmationResult)}`
+          `Sent inference confirmation: ${safeStringify(confirmationResult)}`
         );
 
         const maxTriesToGetConfirmation = 10;
@@ -767,7 +766,7 @@ async function handleInferenceRequestEndToEnd(
 
             if (outputResultsSize < maxResponseSizeToLog) {
               logger.info(
-                `Retrieved inference output results: ${JSON.stringify(
+                `Retrieved inference output results: ${safeStringify(
                   outputResults
                 )}`
               );
@@ -816,7 +815,7 @@ async function handleInferenceRequestEndToEnd(
                 auditResults
               );
               logger.info(
-                `Validation results: ${JSON.stringify(validationResults)}`
+                `Validation results: ${safeStringify(validationResults)}`
               );
             } else {
               var auditResults = "";

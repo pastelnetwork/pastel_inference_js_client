@@ -2,7 +2,7 @@ require("dotenv").config();
 const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
-const winston = require("winston");
+const { logger, safeStringify } = require("./logger");
 
 const {
   rpc_connection,
@@ -24,28 +24,6 @@ const MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING =
 const MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS = parseInt(
   process.env.MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS
 );
-
-// Logging setup
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ filename: "error.log", level: "error" }),
-    new winston.transports.File({ filename: "combined.log" }),
-    new winston.transports.Console(), // Logs to the Node.js console
-  ],
-});
-
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.simple(),
-    })
-  );
-}
 
 async function fetchCurrentPSLMarketPrice() {
   async function checkPrices() {
@@ -102,7 +80,9 @@ async function estimatedMarketPriceOfInferenceCreditsInPSLTerms() {
     return costPerCreditPSL;
   } catch (error) {
     logger.error(
-      `Error calculating estimated market price of inference credits: ${error.message}`
+      `Error calculating estimated market price of inference credits: ${safeStringify(
+        error.message
+      )}`
     );
     throw error;
   }
@@ -114,7 +94,7 @@ function parseAndFormat(value) {
       return value;
     }
     const parsedValue = typeof value === "string" ? JSON.parse(value) : value;
-    return JSON.stringify(parsedValue, null, 4);
+    return safeStringify(parsedValue, null, 4);
   } catch (error) {
     logger.error(`Error parsing and formatting value: ${error.message}`);
     return value;
@@ -133,7 +113,7 @@ function prettyJSON(data) {
         formattedData[key] = value;
       }
     }
-    return JSON.stringify(formattedData, null, 4);
+    return safeStringify(formattedData, null, 4);
   } else if (typeof data === "string") {
     return parseAndFormat(data);
   } else {
@@ -211,7 +191,7 @@ async function checkSupernodeList() {
     if (error) {
       throw new Error(`Invalid supernode list data: ${error.message}`);
     }
-    const masternodeListFullDFJSON = JSON.stringify(
+    const masternodeListFullDFJSON = safeStringify(
       Object.fromEntries(
         validMasternodeListFullDF.map((data) => [data.txid_vout, data])
       )
@@ -254,7 +234,7 @@ function transformCreditPackPurchaseRequestResponse(result) {
   ];
   fieldsToConvert.forEach((field) => {
     if (transformedResult[field]) {
-      transformedResult[field] = JSON.stringify(transformedResult[field]);
+      transformedResult[field] = safeStringify(transformedResult[field]);
     }
   });
   return transformedResult;
@@ -318,7 +298,7 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       if (fieldValue instanceof Date) {
         responseFields[fieldName] = fieldValue.toISOString();
       } else if (Array.isArray(fieldValue) || typeof fieldValue === "object") {
-        responseFields[fieldName] = JSON.stringify(
+        responseFields[fieldName] = safeStringify(
           fieldValue,
           Object.keys(fieldValue).sort()
         );
@@ -330,7 +310,7 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
   const sortedResponseFields = Object.fromEntries(
     Object.entries(responseFields).sort(([a], [b]) => a.localeCompare(b))
   );
-  return JSON.stringify(sortedResponseFields);
+  return safeStringify(sortedResponseFields);
 }
 
 async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
@@ -500,7 +480,9 @@ async function validatePastelIDSignatureFields(
       });
       if (error) {
         validationErrors.push(
-          `Invalid data for verifyMessageWithPastelID: ${error.message}`
+          `Invalid data for verifyMessageWithPastelID: ${safeStringify(
+            error.message
+          )}`
         );
       } else {
         const verificationResult = await verifyMessageWithPastelID(
@@ -852,4 +834,5 @@ module.exports = {
   validateInferenceResponseFields,
   validateInferenceResultFields,
   validateInferenceData,
+  logger,
 };

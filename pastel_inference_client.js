@@ -37,7 +37,7 @@ const {
   inferenceAPIOutputResultSchema,
   inferenceConfirmationSchema,
 } = require("./validation_schemas");
-const { logger } = require("./utility_functions");
+const { logger, safeStringify }= require("./logger"); 
 const {
   checkSupernodeList,
   getNClosestSupernodesToPastelIDURLs,
@@ -73,7 +73,11 @@ class PastelInferenceClient {
         signature,
       };
     } catch (error) {
-      logger.error(`Error requesting and signing challenge: ${error.message}`);
+      logger.error(
+        `Error requesting and signing challenge: ${safeStringify(
+          error.message
+        )}`
+      );
       throw error;
     }
   }
@@ -259,7 +263,9 @@ class PastelInferenceClient {
       }
     } catch (error) {
       logger.error(
-        `Error initiating credit pack ticket purchase: ${error.message}`
+        `Error initiating credit pack ticket purchase: ${safeStringify(
+          error.message
+        )}`
       );
       throw error;
     }
@@ -476,7 +482,9 @@ class PastelInferenceClient {
       }
     } catch (error) {
       logger.error(
-        `Error responding to preliminary price quote: ${error.message}`
+        `Error responding to preliminary price quote: ${safeStringify(
+          error.message
+        )}`
       );
       throw error;
     }
@@ -592,7 +600,9 @@ class PastelInferenceClient {
       );
     } catch (error) {
       logger.error(
-        `Error sending credit pack purchase completion announcement: ${error.message}`
+        `Error sending credit pack purchase completion announcement: ${safeStringify(
+          error.message
+        )}`
       );
       throw error;
     }

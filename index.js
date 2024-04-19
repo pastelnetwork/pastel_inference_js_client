@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const { logger } = require("./utility_functions");
 const {
   getLocalRPCSettings,
   initializeRPCConnection,
@@ -14,6 +13,7 @@ const {
   getCreditPackTicketInfoEndToEnd,
   handleInferenceRequestEndToEnd,
 } = require("./end_to_end_functions");
+const { logger, safeStringify }= require("./logger"); 
 
 async function main() {
   const { rpcPort } = await getLocalRPCSettings();
@@ -70,7 +70,7 @@ async function main() {
       toPastelID,
       messageBody
     );
-    logger.info(`Message data: ${JSON.stringify(messageDict)}`);
+    logger.info(`Message data: ${safeStringify(messageDict)}`);
   }
 
   if (useTestCreditPackTicketFunctionality && !creditPackTicketPastelTxid) {
@@ -123,7 +123,7 @@ async function main() {
         `Credit pack ticket stored on the blockchain with transaction ID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid} (corresponding to tracking address: ${creditUsageTrackingPSLAddress})`
       );
       logger.info(
-        `Credit pack details: ${JSON.stringify(
+        `Credit pack details: ${safeStringify(
           creditPackPurchaseRequestConfirmationResponse
         )}`
       );
@@ -150,7 +150,7 @@ async function main() {
         `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`
       );
       logger.info(
-        `Corresponding credit pack request dict: ${JSON.stringify(
+        `Corresponding credit pack request dict: ${safeStringify(
           creditPackPurchaseRequestDict
         )}`
       );
@@ -192,11 +192,11 @@ async function main() {
           );
 
         logger.info(
-          `Inference result data:\n\n${JSON.stringify(inferenceResultDict)}`
+          `Inference result data:\n\n${safeStringify(inferenceResultDict)}`
         );
-        logger.info(`Audit results:\n\n${JSON.stringify(auditResults)}`);
+        logger.info(`Audit results:\n\n${safeStringify(auditResults)}`);
         logger.info(
-          `Validation results:\n\n${JSON.stringify(validationResults)}`
+          `Validation results:\n\n${safeStringify(validationResults)}`
         );
         logger.info(
           "\n_____________________________________________________________________\n"
@@ -296,9 +296,9 @@ async function main() {
             inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
           }`
         );
-        logger.info(`Audit results:\n\n${JSON.stringify(auditResults)}`);
+        logger.info(`Audit results:\n\n${safeStringify(auditResults)}`);
         logger.info(
-          `Validation results:\n\n${JSON.stringify(validationResults)}`
+          `Validation results:\n\n${safeStringify(validationResults)}`
         );
 
         logger.info(
@@ -343,3 +343,7 @@ main().catch((error) => {
   logger.error(`Error in main function: ${error.message}`);
   process.exit(1);
 });
+
+module.exports = {
+  logger,
+};

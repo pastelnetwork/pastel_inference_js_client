@@ -5,8 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
 const axios = require("axios");
-const { logger } = require("./utility_functions");
 const { messageSchema } = require("./validation_schemas");
+const { logger, safeStringify } = require("./logger");
 
 let rpc_connection;
 
@@ -60,12 +60,28 @@ class JSONRPCException extends Error {
   }
 }
 
-const encodeDecimal = (obj) => {
-  if (typeof obj === "number") {
-    return Number(obj.toFixed(8));
+class Semaphore {
+  constructor(maxConcurrent) {
+    this.maxConcurrent = maxConcurrent;
+    this.counter = maxConcurrent;
+    this.waiting = [];
   }
-  throw new TypeError(`${obj} is not JSON serializable`);
-};
+
+  async acquire() {
+    if (this.counter <= 0) {
+      await new Promise((resolve) => this.waiting.push(resolve));
+    }
+    this.counter--;
+  }
+
+  release() {
+    this.counter++;
+    if (this.waiting.length > 0) {
+      const resolve = this.waiting.shift();
+      resolve();
+    }
+  }
+}
 
 class AsyncAuthServiceProxy {
   static maxConcurrentRequests = 5000;
@@ -91,7 +107,9 @@ class AsyncAuthServiceProxy {
     this.idCount = 0;
     const { username, password } = this.url;
     const authPair = `${username}:${password}`;
-    this.authHeader = `Basic ${Buffer.from(authPair).toString("base64")}`;
+    this.authHeader = `Basic ${Buffer.from(authPair, "utf-8").toString(
+      "base64"
+    )}`;
     this.reconnectTimeout = reconnectTimeout;
     this.reconnectAmount = reconnectAmount;
     this.requestTimeout = requestTimeout;
@@ -101,15 +119,15 @@ class AsyncAuthServiceProxy {
     await AsyncAuthServiceProxy.semaphore.acquire();
     try {
       this.idCount += 1;
-      const postData = JSON.stringify(
-        {
-          version: "1.1",
-          method: this.serviceName,
-          params: args,
-          id: this.idCount,
-        },
-        encodeDecimal
-      );
+      const postData = safeStringify({
+        version: "1.1",
+        method: this.serviceName,
+        params: args.map((arg) =>
+          typeof arg === "number" ? parseFloat(arg.toFixed(8)) : arg
+        ),
+        id: this.idCount,
+      });
+
       const headers = {
         Host: this.url.hostname,
         "User-Agent": "AuthServiceProxy/0.1",
@@ -133,7 +151,7 @@ class AsyncAuthServiceProxy {
           });
           break;
         } catch (error) {
-          logger.error(`Error occurred in call: ${error}`);
+          logger.error(`Error occurred in call: ${safeStringify(error)}`);
           const errMsg = `Failed to connect to ${this.url.hostname}:${this.url.port}`;
           const rtm = this.reconnectTimeout;
           if (rtm) {
@@ -218,7 +236,7 @@ const new_AsyncAuthServiceProxy = (
 
 const asyncAuthServiceProxy = (
   serviceUrl,
-  serviceName = null,
+  serviceName = "PastelRPC",
   reconnectTimeout = 15,
   reconnectAmount = 2,
   requestTimeout = 20
@@ -231,29 +249,6 @@ const asyncAuthServiceProxy = (
     requestTimeout
   );
 };
-
-class Semaphore {
-  constructor(maxConcurrent) {
-    this.maxConcurrent = maxConcurrent;
-    this.counter = maxConcurrent;
-    this.waiting = [];
-  }
-
-  async acquire() {
-    if (this.counter <= 0) {
-      await new Promise((resolve) => this.waiting.push(resolve));
-    }
-    this.counter--;
-  }
-
-  release() {
-    this.counter++;
-    if (this.waiting.length > 0) {
-      const resolve = this.waiting.shift();
-      resolve();
-    }
-  }
-}
 
 async function initializeRPCConnection() {
   const { rpchost, rpcport, rpcuser, rpcpassword } =
@@ -333,7 +328,7 @@ async function sendToAddress(
     );
     return result;
   } catch (error) {
-    logger.error(`Error in sendToAddress: ${error}`);
+    logger.error(`Error in sendToAddress: ${safeStringify(error)}`);
     return null;
   }
 }
@@ -357,7 +352,7 @@ async function sendMany(
     );
     return result;
   } catch (error) {
-    logger.error(`Error in sendMany: ${error}`);
+    logger.error(`Error in sendMany: ${safeStringify(error)}`);
     return null;
   }
 }
@@ -402,11 +397,14 @@ async function getAndDecodeRawTransaction(txid, blockhash = null) {
 
     logger.debug(
       `Decoded transaction details for ${txid}:`,
-      JSON.stringify(decodedTxData)
+      safeStringify(decodedTxData)
     );
     return decodedTxData;
   } catch (error) {
-    logger.error(`Error in getAndDecodeRawTransaction for ${txid}:`, error);
+    logger.error(
+      `Error in getAndDecodeRawTransaction for ${txid}:`,
+      safeStringify(error)
+    );
     return {};
   }
 }
@@ -420,11 +418,14 @@ async function getTransactionDetails(txid, includeWatchonly = false) {
     );
     logger.debug(
       `Retrieved transaction details for ${txid}:`,
-      JSON.stringify(transactionDetails)
+      safeStringify(transactionDetails)
     );
     return transactionDetails;
   } catch (error) {
-    logger.error(`Error retrieving transaction details for ${txid}:`, error);
+    logger.error(
+      `Error retrieving transaction details for ${txid}:`,
+      safeStringify(error)
+    );
     return {};
   }
 }
@@ -479,7 +480,10 @@ async function importAddress(address, label = "", rescan = false) {
     await rpc_connection.call("importaddress", address, label, rescan);
     logger.info(`Imported address: ${address}`);
   } catch (error) {
-    logger.error(`Error importing address: ${address}. Error:`, error);
+    logger.error(
+      `Error importing address: ${address}. Error:`,
+      safeStringify(error)
+    );
   }
 }
 
@@ -501,7 +505,10 @@ async function getBlock(blockHash) {
     const block = await rpc_connection.call("getblock", blockHash);
     return block;
   } catch (error) {
-    logger.error(`Error in getBlock for block hash ${blockHash}:`, error);
+    logger.error(
+      `Error in getBlock for block hash ${blockHash}:`,
+      safeStringify(error)
+    );
     return null;
   }
 }
@@ -518,7 +525,7 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
     );
     return signature;
   } catch (error) {
-    logger.error(`Error in signMessageWithPastelID: ${error}`);
+    logger.error(`Error in signMessageWithPastelID: ${safeStringify(error)}`);
     return null;
   }
 }
@@ -541,13 +548,16 @@ async function createAndFundNewPSLCreditTrackingAddress(
     return { newCreditTrackingAddress, txid };
   } catch (error) {
     logger.error(
-      `Error creating and funding new PSL credit tracking address: ${error.message}`
+      `Error creating and funding new PSL credit tracking address: ${safeStringify(
+        error
+      )}`
     );
     throw error;
   }
 }
 
 module.exports = {
+  safeStringify,
   getLocalRPCSettings,
   JSONRPCException,
   asyncAuthServiceProxy,
