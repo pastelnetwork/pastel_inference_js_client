@@ -5,7 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
 const axios = require("axios");
-const { messageSchema } = require("./validation_schemas");
+const { SupernodeList } = require("./sequelize_data_models");
+const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
 
 let rpc_connection;
@@ -47,11 +48,9 @@ class JSONRPCException extends Error {
     this.code = rpcError.code || null;
     this.message = rpcError.message || null;
   }
-
   toString() {
     return `${this.code}: ${this.message}`;
   }
-
   [Symbol.toPrimitive](hint) {
     if (hint === "string") {
       return `JSONRPCException '${this}'`;
@@ -66,14 +65,12 @@ class Semaphore {
     this.counter = maxConcurrent;
     this.waiting = [];
   }
-
   async acquire() {
     if (this.counter <= 0) {
       await new Promise((resolve) => this.waiting.push(resolve));
     }
     this.counter--;
   }
-
   release() {
     this.counter++;
     if (this.waiting.length > 0) {
@@ -86,7 +83,6 @@ class Semaphore {
 class AsyncAuthServiceProxy {
   static maxConcurrentRequests = 5000;
   static semaphore = new Semaphore(AsyncAuthServiceProxy.maxConcurrentRequests);
-
   constructor(
     serviceUrl,
     serviceName = null,
@@ -115,32 +111,28 @@ class AsyncAuthServiceProxy {
     this.requestTimeout = requestTimeout;
   }
 
-  async call(...args) {
+  async call(methodName, ...params) {
     await AsyncAuthServiceProxy.semaphore.acquire();
     try {
       this.idCount += 1;
       const postData = safeStringify({
         version: "1.1",
-        method: this.serviceName,
-        params: args.map((arg) =>
-          typeof arg === "number" ? parseFloat(arg.toFixed(8)) : arg
-        ),
+        method: methodName,
+        params: params,
         id: this.idCount,
       });
-
       const headers = {
         Host: this.url.hostname,
         "User-Agent": "AuthServiceProxy/0.1",
         Authorization: this.authHeader,
         "Content-Type": "application/json",
       };
-
       let response;
       for (let i = 0; i < this.reconnectAmount; i++) {
         try {
           if (i > 0) {
-            logger.warn(`Reconnect try #${i + 1}`);
             const sleepTime = this.reconnectTimeout * 2 ** i;
+            logger.warn(`Reconnect try #${i + 1}`);
             logger.info(`Waiting for ${sleepTime} seconds before retrying.`);
             await new Promise((resolve) =>
               setTimeout(resolve, sleepTime * 1000)
@@ -149,40 +141,38 @@ class AsyncAuthServiceProxy {
           response = await this.client.post(this.serviceUrl, postData, {
             headers,
           });
-          break;
+          if (response && response.data && response.data.error === null) {
+            break; // Exit loop if response is successful
+          } else if (response && response.data && response.data.error) {
+            throw new JSONRPCException(response.data.error); // Throw if JSON-RPC error
+          }
         } catch (error) {
-          logger.error(`Error occurred in call: ${safeStringify(error)}`);
-          const errMsg = `Failed to connect to ${this.url.hostname}:${this.url.port}`;
-          const rtm = this.reconnectTimeout;
-          if (rtm) {
-            logger.error(`${errMsg}. Waiting ${rtm} seconds.`);
-          } else {
-            logger.error(errMsg);
+          logger.error(
+            `Error occurred on attempt ${i + 1}: ${safeStringify(error)}`
+          );
+          if (i === this.reconnectAmount - 1) {
+            logger.error("Reconnect tries exceeded.");
+            throw error; // Rethrow error on last attempt
           }
         }
       }
-
       if (!response) {
-        logger.error("Reconnect tries exceeded.");
-        return;
+        throw new Error("No response from server, all retry attempts failed.");
       }
-
       const responseJson = response.data;
-      if (responseJson.error !== null) {
+      if (responseJson.error) {
         throw new JSONRPCException(responseJson.error);
       } else if (!("result" in responseJson)) {
         throw new JSONRPCException({
           code: -343,
-          message: "missing JSON-RPC result",
+          message: "Missing JSON-RPC result",
         });
-      } else {
-        return responseJson.result;
       }
+      return responseJson.result;
     } finally {
       AsyncAuthServiceProxy.semaphore.release();
     }
   }
-
   new(serviceName) {
     return new AsyncAuthServiceProxy(this.serviceUrl, serviceName);
   }
@@ -236,7 +226,7 @@ const new_AsyncAuthServiceProxy = (
 
 const asyncAuthServiceProxy = (
   serviceUrl,
-  serviceName = "PastelRPC",
+  serviceName = null,
   reconnectTimeout = 15,
   reconnectAmount = 2,
   requestTimeout = 20
@@ -254,8 +244,24 @@ async function initializeRPCConnection() {
   const { rpchost, rpcport, rpcuser, rpcpassword } =
     await getLocalRPCSettings();
   rpc_connection = new AsyncAuthServiceProxy(
-    `http://${rpcuser}:${rpcpassword}@${rpchost}:${rpcport}`
+    `http://${rpcuser}:${rpcpassword}@${rpchost}:${rpcport}`,
+    "PastelRPC"
   );
+}
+
+async function waitForRPCConnection(maxRetries = 5, interval = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (rpc_connection) {
+      console.log("RPC connection is now available.");
+      return true; // Connection is available
+    }
+    console.log(
+      `Waiting for RPC connection... Attempt ${attempt}/${maxRetries}`
+    );
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+  console.error("Failed to establish RPC connection after several attempts.");
+  return false; // Connection is not available after retries
 }
 
 async function checkMasternodeTop() {
@@ -556,6 +562,109 @@ async function createAndFundNewPSLCreditTrackingAddress(
   }
 }
 
+async function checkSupernodeList() {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      console.error("RPC connection is not available. Cannot proceed.");
+      return; // Stop the function if the connection is not available
+    }
+    const [
+      masternodeListFull,
+      masternodeListRank,
+      masternodeListPubkey,
+      masternodeListExtra,
+    ] = await Promise.all([
+      rpc_connection.call("masternodelist", "full"),
+      rpc_connection.call("masternodelist", "rank"),
+      rpc_connection.call("masternodelist", "pubkey"),
+      rpc_connection.call("masternodelist", "extra"),
+    ]);
+    const masternodeListFullData = Object.entries(masternodeListFull).map(
+      ([txidVout, data]) => {
+        const [
+          supernodeStatus,
+          protocolVersion,
+          supernodePslAddress,
+          lastSeenTime,
+          activeSeconds,
+          lastPaidTime,
+          lastPaidBlock,
+          ipAddressPort,
+        ] = data.split(" ");
+        return {
+          supernode_status: supernodeStatus,
+          protocol_version: Number(protocolVersion),
+          supernode_psl_address: supernodePslAddress,
+          lastseentime: Number(lastSeenTime),
+          activeseconds: Number(activeSeconds),
+          lastpaidtime: Number(lastPaidTime),
+          lastpaidblock: Number(lastPaidBlock),
+          "ipaddress:port": ipAddressPort,
+          txid_vout: txidVout,
+        };
+      }
+    );
+    const masternodeListFullDF = masternodeListFullData.map((data) => {
+      const { txid_vout, ...rest } = data;
+      const rank = masternodeListRank[txid_vout];
+      const pubkey = masternodeListPubkey[txid_vout];
+      const extra = masternodeListExtra[txid_vout];
+      return {
+        ...rest,
+        rank: Number(rank),
+        pubkey,
+        extAddress: extra.extAddress,
+        extP2P: extra.extP2P,
+        extKey: extra.extKey,
+        activedays: Number(rest.activeseconds) / 86400,
+      };
+    });
+    const validMasternodeListFullDF = masternodeListFullDF.filter(
+      (data) =>
+        ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
+        data["ipaddress:port"] !== "154.38.164.75:29933"
+    );
+    const { error } = supernodeListSchema.validate(
+      validMasternodeListFullDF[0]
+    );
+    if (error) {
+      throw new Error(`Invalid supernode list data: ${error.message}`);
+    }
+    const masternodeListFullDFJSON = safeStringify(
+      Object.fromEntries(
+        validMasternodeListFullDF.map((data) => [data.txid_vout, data])
+      )
+    );
+
+    await SupernodeList.bulkCreate(validMasternodeListFullDF, {
+      updateOnDuplicate: [
+        "supernode_status",
+        "protocol_version",
+        "supernode_psl_address",
+        "lastseentime",
+        "activeseconds",
+        "lastpaidtime",
+        "lastpaidblock",
+        "ipaddress_port",
+        "rank",
+        "pubkey",
+        "extAddress",
+        "extP2P",
+        "extKey",
+      ],
+    });
+
+    return {
+      supernodeListDF: validMasternodeListFullDF,
+      supernodeListJSON: masternodeListFullDFJSON,
+    };
+  } catch (error) {
+    logger.error(`Error in checkSupernodeList: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   safeStringify,
   getLocalRPCSettings,
@@ -564,6 +673,7 @@ module.exports = {
   AsyncAuthServiceProxy,
   new_AsyncAuthServiceProxy,
   initializeRPCConnection,
+  waitForRPCConnection,
   checkMasternodeTop,
   getCurrentPastelBlockHeight,
   getBestBlockHashAndMerkleRoot,
@@ -581,4 +691,5 @@ module.exports = {
   signMessageWithPastelID,
   createAndFundNewPSLCreditTrackingAddress,
   rpc_connection,
+  checkSupernodeList,
 };

@@ -1,6 +1,9 @@
 require("dotenv").config();
 const axios = require("axios");
-const { signMessageWithPastelID } = require("./rpc_functions");
+const {
+  signMessageWithPastelID,
+  checkSupernodeList,
+} = require("./rpc_functions");
 const {
   UserMessage,
   CreditPackPurchaseRequest,
@@ -37,9 +40,8 @@ const {
   inferenceAPIOutputResultSchema,
   inferenceConfirmationSchema,
 } = require("./validation_schemas");
-const { logger, safeStringify }= require("./logger"); 
+const { logger, safeStringify } = require("./logger");
 const {
-  checkSupernodeList,
   getNClosestSupernodesToPastelIDURLs,
   computeSHA3256HashOfSQLModelResponseFields,
   getCurrentPastelBlockHeight,

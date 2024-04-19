@@ -5,13 +5,11 @@ const axios = require("axios");
 const { logger, safeStringify } = require("./logger");
 
 const {
-  rpc_connection,
   verifyMessageWithPastelID,
   getBestBlockHashAndMerkleRoot,
 } = require("./rpc_functions");
 
-const { SupernodeList } = require("./sequelize_data_models");
-const { supernodeListSchema, messageSchema } = require("./validation_schemas");
+const { messageSchema } = require("./validation_schemas");
 
 const TARGET_VALUE_PER_CREDIT_IN_USD = parseFloat(
   process.env.TARGET_VALUE_PER_CREDIT_IN_USD
@@ -125,104 +123,6 @@ function logActionWithPayload(action, payloadName, jsonPayload) {
   logger.info(
     `Now ${action} ${payloadName} with payload:\n${prettyJSON(jsonPayload)}`
   );
-}
-
-async function checkSupernodeList() {
-  try {
-    const [
-      masternodeListFull,
-      masternodeListRank,
-      masternodeListPubkey,
-      masternodeListExtra,
-    ] = await Promise.all([
-      rpc_connection.call("masternodelist", "full"),
-      rpc_connection.call("masternodelist", "rank"),
-      rpc_connection.call("masternodelist", "pubkey"),
-      rpc_connection.call("masternodelist", "extra"),
-    ]);
-    const masternodeListFullData = Object.entries(masternodeListFull).map(
-      ([txidVout, data]) => {
-        const [
-          supernodeStatus,
-          protocolVersion,
-          supernodePslAddress,
-          lastSeenTime,
-          activeSeconds,
-          lastPaidTime,
-          lastPaidBlock,
-          ipAddressPort,
-        ] = data.split(" ");
-        return {
-          supernode_status: supernodeStatus,
-          protocol_version: Number(protocolVersion),
-          supernode_psl_address: supernodePslAddress,
-          lastseentime: Number(lastSeenTime),
-          activeseconds: Number(activeSeconds),
-          lastpaidtime: Number(lastPaidTime),
-          lastpaidblock: Number(lastPaidBlock),
-          "ipaddress:port": ipAddressPort,
-          txid_vout: txidVout,
-        };
-      }
-    );
-    const masternodeListFullDF = masternodeListFullData.map((data) => {
-      const { txid_vout, ...rest } = data;
-      const rank = masternodeListRank[txid_vout];
-      const pubkey = masternodeListPubkey[txid_vout];
-      const extra = masternodeListExtra[txid_vout];
-      return {
-        ...rest,
-        rank: Number(rank),
-        pubkey,
-        extAddress: extra.extAddress,
-        extP2P: extra.extP2P,
-        extKey: extra.extKey,
-        activedays: Number(rest.activeseconds) / 86400,
-      };
-    });
-    const validMasternodeListFullDF = masternodeListFullDF.filter(
-      (data) =>
-        ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
-        data["ipaddress:port"] !== "154.38.164.75:29933"
-    );
-    const { error } = supernodeListSchema.validate(
-      validMasternodeListFullDF[0]
-    );
-    if (error) {
-      throw new Error(`Invalid supernode list data: ${error.message}`);
-    }
-    const masternodeListFullDFJSON = safeStringify(
-      Object.fromEntries(
-        validMasternodeListFullDF.map((data) => [data.txid_vout, data])
-      )
-    );
-
-    await SupernodeList.bulkCreate(validMasternodeListFullDF, {
-      updateOnDuplicate: [
-        "supernode_status",
-        "protocol_version",
-        "supernode_psl_address",
-        "lastseentime",
-        "activeseconds",
-        "lastpaidtime",
-        "lastpaidblock",
-        "ipaddress_port",
-        "rank",
-        "pubkey",
-        "extAddress",
-        "extP2P",
-        "extKey",
-      ],
-    });
-
-    return {
-      supernodeListDF: validMasternodeListFullDF,
-      supernodeListJSON: masternodeListFullDFJSON,
-    };
-  } catch (error) {
-    logger.error(`Error in checkSupernodeList: ${error.message}`);
-    throw error;
-  }
 }
 
 function transformCreditPackPurchaseRequestResponse(result) {
@@ -815,7 +715,6 @@ module.exports = {
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   prettyJSON,
   logActionWithPayload,
-  checkSupernodeList,
   transformCreditPackPurchaseRequestResponse,
   computeSHA3256Hexdigest,
   getSHA256HashOfInputData,

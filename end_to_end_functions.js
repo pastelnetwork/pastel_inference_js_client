@@ -26,10 +26,12 @@ const {
   inferenceConfirmationSchema,
 } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
-const { signMessageWithPastelID } = require("./rpc_functions");
+const {
+  signMessageWithPastelID,
+  checkSupernodeList,
+} = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
-  checkSupernodeList,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceData,
