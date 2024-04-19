@@ -16,6 +16,10 @@ const SupernodeList = sequelize.define(
       primaryKey: true,
       autoIncrement: true,
     },
+    txid_vout: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     supernode_status: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -34,6 +38,10 @@ const SupernodeList = sequelize.define(
     },
     activeseconds: {
       type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    activedays: {
+      type: DataTypes.FLOAT,
       allowNull: false,
     },
     lastpaidtime: {
