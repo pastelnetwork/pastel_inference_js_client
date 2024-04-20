@@ -464,6 +464,10 @@ class PastelInferenceClient {
         "price quote response to supernode",
         payload
       );
+      delete payload.id;
+      payload.credit_pack_purchase_request_fields_json = JSON.stringify(
+        payload.credit_pack_purchase_request_fields_json
+      );
       const response = await axios.post(
         `${supernodeURL}/credit_purchase_preliminary_price_quote_response`,
         {
