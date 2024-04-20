@@ -237,7 +237,9 @@ class PastelInferenceClient {
         );
 
         const validatedRejection =
-          await creditPackPurchaseRequestRejectionSchema.validateAsync(result);
+          await creditPackPurchaseRequestRejectionSchema.validateAsync(
+            result.toJSON()
+          );
         const creditPackPurchaseRequestRejectionInstance =
           await CreditPackPurchaseRequestRejection.create(validatedRejection);
         return creditPackPurchaseRequestRejectionInstance;

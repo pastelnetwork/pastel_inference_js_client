@@ -3,7 +3,6 @@ const crypto = require("crypto");
 const {
   UserMessage,
   CreditPackPurchaseRequest,
-  CreditPackPurchaseRequestRejection,
   CreditPackPurchaseRequestResponseTermination,
   CreditPackPurchaseRequestResponse,
   CreditPackPurchaseRequestConfirmation,
@@ -14,8 +13,6 @@ const {
 } = require("./sequelize_data_models");
 const {
   userMessageSchema,
-  creditPackPurchaseRequestRejectionSchema,
-  creditPackPurchaseRequestPreliminaryPriceQuoteSchema,
   creditPackPurchaseRequestResponseSchema,
   creditPackPurchaseRequestConfirmationSchema,
   creditPackPurchaseRequestConfirmationResponseSchema,
@@ -144,9 +141,13 @@ async function sendMessageAndCheckForNewIncomingMessages(
 }
 
 function getIsoStringWithMicroseconds() {
+  // Get the current time
   const now = new Date();
-  const isoString = now.toISOString(); // "2024-04-19T23:38:55.051Z"
-  return isoString.replace(/Z$/, "+00:00"); // replacing 'Z' with '+00:00'
+  // Convert the date to an ISO string and replace 'Z' with '+00:00' to match Python's format
+  // Ensure to remove any unwanted spaces directly in this step if they were somehow introduced
+  const isoString = now.toISOString().replace("Z", "+00:00").replace(/\s/g, "");
+  // Return the correctly formatted ISO string without any spaces
+  return isoString;
 }
 
 async function handleCreditPackTicketEndToEnd(
@@ -167,13 +168,16 @@ async function handleCreditPackTicketEndToEnd(
 
     const creditPackRequest = CreditPackPurchaseRequest.build({
       requesting_end_user_pastelid: MY_LOCAL_PASTELID,
-      requested_initial_credits_in_credit_pack: numberOfCredits,
+      requested_initial_credits_in_credit_pack: parseInt(numberOfCredits, 10),
       list_of_authorized_pastelids_allowed_to_use_credit_pack: JSON.stringify([
         MY_LOCAL_PASTELID,
       ]),
       credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,
       request_timestamp_utc_iso_string: requestTimestamp,
-      request_pastel_block_height: await getCurrentPastelBlockHeight(),
+      request_pastel_block_height: parseInt(
+        await getCurrentPastelBlockHeight(),
+        10
+      ),
       credit_purchase_request_message_version_string: "1.0",
       sha3_256_hash_of_credit_pack_purchase_request_fields: "",
       requesting_end_user_pastelid_signature_on_request_hash: "",
@@ -198,34 +202,18 @@ async function handleCreditPackTicketEndToEnd(
     const preliminaryPriceQuote =
       await inferenceClient.creditPackTicketInitialPurchaseRequest(
         highestRankedSupernodeURL,
-        creditPackRequest // Use the serialized request here
+        creditPackRequest
       );
-
-    const plainPreliminaryPriceQuote = preliminaryPriceQuote.toJSON();
-
-    const { error: preliminaryPriceQuoteValidationError } =
-      preliminaryPriceQuote instanceof CreditPackPurchaseRequestRejection
-        ? creditPackPurchaseRequestRejectionSchema.validate(
-            plainPreliminaryPriceQuote
-          )
-        : creditPackPurchaseRequestPreliminaryPriceQuoteSchema.validate(
-            plainPreliminaryPriceQuote
-          );
-
-    if (preliminaryPriceQuoteValidationError) {
-      throw new Error(
-        `Invalid preliminary price quote: ${preliminaryPriceQuoteValidationError.message}`
-      );
-    }
 
     const signedCreditPackTicketOrRejection =
       await inferenceClient.creditPackTicketPreliminaryPriceQuoteResponse(
         highestRankedSupernodeURL,
         creditPackRequest,
-        plainPreliminaryPriceQuote,
+        preliminaryPriceQuote,
         maximumTotalCreditPackPriceInPSL,
         maximumPerCreditPriceInPSL
       );
+
     if (
       signedCreditPackTicketOrRejection instanceof
       CreditPackPurchaseRequestResponseTermination

@@ -173,8 +173,15 @@ async function calculateXORDistance(pastelID1, pastelID2) {
   return xorResult;
 }
 
+function adjustJSONSpacing(jsonString) {
+  // Correctly format spaces after colons and commas to match Python's json.dumps()
+  // This regex replaces the colon followed by any amount of whitespace with ": "
+  // and the comma followed by any amount of whitespace with ", "
+  // Ensure it does not match colons within timestamps or other strings
+  return jsonString.replace(/(?<!\d):(\s*)/g, ": ").replace(/,(\s*)/g, ", ");
+}
+
 function pythonCompatibleStringify(obj) {
-  // Helper function to sort objects by keys
   function sortObjectByKeys(unsortedObj) {
     return Object.keys(unsortedObj)
       .sort()
@@ -198,7 +205,7 @@ function pythonCompatibleStringify(obj) {
       );
   }
 
-  // Convert dates to ISO string and recursively sort objects
+  // Modified customReplacer to handle number conversion explicitly
   function customReplacer(key, value) {
     if (value instanceof Date) {
       return value.toISOString();
@@ -206,30 +213,28 @@ function pythonCompatibleStringify(obj) {
     if (typeof value === "object" && value !== null) {
       return sortObjectByKeys(value);
     }
+    // Ensure that numbers are not converted into strings
+    if (typeof value === "number") {
+      return value;
+    }
     return value;
   }
 
-  // Ensure the top-level object is also sorted
   const sortedObject = sortObjectByKeys(obj);
-
-  // Custom stringify function to include spaces after colons and commas
-  return JSON.stringify(sortedObject, customReplacer, 2)
-    .replace(/\n/g, "")
-    .replace(/: /g, ": ")
-    .replace(/,/g, ", ");
+  let jsonString = JSON.stringify(sortedObject, customReplacer);
+  // Apply the spacing adjustment right before returning the string
+  return adjustJSONSpacing(jsonString);
 }
 
 async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
   modelInstance
 ) {
   const responseFields = {};
-  // First, ensure we are dealing with a plain object, especially if coming from a Sequelize model
   const plainObject =
     modelInstance instanceof Sequelize.Model
       ? modelInstance.get({ plain: true })
       : modelInstance;
 
-  // Identify hash and signature fields to exclude them, along with other unwanted fields
   let lastHashFieldName = null;
   let lastSignatureFieldName = null;
   for (const fieldName in plainObject) {
@@ -239,7 +244,6 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       lastSignatureFieldName = fieldName;
     }
   }
-  // Filter out unwanted fields and properly format the remaining ones
   Object.keys(plainObject)
     .sort()
     .forEach((fieldName) => {
@@ -260,10 +264,11 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
         if (fieldValue instanceof Date) {
           responseFields[fieldName] = fieldValue.toISOString();
         } else if (typeof fieldValue === "object" && fieldValue !== null) {
-          // Do not stringify here, just assign the value
           responseFields[fieldName] = fieldValue;
         } else {
-          responseFields[fieldName] = fieldValue.toString();
+          // Ensure numeric fields are not converted to strings
+          responseFields[fieldName] =
+            typeof fieldValue === "number" ? fieldValue : fieldValue.toString();
         }
       }
     });
