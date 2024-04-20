@@ -44,6 +44,7 @@ const { logger, safeStringify } = require("./logger");
 const {
   getNClosestSupernodesToPastelIDURLs,
   computeSHA3256HashOfSQLModelResponseFields,
+  pythonCompatibleStringify,
   getCurrentPastelBlockHeight,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   logActionWithPayload,
@@ -64,7 +65,7 @@ class PastelInferenceClient {
         `${supernodeURL}/request_challenge/${this.pastelID}`
       );
       const { challenge, challenge_id } = response.data;
-      const signature = await signMessageWithPastelID(
+      const challenge_signature = await signMessageWithPastelID(
         this.pastelID,
         challenge,
         this.passphrase
@@ -72,7 +73,7 @@ class PastelInferenceClient {
       return {
         challenge,
         challenge_id,
-        signature,
+        challenge_signature,
       };
     } catch (error) {
       logger.error(
@@ -90,12 +91,9 @@ class PastelInferenceClient {
       if (error) {
         throw new Error(`Invalid user message: ${error.message}`);
       }
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+
       const payload = userMessage.toJSON();
       const response = await axios.post(
         `${supernodeURL}/send_user_message`,
@@ -103,7 +101,7 @@ class PastelInferenceClient {
           user_message: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -121,13 +119,13 @@ class PastelInferenceClient {
 
   async getUserMessages(supernodeURL) {
     try {
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const { challenge, challenge_id, signature } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const params = {
         pastelid: this.pastelID,
         challenge,
         challenge_id,
-        challenge_signature: signature,
+        challenge_signature,
       };
       const response = await axios.get(`${supernodeURL}/get_user_messages`, {
         params,
@@ -151,18 +149,14 @@ class PastelInferenceClient {
 
   async getCreditPackTicketFromTxid(supernodeURL, txid) {
     try {
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const params = {
         txid,
         pastelid: this.pastelID,
         challenge,
         challenge_id,
-        challenge_signature: challengeSignature,
+        challenge_signature,
       };
       logActionWithPayload(
         "retrieving",
@@ -202,46 +196,46 @@ class PastelInferenceClient {
     creditPackRequest
   ) {
     try {
-      const { error } =
-        creditPackPurchaseRequestSchema.validate(creditPackRequest);
+      // Validate the credit pack request using Joi
+      const { error, value: validatedCreditPackRequest } =
+        creditPackPurchaseRequestSchema.validate(creditPackRequest.toJSON());
       if (error) {
         throw new Error(`Invalid credit pack request: ${error.message}`);
       }
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
-
-      const validatedCreditPackRequest =
-        await creditPackPurchaseRequestSchema.validateAsync(creditPackRequest);
+      // Create the credit pack purchase request in the database
       const _creditPackPurchaseRequestInstance =
         await CreditPackPurchaseRequest.create(validatedCreditPackRequest);
-
-      const payload = creditPackRequest.toJSON();
       logActionWithPayload(
         "requesting",
         "a new Pastel credit pack ticket",
-        payload
+        validatedCreditPackRequest
       );
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+
+      const serializedCreditPackRequest = pythonCompatibleStringify(
+        creditPackRequest.get({ plain: true })
+      );
+
       const response = await axios.post(
         `${supernodeURL}/credit_purchase_initial_request`,
         {
-          credit_pack_request: payload,
+          credit_pack_request: JSON.parse(serializedCreditPackRequest),
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
         }
       );
       const result = response.data;
+
       if (result.rejection_reason_string) {
         logger.error(
           `Credit pack purchase request rejected: ${result.rejection_reason_string}`
         );
+
         const validatedRejection =
           await creditPackPurchaseRequestRejectionSchema.validateAsync(result);
         const creditPackPurchaseRequestRejectionInstance =

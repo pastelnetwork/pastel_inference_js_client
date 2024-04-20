@@ -523,14 +523,14 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       logger.error("RPC connection is not available. Cannot proceed.");
       return; // Stop the function if the connection is not available
     }
-    const signature = await rpc_connection.pastelid(
+    const responseObj = await rpc_connection.pastelid(
       "sign",
       messageToSign,
       pastelid,
       passphrase,
       "ed448"
     );
-    return signature;
+    return responseObj.signature;
   } catch (error) {
     logger.error(`Error in signMessageWithPastelID: ${safeStringify(error)}`);
     return null;
@@ -647,7 +647,7 @@ async function checkSupernodeList() {
     const validMasternodeListFullDF = masternodeListFullDF.filter(
       (data) =>
         ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
-        data["ipaddress:port"] !== "154.38.164.75:29933"
+        data["ipaddress_port"] !== "154.38.164.75:29933"
     );
     if (validMasternodeListFullDF.length === 0) {
       logger.error("No valid masternodes found.");

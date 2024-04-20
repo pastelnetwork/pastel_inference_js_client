@@ -5,18 +5,20 @@ const {
   CreditPackPurchaseRequest,
   CreditPackPurchaseRequestRejection,
   CreditPackPurchaseRequestResponseTermination,
+  CreditPackPurchaseRequestResponse,
   CreditPackPurchaseRequestConfirmation,
+  CreditPackPurchaseRequestConfirmationResponse,
   CreditPackStorageRetryRequest,
   InferenceAPIUsageRequest,
   InferenceConfirmation,
 } = require("./sequelize_data_models");
 const {
   userMessageSchema,
-  creditPackPurchaseRequestSchema,
   creditPackPurchaseRequestRejectionSchema,
   creditPackPurchaseRequestPreliminaryPriceQuoteSchema,
   creditPackPurchaseRequestResponseSchema,
   creditPackPurchaseRequestConfirmationSchema,
+  creditPackPurchaseRequestConfirmationResponseSchema,
   creditPackPurchaseRequestStatusSchema,
   creditPackStorageRetryRequestSchema,
   creditPackStorageRetryRequestResponseSchema,
@@ -141,6 +143,12 @@ async function sendMessageAndCheckForNewIncomingMessages(
   }
 }
 
+function getIsoStringWithMicroseconds() {
+  const now = new Date();
+  const isoString = now.toISOString(); // "2024-04-19T23:38:55.051Z"
+  return isoString.replace(/Z$/, "+00:00"); // replacing 'Z' with '+00:00'
+}
+
 async function handleCreditPackTicketEndToEnd(
   numberOfCredits,
   creditUsageTrackingPSLAddress,
@@ -153,7 +161,9 @@ async function handleCreditPackTicketEndToEnd(
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { supernodeListDF } = await checkSupernodeList();
+    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
+
+    const requestTimestamp = getIsoStringWithMicroseconds();
 
     const creditPackRequest = CreditPackPurchaseRequest.build({
       requesting_end_user_pastelid: MY_LOCAL_PASTELID,
@@ -162,7 +172,7 @@ async function handleCreditPackTicketEndToEnd(
         MY_LOCAL_PASTELID,
       ]),
       credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,
-      request_timestamp_utc_iso_string: new Date().toISOString(),
+      request_timestamp_utc_iso_string: requestTimestamp,
       request_pastel_block_height: await getCurrentPastelBlockHeight(),
       credit_purchase_request_message_version_string: "1.0",
       sha3_256_hash_of_credit_pack_purchase_request_fields: "",
@@ -178,37 +188,28 @@ async function handleCreditPackTicketEndToEnd(
         MY_PASTELID_PASSPHRASE
       );
 
-    const { error: requestValidationError } =
-      creditPackPurchaseRequestSchema.validate(creditPackRequest.toJSON());
-    if (requestValidationError) {
-      throw new Error(
-        `Invalid credit pack request: ${requestValidationError.message}`
-      );
-    }
-
-    const _creditPackPurchaseRequestInstance =
-      await CreditPackPurchaseRequest.create(creditPackRequest.toJSON());
-
     const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
       1,
       MY_LOCAL_PASTELID,
-      supernodeListDF
+      validMasternodeListFullDF
     );
     const highestRankedSupernodeURL = closestSupernodes[0].url;
 
     const preliminaryPriceQuote =
       await inferenceClient.creditPackTicketInitialPurchaseRequest(
         highestRankedSupernodeURL,
-        creditPackRequest
+        creditPackRequest // Use the serialized request here
       );
+
+    const plainPreliminaryPriceQuote = preliminaryPriceQuote.toJSON();
 
     const { error: preliminaryPriceQuoteValidationError } =
       preliminaryPriceQuote instanceof CreditPackPurchaseRequestRejection
         ? creditPackPurchaseRequestRejectionSchema.validate(
-            preliminaryPriceQuote.toJSON()
+            plainPreliminaryPriceQuote
           )
         : creditPackPurchaseRequestPreliminaryPriceQuoteSchema.validate(
-            preliminaryPriceQuote.toJSON()
+            plainPreliminaryPriceQuote
           );
 
     if (preliminaryPriceQuoteValidationError) {
@@ -221,11 +222,10 @@ async function handleCreditPackTicketEndToEnd(
       await inferenceClient.creditPackTicketPreliminaryPriceQuoteResponse(
         highestRankedSupernodeURL,
         creditPackRequest,
-        preliminaryPriceQuote,
+        plainPreliminaryPriceQuote,
         maximumTotalCreditPackPriceInPSL,
         maximumPerCreditPriceInPSL
       );
-
     if (
       signedCreditPackTicketOrRejection instanceof
       CreditPackPurchaseRequestResponseTermination
@@ -247,6 +247,9 @@ async function handleCreditPackTicketEndToEnd(
         `Invalid credit pack purchase request response: ${responseValidationError.message}`
       );
     }
+
+    const _creditPackPurchaseRequestResponseInstance =
+      await CreditPackPurchaseRequestResponse.create(signedCreditPackTicket);
 
     const burnTransactionTxid = await sendToAddress(
       burnAddress,
@@ -319,13 +322,27 @@ async function handleCreditPackTicketEndToEnd(
       return null;
     }
 
+    const { error: confirmationResponseValidationError } =
+      creditPackPurchaseRequestConfirmationResponseSchema.validate(
+        creditPackPurchaseRequestConfirmationResponse
+      );
+    if (confirmationResponseValidationError) {
+      throw new Error(
+        `Invalid credit pack purchase request confirmation response: ${confirmationResponseValidationError.message}`
+      );
+    }
+    const _creditPackPurchaseRequestConfirmationResponseInstance =
+      await CreditPackPurchaseRequestConfirmationResponse.create(
+        creditPackPurchaseRequestConfirmationResponse
+      );
+
     for (const supernodePastelID of signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms) {
       let supernodeURL;
       try {
         if (checkIfPastelIDIsValid(supernodePastelID)) {
           supernodeURL = await getSupernodeURLFromPastelID(
             supernodePastelID,
-            supernodeListDF
+            validMasternodeListFullDF
           );
         }
       } catch (error) {
@@ -446,7 +463,7 @@ async function handleCreditPackTicketEndToEnd(
 
       const closestAgreeingSupernodeURL = await getSupernodeURLFromPastelID(
         closestAgreeingSupernodePastelID,
-        supernodeListDF
+        validMasternodeListFullDF
       );
       const creditPackStorageRetryRequestResponse =
         await inferenceClient.creditPackStorageRetryRequest(
@@ -470,7 +487,7 @@ async function handleCreditPackTicketEndToEnd(
           if (checkIfPastelIDIsValid(supernodePastelID)) {
             supernodeURL = await getSupernodeURLFromPastelID(
               supernodePastelID,
-              supernodeListDF
+              validMasternodeListFullDF
             );
           }
         } catch (error) {
@@ -508,7 +525,7 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { supernodeListDF } = await checkSupernodeList();
+    const { supernodeListDF, _ } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
       MY_LOCAL_PASTELID,
       supernodeListDF

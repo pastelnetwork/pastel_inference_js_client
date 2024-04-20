@@ -17,9 +17,9 @@ const SupernodeList = sequelize.define(
   "SupernodeList",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     txid_vout: {
       type: DataTypes.STRING,
@@ -92,9 +92,9 @@ const Message = sequelize.define(
   "Message",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     sending_sn_pastelid: {
       type: DataTypes.STRING,
@@ -140,9 +140,9 @@ const UserMessage = sequelize.define(
   "UserMessage",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     from_pastelid: {
       type: DataTypes.STRING,
@@ -176,9 +176,9 @@ const CreditPackPurchaseRequest = sequelize.define(
   "CreditPackPurchaseRequest",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     requesting_end_user_pastelid: {
       type: DataTypes.STRING,
@@ -439,9 +439,9 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
   "CreditPackPurchaseRequestResponse",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
@@ -518,9 +518,9 @@ const CreditPackPurchaseRequestConfirmation = sequelize.define(
   "CreditPackPurchaseRequestConfirmation",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
@@ -575,6 +575,76 @@ const CreditPackPurchaseRequestConfirmation = sequelize.define(
   },
   {
     tableName: "credit_pack_purchase_request_confirmations",
+    timestamps: false,
+  }
+);
+
+const CreditPackPurchaseRequestConfirmationResponse = sequelize.define(
+  "CreditPackPurchaseRequestConfirmationResponse",
+  {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    sha3_256_hash_of_credit_pack_purchase_request_fields: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      references: {
+        model: "credit_pack_purchase_requests",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
+      },
+    },
+    sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      references: {
+        model: "credit_pack_purchase_request_confirmations",
+        key: "sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields",
+      },
+    },
+    credit_pack_confirmation_outcome_string: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    pastel_api_credit_pack_ticket_registration_txid: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    credit_pack_confirmation_failure_reason_if_applicable: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    credit_purchase_request_confirmation_response_utc_iso_string: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    credit_purchase_request_confirmation_response_pastel_block_height: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    credit_purchase_request_confirmation_response_message_version_string: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    responding_supernode_pastelid: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    sha3_256_hash_of_credit_pack_purchase_request_confirmation_response_fields:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+    responding_supernode_signature_on_credit_pack_purchase_request_confirmation_response_hash:
+      {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+  },
+  {
+    tableName: "credit_pack_purchase_request_confirmation_responses",
     timestamps: false,
   }
 );
@@ -768,9 +838,9 @@ const InferenceAPIUsageRequest = sequelize.define(
   "InferenceAPIUsageRequest",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     inference_request_id: {
       type: DataTypes.STRING,
@@ -836,9 +906,9 @@ const InferenceAPIUsageResponse = sequelize.define(
   "InferenceAPIUsageResponse",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     inference_response_id: {
       type: DataTypes.STRING,
@@ -904,9 +974,9 @@ const InferenceAPIOutputResult = sequelize.define(
   "InferenceAPIOutputResult",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     inference_result_id: {
       type: DataTypes.STRING,
@@ -1006,6 +1076,7 @@ module.exports = {
   CreditPackPurchaseRequestResponseTermination,
   CreditPackPurchaseRequestResponse,
   CreditPackPurchaseRequestConfirmation,
+  CreditPackPurchaseRequestConfirmationResponse,
   CreditPackRequestStatusCheck,
   CreditPackPurchaseRequestStatus,
   CreditPackStorageRetryRequest,

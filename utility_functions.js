@@ -2,6 +2,7 @@ require("dotenv").config();
 const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
+const Sequelize = require("sequelize");
 const { logger, safeStringify } = require("./logger");
 
 const {
@@ -148,7 +149,7 @@ function computeSHA3256Hexdigest(input) {
 
 function getSHA256HashOfInputData(inputData) {
   const hash = crypto.createHash("sha3-256");
-  hash.update(inputData);
+  hash.update(inputData, "utf-8"); // Explicitly specifying the encoding
   return hash.digest("hex");
 }
 
@@ -172,45 +173,101 @@ async function calculateXORDistance(pastelID1, pastelID2) {
   return xorResult;
 }
 
+function pythonCompatibleStringify(obj) {
+  // Helper function to sort objects by keys
+  function sortObjectByKeys(unsortedObj) {
+    return Object.keys(unsortedObj)
+      .sort()
+      .reduce(
+        (acc, key) => {
+          const value = unsortedObj[key];
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            !(value instanceof Date)
+          ) {
+            acc[key] = Array.isArray(value)
+              ? value.map((item) => sortObjectByKeys(item))
+              : sortObjectByKeys(value);
+          } else {
+            acc[key] = value;
+          }
+          return acc;
+        },
+        Array.isArray(unsortedObj) ? [] : {}
+      );
+  }
+
+  // Convert dates to ISO string and recursively sort objects
+  function customReplacer(key, value) {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (typeof value === "object" && value !== null) {
+      return sortObjectByKeys(value);
+    }
+    return value;
+  }
+
+  // Ensure the top-level object is also sorted
+  const sortedObject = sortObjectByKeys(obj);
+
+  // Custom stringify function to include spaces after colons and commas
+  return JSON.stringify(sortedObject, customReplacer, 2)
+    .replace(/\n/g, "")
+    .replace(/: /g, ": ")
+    .replace(/,/g, ", ");
+}
+
 async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
   modelInstance
 ) {
   const responseFields = {};
+  // First, ensure we are dealing with a plain object, especially if coming from a Sequelize model
+  const plainObject =
+    modelInstance instanceof Sequelize.Model
+      ? modelInstance.get({ plain: true })
+      : modelInstance;
+
+  // Identify hash and signature fields to exclude them, along with other unwanted fields
   let lastHashFieldName = null;
   let lastSignatureFieldName = null;
-  for (const fieldName in modelInstance) {
+  for (const fieldName in plainObject) {
     if (fieldName.startsWith("sha3_256_hash_of")) {
       lastHashFieldName = fieldName;
     } else if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
     }
   }
-  for (const [fieldName, fieldValue] of Object.entries(modelInstance)) {
-    if (
-      fieldName === lastHashFieldName ||
-      fieldName === lastSignatureFieldName ||
-      fieldName === "id" ||
-      fieldName.includes("_sa_instance_state")
-    ) {
-      continue;
-    }
-    if (fieldValue !== null && fieldValue !== undefined) {
-      if (fieldValue instanceof Date) {
-        responseFields[fieldName] = fieldValue.toISOString();
-      } else if (Array.isArray(fieldValue) || typeof fieldValue === "object") {
-        responseFields[fieldName] = safeStringify(
-          fieldValue,
-          Object.keys(fieldValue).sort()
-        );
-      } else {
-        responseFields[fieldName] = fieldValue.toString();
+  // Filter out unwanted fields and properly format the remaining ones
+  Object.keys(plainObject)
+    .sort()
+    .forEach((fieldName) => {
+      if (
+        ![
+          lastHashFieldName,
+          lastSignatureFieldName,
+          "id",
+          "_changed",
+          "_options",
+          "_previousDataValues",
+          "dataValues",
+          "isNewRecord",
+          "uniqno",
+        ].includes(fieldName)
+      ) {
+        const fieldValue = plainObject[fieldName];
+        if (fieldValue instanceof Date) {
+          responseFields[fieldName] = fieldValue.toISOString();
+        } else if (typeof fieldValue === "object" && fieldValue !== null) {
+          // Do not stringify here, just assign the value
+          responseFields[fieldName] = fieldValue;
+        } else {
+          responseFields[fieldName] = fieldValue.toString();
+        }
       }
-    }
-  }
-  const sortedResponseFields = Object.fromEntries(
-    Object.entries(responseFields).sort(([a], [b]) => a.localeCompare(b))
-  );
-  return safeStringify(sortedResponseFields);
+    });
+  return pythonCompatibleStringify(responseFields);
 }
 
 async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
@@ -331,7 +388,6 @@ async function getSupernodeUrlFromPastelID(pastelID, supernodeListDF) {
   if (!isValidPastelID) {
     throw new Error(`Invalid PastelID: ${pastelID}`);
   }
-
   // Find the supernode entry with the matching 'extKey'
   const supernodeEntry = supernodeListDF.find(
     (node) => node.extKey === pastelID
@@ -341,9 +397,8 @@ async function getSupernodeUrlFromPastelID(pastelID, supernodeListDF) {
       `Supernode with PastelID ${pastelID} not found in the supernode list`
     );
   }
-
-  // Extract the IP address from the 'ipaddress:port' string
-  const ipaddress = supernodeEntry["ipaddress:port"].split(":")[0];
+  // Extract the IP address from the 'ipaddress_port' string
+  const ipaddress = supernodeEntry["ipaddress_port"].split(":")[0];
   const supernodeURL = `http://${ipaddress}:7123`;
   return supernodeURL;
 }
@@ -439,7 +494,7 @@ async function getNClosestSupernodesToPastelIDURLs(
   supernodeListDF
 ) {
   const xorDistances = await Promise.all(
-    supernodeListDF.map(async ({ extKey, "ipaddress:port": ipAddressPort }) => {
+    supernodeListDF.map(async ({ extKey, ipaddress_port: ipAddressPort }) => {
       const distance = await calculateXORDistance(inputPastelID, extKey);
       return {
         pastelID: extKey,
@@ -448,12 +503,12 @@ async function getNClosestSupernodesToPastelIDURLs(
       };
     })
   );
-
-  const sortedXorDistances = xorDistances.sort(
-    (a, b) => a.distance - b.distance
-  );
+  const sortedXorDistances = xorDistances.sort((a, b) => {
+    if (a.distance > b.distance) return 1;
+    if (a.distance < b.distance) return -1;
+    return 0;
+  });
   const closestSupernodes = sortedXorDistances.slice(0, n);
-
   return closestSupernodes.map(({ url, pastelID }) => ({ url, pastelID }));
 }
 
@@ -750,6 +805,7 @@ module.exports = {
   compressDataWithZstd,
   decompressDataWithZstd,
   calculateXORDistance,
+  pythonCompatibleStringify,
   extractResponseFieldsFromCreditPackTicketMessageDataAsJSON,
   computeSHA3256HashOfSQLModelResponseFields,
   validateTimestampFields,
