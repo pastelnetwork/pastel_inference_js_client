@@ -677,7 +677,7 @@ async function checkSupernodeList() {
         ],
       });
     } catch (error) {
-      console.error("Failed to insert data:", error);
+      logger.error("Failed to insert data:", error);
     }
     const masternodeListFullDFJSON = JSON.stringify(
       Object.fromEntries(

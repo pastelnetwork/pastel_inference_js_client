@@ -330,6 +330,11 @@ const CreditPackPurchaseRequestPreliminaryPriceQuote = sequelize.define(
 const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define(
   "CreditPackPurchaseRequestPreliminaryPriceQuoteResponse",
   {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,

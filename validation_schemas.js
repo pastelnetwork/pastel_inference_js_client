@@ -90,6 +90,7 @@ const creditPackPurchaseRequestPreliminaryPriceQuoteSchema = Joi.object({
 
 const creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema = Joi.object(
   {
+    id: Joi.string().guid({ version: "uuidv4" }).required(),
     sha3_256_hash_of_credit_pack_purchase_request_fields:
       Joi.string().required(),
     sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:

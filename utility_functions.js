@@ -204,7 +204,6 @@ function pythonCompatibleStringify(obj) {
         Array.isArray(unsortedObj) ? [] : {}
       );
   }
-
   // Modified customReplacer to handle number conversion explicitly
   function customReplacer(key, value) {
     if (value instanceof Date) {
@@ -219,7 +218,6 @@ function pythonCompatibleStringify(obj) {
     }
     return value;
   }
-
   const sortedObject = sortObjectByKeys(obj);
   let jsonString = JSON.stringify(sortedObject, customReplacer);
   // Apply the spacing adjustment right before returning the string
@@ -283,6 +281,50 @@ async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
   const sha256HashOfResponseFields =
     getSHA256HashOfInputData(responseFieldsJSON);
   return sha256HashOfResponseFields;
+}
+
+async function prepareModelForEndpoint(modelInstance) {
+  let preparedModelInstance;
+  // Check if modelInstance is a Sequelize model or similar
+  if (typeof modelInstance.get === "function") {
+    let modelInstanceJSON = pythonCompatibleStringify(
+      modelInstance.get({ plain: true })
+    );
+    preparedModelInstance = JSON.parse(modelInstanceJSON);
+  } else if (typeof modelInstance === "object") {
+    // Assume modelInstance is already a plain object and needs JSON handling
+    let modelInstanceJSON = pythonCompatibleStringify(modelInstance);
+    preparedModelInstance = JSON.parse(modelInstanceJSON);
+  } else {
+    throw new Error("Invalid modelInstance type");
+  }
+  return preparedModelInstance;
+}
+
+async function prepareModelForValidation(modelInstance) {
+  let preparedModelInstance;
+  // Check if modelInstance is a Sequelize model or similar
+  if (typeof modelInstance.get === "function") {
+    preparedModelInstance = modelInstance.get({ plain: true });
+  } else if (typeof modelInstance === "object") {
+    preparedModelInstance = { ...modelInstance };
+  } else {
+    throw new Error("Invalid modelInstance type");
+  }
+  // Dynamically parse properties ending with `_json` if they are strings
+  Object.keys(preparedModelInstance).forEach((key) => {
+    if (
+      key.endsWith("_json") &&
+      typeof preparedModelInstance[key] === "string"
+    ) {
+      try {
+        preparedModelInstance[key] = JSON.parse(preparedModelInstance[key]);
+      } catch (error) {
+        console.error(`Error parsing ${key}: ${error}`);
+      }
+    }
+  });
+  return preparedModelInstance;
 }
 
 function compareDatetimes(datetime1, datetime2) {
@@ -813,6 +855,8 @@ module.exports = {
   pythonCompatibleStringify,
   extractResponseFieldsFromCreditPackTicketMessageDataAsJSON,
   computeSHA3256HashOfSQLModelResponseFields,
+  prepareModelForValidation,
+  prepareModelForEndpoint,
   validateTimestampFields,
   validatePastelBlockHeightFields,
   validateHashFields,

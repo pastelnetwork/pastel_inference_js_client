@@ -45,7 +45,8 @@ const { logger, safeStringify } = require("./logger");
 const {
   getNClosestSupernodesToPastelIDURLs,
   computeSHA3256HashOfSQLModelResponseFields,
-  pythonCompatibleStringify,
+  prepareModelForEndpoint,
+  prepareModelForValidation,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   logActionWithPayload,
   transformCreditPackPurchaseRequestResponse,
@@ -118,7 +119,11 @@ class PastelInferenceClient {
         }
       );
       const result = response.data;
-      const validatedResult = await userMessageSchema.validateAsync(result);
+      const { resultError, value: validatedResult } =
+        await userMessageSchema.validate(result);
+      if (error) {
+        throw new Error(`Invalid user message: ${resultError.message}`);
+      }
       const userMessageInstance = await UserMessage.create(validatedResult);
       return userMessageInstance;
     } catch (error) {
@@ -143,9 +148,7 @@ class PastelInferenceClient {
       });
       const result = response.data;
       const validatedResults = await Promise.all(
-        result.map((messageData) =>
-          userMessageSchema.validateAsync(messageData)
-        )
+        result.map((messageData) => userMessageSchema.validate(messageData))
       );
       const userMessageInstances = await UserMessage.bulkCreate(
         validatedResults
@@ -188,10 +191,15 @@ class PastelInferenceClient {
         "credit pack ticket from Supernode",
         resultTransformed
       );
-      const validatedResult =
-        await creditPackPurchaseRequestResponseSchema.validateAsync(
+      const { resultError, value: validatedResult } =
+        await creditPackPurchaseRequestResponseSchema.validate(
           resultTransformed
         );
+      if (resultError) {
+        throw new Error(
+          `Invalid credit pack purchase request response: ${resultError.message}`
+        );
+      }
       const creditPackPurchaseRequestResponseInstance =
         await CreditPackPurchaseRequestResponse.create(validatedResult);
       return creditPackPurchaseRequestResponseInstance;
@@ -222,15 +230,13 @@ class PastelInferenceClient {
       );
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
-      const serializedCreditPackRequest = pythonCompatibleStringify(
-        creditPackRequest.get({ plain: true })
+      let preparedCreditPackRequest = await prepareModelForEndpoint(
+        creditPackRequest
       );
-
       const response = await axios.post(
         `${supernodeURL}/credit_purchase_initial_request`,
         {
-          credit_pack_request: JSON.parse(serializedCreditPackRequest),
+          credit_pack_request: preparedCreditPackRequest,
           challenge,
           challenge_id,
           challenge_signature,
@@ -245,34 +251,35 @@ class PastelInferenceClient {
         logger.error(
           `Credit pack purchase request rejected: ${result.rejection_reason_string}`
         );
-        result.credit_pack_purchase_request_fields_json = JSON.parse(
-          result.credit_pack_purchase_request_fields_json
-        );
-        const validatedRejection =
+        let rejectionResponse = await prepareModelForValidation(result);
+        const { rejectionError, value: validatedRejection } =
           await creditPackPurchaseRequestRejectionSchema.validateAsync(
-            result.toJSON()
+            rejectionResponse
           );
+        if (rejectionError) {
+          throw new Error(
+            `Invalid credit pack purchase request rejection: ${rejectionError.message}`
+          );
+        }
         const creditPackPurchaseRequestRejectionInstance =
           await CreditPackPurchaseRequestRejection.create(validatedRejection);
         return creditPackPurchaseRequestRejectionInstance;
       } else {
-        // Parse JSON string to object before validation
-        if (
-          typeof result.credit_pack_purchase_request_fields_json === "string"
-        ) {
-          result.credit_pack_purchase_request_fields_json = JSON.parse(
-            result.credit_pack_purchase_request_fields_json
-          );
-        }
         logActionWithPayload(
           "receiving",
           "response to credit pack purchase request",
           result
         );
-        const validatedPriceQuote =
-          await creditPackPurchaseRequestPreliminaryPriceQuoteSchema.validateAsync(
-            result
+        let preparedResult = await prepareModelForValidation(result);
+        const { priceQuoteError, value: validatedPriceQuote } =
+          await creditPackPurchaseRequestPreliminaryPriceQuoteSchema.validate(
+            preparedResult
           );
+        if (priceQuoteError) {
+          throw new Error(
+            "Invalid credit pack request: " + priceQuoteError.message
+          );
+        }
         const creditPackPurchaseRequestPreliminaryPriceQuoteInstance =
           await CreditPackPurchaseRequestPreliminaryPriceQuote.create(
             validatedPriceQuote
@@ -297,6 +304,7 @@ class PastelInferenceClient {
       Math.abs(quotedPrice - estimatedPrice) / estimatedPrice;
     return differencePercentage;
   }
+
   async confirmPreliminaryPriceQuote(
     preliminaryPriceQuote,
     maximumTotalCreditPackPriceInPSL,
@@ -395,7 +403,6 @@ class PastelInferenceClient {
       );
       const agreeWithPreliminaryPriceQuote = agreeWithPriceQuote;
       const responseTimestamp = getIsoStringWithMicroseconds();
-
       const priceQuoteResponse =
         CreditPackPurchaseRequestPreliminaryPriceQuoteResponse.build({
           sha3_256_hash_of_credit_pack_purchase_request_fields:
@@ -431,22 +438,27 @@ class PastelInferenceClient {
           priceQuoteResponse.sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields,
           this.passphrase
         );
-      const validatedPriceQuoteResponse =
-        await creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema.validateAsync(
-          priceQuoteResponse
+      let preparedPriceQuoteResponse = await prepareModelForValidation(
+        priceQuoteResponse
+      );
+      const { error, value: validatedPriceQuoteResponse } =
+        await creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema.validate(
+          preparedPriceQuoteResponse
         );
+      if (error) {
+        throw new Error(`Invalid credit pack request: ${error.message}`);
+      }
       const priceQuoteResponseInstance =
         await CreditPackPurchaseRequestPreliminaryPriceQuoteResponse.create(
           validatedPriceQuoteResponse
         );
-
       const challengeResult = await this.requestAndSignChallenge(supernodeURL);
       const {
         challenge,
         challenge_id,
         signature: challengeSignature,
       } = challengeResult;
-      const payload = priceQuoteResponseInstance.toJSON();
+      const payload = await prepareModelForEndpoint(priceQuoteResponseInstance);
       logActionWithPayload(
         "sending",
         "price quote response to supernode",
@@ -469,27 +481,38 @@ class PastelInferenceClient {
         logger.error(
           `Credit pack purchase request response terminated: ${result.termination_reason_string}`
         );
-        const validatedTermination =
-          await creditPackPurchaseRequestResponseTerminationSchema.validateAsync(
-            result
+        const { terminationError, value: validatedTermination } =
+          await creditPackPurchaseRequestResponseTerminationSchema.validate(
+            await prepareModelForValidation(result)
           );
+        if (terminationError) {
+          throw new Error(
+            `Invalid credit pack purchase request response termination: ${terminationError.message}`
+          );
+        }
         const terminationInstance =
           await CreditPackPurchaseRequestResponseTermination.create(
             validatedTermination
           );
         return terminationInstance;
       } else {
-        const transformedResult =
-          transformCreditPackPurchaseRequestResponse(result);
+        const transformedResult = transformCreditPackPurchaseRequestResponse(
+          await prepareModelForValidation(result)
+        );
         logActionWithPayload(
           "receiving",
           "response to credit pack purchase request",
           transformedResult
         );
-        const validatedResponse =
-          await creditPackPurchaseRequestResponseSchema.validateAsync(
+        const { resultError, value: validatedResponse } =
+          await creditPackPurchaseRequestResponseSchema.validate(
             transformedResult
           );
+        if (resultError) {
+          throw new Error(
+            `Invalid credit pack purchase request response: ${resultError.message}`
+          );
+        }
         const responseInstance = await CreditPackPurchaseRequestResponse.create(
           validatedResponse
         );
