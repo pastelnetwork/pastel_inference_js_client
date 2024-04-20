@@ -3,6 +3,7 @@ const axios = require("axios");
 const {
   signMessageWithPastelID,
   checkSupernodeList,
+  getCurrentPastelBlockHeight,
 } = require("./rpc_functions");
 const {
   UserMessage,
@@ -45,13 +46,22 @@ const {
   getNClosestSupernodesToPastelIDURLs,
   computeSHA3256HashOfSQLModelResponseFields,
   pythonCompatibleStringify,
-  getCurrentPastelBlockHeight,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   logActionWithPayload,
   transformCreditPackPurchaseRequestResponse,
 } = require("./utility_functions");
 
 const MESSAGING_TIMEOUT_IN_SECONDS = process.env.MESSAGING_TIMEOUT_IN_SECONDS;
+
+function getIsoStringWithMicroseconds() {
+  // Get the current time
+  const now = new Date();
+  // Convert the date to an ISO string and replace 'Z' with '+00:00' to match Python's format
+  // Ensure to remove any unwanted spaces directly in this step if they were somehow introduced
+  const isoString = now.toISOString().replace("Z", "+00:00").replace(/\s/g, "");
+  // Return the correctly formatted ISO string without any spaces
+  return isoString;
+}
 
 class PastelInferenceClient {
   constructor(pastelID, passphrase) {
@@ -235,7 +245,9 @@ class PastelInferenceClient {
         logger.error(
           `Credit pack purchase request rejected: ${result.rejection_reason_string}`
         );
-
+        result.credit_pack_purchase_request_fields_json = JSON.parse(
+          result.credit_pack_purchase_request_fields_json
+        );
         const validatedRejection =
           await creditPackPurchaseRequestRejectionSchema.validateAsync(
             result.toJSON()
@@ -244,6 +256,14 @@ class PastelInferenceClient {
           await CreditPackPurchaseRequestRejection.create(validatedRejection);
         return creditPackPurchaseRequestRejectionInstance;
       } else {
+        // Parse JSON string to object before validation
+        if (
+          typeof result.credit_pack_purchase_request_fields_json === "string"
+        ) {
+          result.credit_pack_purchase_request_fields_json = JSON.parse(
+            result.credit_pack_purchase_request_fields_json
+          );
+        }
         logActionWithPayload(
           "receiving",
           "response to credit pack purchase request",
@@ -292,7 +312,7 @@ class PastelInferenceClient {
       credit_pack_purchase_request_fields_json: requestFields,
     } = preliminaryPriceQuote;
     const { requested_initial_credits_in_credit_pack: requestedCredits } =
-      JSON.parse(requestFields);
+      requestFields;
     if (!maximumTotalCreditPackPriceInPSL) {
       maximumTotalCreditPackPriceInPSL =
         maximumPerCreditPriceInPSL * requestedCredits;
@@ -368,19 +388,14 @@ class PastelInferenceClient {
         );
         return preliminaryPriceQuote;
       }
-      const { error } =
-        creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema.validate(
-          preliminaryPriceQuote
-        );
-      if (error) {
-        throw new Error(`Invalid preliminary price quote: ${error.message}`);
-      }
       const agreeWithPriceQuote = await this.confirmPreliminaryPriceQuote(
         preliminaryPriceQuote,
         maximumTotalCreditPackPriceInPSL,
         maximumPerCreditPriceInPSL
       );
       const agreeWithPreliminaryPriceQuote = agreeWithPriceQuote;
+      const responseTimestamp = getIsoStringWithMicroseconds();
+
       const priceQuoteResponse =
         CreditPackPurchaseRequestPreliminaryPriceQuoteResponse.build({
           sha3_256_hash_of_credit_pack_purchase_request_fields:
@@ -395,9 +410,11 @@ class PastelInferenceClient {
           preliminary_quoted_price_per_credit_in_psl:
             preliminaryPriceQuote.preliminary_quoted_price_per_credit_in_psl,
           preliminary_price_quote_response_timestamp_utc_iso_string:
-            new Date().toISOString(),
-          preliminary_price_quote_response_pastel_block_height:
+            responseTimestamp,
+          preliminary_price_quote_response_pastel_block_height: parseInt(
             await getCurrentPastelBlockHeight(),
+            10
+          ),
           preliminary_price_quote_response_message_version_string: "1.0",
           requesting_end_user_pastelid:
             creditPackRequest.requesting_end_user_pastelid,
