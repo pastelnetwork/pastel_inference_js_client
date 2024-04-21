@@ -47,6 +47,8 @@ const {
   computeSHA3256HashOfSQLModelResponseFields,
   prepareModelForEndpoint,
   prepareModelForValidation,
+  removeSequelizeFields,
+  pythonCompatibleStringify,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
   logActionWithPayload,
   transformCreditPackPurchaseRequestResponse,
@@ -236,10 +238,10 @@ class PastelInferenceClient {
       const response = await axios.post(
         `${supernodeURL}/credit_purchase_initial_request`,
         {
-          credit_pack_request: preparedCreditPackRequest,
           challenge,
           challenge_id,
           challenge_signature,
+          credit_pack_request: preparedCreditPackRequest,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -409,13 +411,15 @@ class PastelInferenceClient {
             creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields,
           sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
             preliminaryPriceQuote.sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields,
-          credit_pack_purchase_request_fields_json:
-            preliminaryPriceQuote.credit_pack_purchase_request_fields_json,
+          credit_pack_purchase_request_fields_json: pythonCompatibleStringify(
+            preliminaryPriceQuote.credit_pack_purchase_request_fields_json
+          ),
           agree_with_preliminary_price_quote: agreeWithPreliminaryPriceQuote,
           credit_usage_tracking_psl_address:
             preliminaryPriceQuote.credit_usage_tracking_psl_address,
-          preliminary_quoted_price_per_credit_in_psl:
-            preliminaryPriceQuote.preliminary_quoted_price_per_credit_in_psl,
+          preliminary_quoted_price_per_credit_in_psl: parseFloat(
+            preliminaryPriceQuote.preliminary_quoted_price_per_credit_in_psl
+          ),
           preliminary_price_quote_response_timestamp_utc_iso_string:
             responseTimestamp,
           preliminary_price_quote_response_pastel_block_height: parseInt(
@@ -448,36 +452,30 @@ class PastelInferenceClient {
       if (error) {
         throw new Error(`Invalid credit pack request: ${error.message}`);
       }
-      const priceQuoteResponseInstance =
+      const _priceQuoteResponseInstance =
         await CreditPackPurchaseRequestPreliminaryPriceQuoteResponse.create(
           validatedPriceQuoteResponse
         );
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
-      const payload = await prepareModelForEndpoint(priceQuoteResponseInstance);
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+      let payload = validatedPriceQuoteResponse;
       logActionWithPayload(
         "sending",
         "price quote response to supernode",
         payload
       );
-      delete payload.id;
-      payload.credit_pack_purchase_request_fields_json = JSON.stringify(
-        payload.credit_pack_purchase_request_fields_json
-      );
+      removeSequelizeFields(preparedPriceQuoteResponse);
+      const completePriceQuoteResponse = {
+        challenge,
+        challenge_id,
+        challenge_signature,
+        preliminary_price_quote_response: preparedPriceQuoteResponse,
+      };
       const response = await axios.post(
         `${supernodeURL}/credit_purchase_preliminary_price_quote_response`,
+        completePriceQuoteResponse,
         {
-          preliminary_price_quote_response: payload,
-          challenge,
-          challenge_id,
-          challenge_signature: challengeSignature,
-        },
-        {
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 3 * 1000,
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
         }
       );
       const result = response.data;
@@ -537,12 +535,8 @@ class PastelInferenceClient {
     creditPackPurchaseRequestHash
   ) {
     try {
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const statusCheck = CreditPackRequestStatusCheck.build({
         sha3_256_hash_of_credit_pack_purchase_request_fields:
           creditPackPurchaseRequestHash,
@@ -569,7 +563,7 @@ class PastelInferenceClient {
           credit_pack_request_status_check: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -616,12 +610,8 @@ class PastelInferenceClient {
         await CreditPackPurchaseRequestConfirmation.create(
           validatedConfirmation
         );
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const payload = confirmationInstance.toJSON();
       logActionWithPayload(
         "sending",
@@ -634,7 +624,7 @@ class PastelInferenceClient {
           confirmation: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -670,12 +660,8 @@ class PastelInferenceClient {
       const requestInstance = await CreditPackStorageRetryRequest.create(
         validatedRequest
       );
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const payload = requestInstance.toJSON();
       logActionWithPayload(
         "sending",
@@ -688,7 +674,7 @@ class PastelInferenceClient {
           request: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -732,12 +718,8 @@ class PastelInferenceClient {
         );
       const responseInstance =
         await CreditPackStorageRetryRequestResponse.create(validatedResponse);
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const payload = responseInstance.toJSON();
       logActionWithPayload(
         "sending",
@@ -750,7 +732,7 @@ class PastelInferenceClient {
           response: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -777,12 +759,8 @@ class PastelInferenceClient {
       const requestInstance = await InferenceAPIUsageRequest.create(
         validatedRequest
       );
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const payload = requestInstance.toJSON();
       logActionWithPayload("making", "inference usage request", payload);
       const response = await axios.post(
@@ -791,7 +769,7 @@ class PastelInferenceClient {
           inference_api_usage_request: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 3 * 1000,
@@ -830,12 +808,8 @@ class PastelInferenceClient {
       const confirmationInstance = await InferenceConfirmation.create(
         validatedConfirmation
       );
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const payload = confirmationInstance.toJSON();
       logActionWithPayload("sending", "inference confirmation", payload);
       const response = await axios.post(
@@ -844,7 +818,7 @@ class PastelInferenceClient {
           inference_confirmation: payload,
           challenge,
           challenge_id,
-          challenge_signature: challengeSignature,
+          challenge_signature,
         },
         {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 4 * 1000,
@@ -904,18 +878,14 @@ class PastelInferenceClient {
     inferenceResponseID
   ) {
     try {
-      const challengeResult = await this.requestAndSignChallenge(supernodeURL);
-      const {
-        challenge,
-        challenge_id,
-        signature: challengeSignature,
-      } = challengeResult;
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
       const params = {
         inference_response_id: inferenceResponseID,
         pastelid: this.pastelID,
         challenge,
         challenge_id,
-        challenge_signature: challengeSignature,
+        challenge_signature,
       };
       logActionWithPayload(
         "attempting",

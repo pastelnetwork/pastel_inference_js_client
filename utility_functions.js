@@ -183,28 +183,43 @@ function adjustJSONSpacing(jsonString) {
 
 function pythonCompatibleStringify(obj) {
   function sortObjectByKeys(unsortedObj) {
+    const priorityKeys = ["challenge", "challenge_id", "challenge_signature"];
     return Object.keys(unsortedObj)
-      .sort()
-      .reduce(
-        (acc, key) => {
-          const value = unsortedObj[key];
-          if (
-            typeof value === "object" &&
-            value !== null &&
-            !(value instanceof Date)
-          ) {
-            acc[key] = Array.isArray(value)
-              ? value.map((item) => sortObjectByKeys(item))
-              : sortObjectByKeys(value);
-          } else {
-            acc[key] = value;
-          }
-          return acc;
-        },
-        Array.isArray(unsortedObj) ? [] : {}
-      );
+      .sort((a, b) => {
+        // Check if the keys are priority keys
+        const aPriority = priorityKeys.indexOf(a);
+        const bPriority = priorityKeys.indexOf(b);
+
+        // If both are priority keys, sort them according to their order in priorityKeys
+        if (aPriority !== -1 && bPriority !== -1) {
+          return aPriority - bPriority;
+        }
+        // If only one is a priority key, it should come later
+        if (aPriority !== -1) {
+          return 1; // a is a priority key, sort it to end
+        }
+        if (bPriority !== -1) {
+          return -1; // b is a priority key, sort it to end
+        }
+        // Normal lexicographical sort for other keys
+        return a.localeCompare(b);
+      })
+      .reduce((acc, key) => {
+        const value = unsortedObj[key];
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          !(value instanceof Date)
+        ) {
+          acc[key] = Array.isArray(value)
+            ? value.map(sortObjectByKeys)
+            : sortObjectByKeys(value);
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
   }
-  // Modified customReplacer to handle number conversion explicitly
   function customReplacer(key, value) {
     if (value instanceof Date) {
       return value.toISOString();
@@ -220,6 +235,8 @@ function pythonCompatibleStringify(obj) {
   }
   const sortedObject = sortObjectByKeys(obj);
   let jsonString = JSON.stringify(sortedObject, customReplacer);
+  // Remove quotes around "true" and "false"
+  jsonString = jsonString.replace(/"(true|false)"/g, "$1");
   // Apply the spacing adjustment right before returning the string
   return adjustJSONSpacing(jsonString);
 }
@@ -284,21 +301,47 @@ async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
 }
 
 async function prepareModelForEndpoint(modelInstance) {
-  let preparedModelInstance;
-  // Check if modelInstance is a Sequelize model or similar
-  if (typeof modelInstance.get === "function") {
-    let modelInstanceJSON = pythonCompatibleStringify(
-      modelInstance.get({ plain: true })
-    );
-    preparedModelInstance = JSON.parse(modelInstanceJSON);
-  } else if (typeof modelInstance === "object") {
-    // Assume modelInstance is already a plain object and needs JSON handling
-    let modelInstanceJSON = pythonCompatibleStringify(modelInstance);
-    preparedModelInstance = JSON.parse(modelInstanceJSON);
-  } else {
-    throw new Error("Invalid modelInstance type");
+  let preparedModelInstance = {};
+  // Extract the plain object if it's a Sequelize model or already a plain object
+  let instanceData =
+    typeof modelInstance.get === "function"
+      ? modelInstance.get({ plain: true })
+      : modelInstance;
+  // Check each property and stringify if the key ends with '_json'
+  for (const key in instanceData) {
+    if (Object.prototype.hasOwnProperty.call(instanceData, key)) {
+      if (key.endsWith("_json")) {
+        // Apply Python-compatible stringification to properties ending with '_json'
+        preparedModelInstance[key] = pythonCompatibleStringify(
+          instanceData[key]
+        );
+      } else {
+        // Copy other properties as they are
+        preparedModelInstance[key] = instanceData[key];
+      }
+    }
   }
   return preparedModelInstance;
+}
+
+function removeSequelizeFields(plainObject) {
+  // Define the fields to remove from the object
+  const fieldsToRemove = [
+    "id",
+    "_changed",
+    "_options",
+    "_previousDataValues",
+    "dataValues",
+    "isNewRecord",
+    "uniqno",
+  ];
+  // Iterate over each property in the object
+  Object.keys(plainObject).forEach((fieldName) => {
+    // If the field is one of those we want to remove, delete it from the object
+    if (fieldsToRemove.includes(fieldName)) {
+      delete plainObject[fieldName];
+    }
+  });
 }
 
 async function prepareModelForValidation(modelInstance) {
@@ -857,6 +900,7 @@ module.exports = {
   computeSHA3256HashOfSQLModelResponseFields,
   prepareModelForValidation,
   prepareModelForEndpoint,
+  removeSequelizeFields,
   validateTimestampFields,
   validatePastelBlockHeightFields,
   validateHashFields,

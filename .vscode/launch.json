@@ -1,7 +1,6 @@
 {
     "version": "0.2.0",
-    "configurations": [
-        {
+    "configurations": [{
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
@@ -19,6 +18,16 @@
             "restart": true,
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug with Node",
+            "program": "${workspaceFolder}/index.js",
+            "console": "integratedTerminal",
             "skipFiles": [
                 "<node_internals>/**"
             ]
