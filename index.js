@@ -77,7 +77,7 @@ async function main() {
     const desiredNumberOfCredits = 1500;
     const amountOfPSLForTrackingTransactions = 10.0;
     const creditPriceCushionPercentage = 0.15;
-    const maximumTotalAmountOfPSLToFundInNewTrackingAddress = 100000.0;
+    const maximumTotalAmountOfPSLToFundInNewTrackingAddress = 150000.0;
 
     const estimatedTotalCostInPSLForCreditPack =
       await inferenceClient.internalEstimateOfCreditPackTicketCostInPSL(
