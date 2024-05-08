@@ -40,7 +40,7 @@ const {
   validateInferenceData,
   computeSHA3256HashOfSQLModelResponseFields,
   checkIfPastelIDIsValid,
-  getSupernodeURLFromPastelID,
+  getSupernodeUrlFromPastelID,
   getClosestSupernodePastelIDFromList,
   getClosestSupernodeToPastelIDURL,
 } = require("./utility_functions");
@@ -226,19 +226,6 @@ async function handleCreditPackTicketEndToEnd(
 
     const signedCreditPackTicket = signedCreditPackTicketOrRejection;
 
-    const { error: responseValidationError } =
-      creditPackPurchaseRequestResponseSchema.validate(
-        signedCreditPackTicket.toJSON()
-      );
-    if (responseValidationError) {
-      throw new Error(
-        `Invalid credit pack purchase request response: ${responseValidationError.message}`
-      );
-    }
-
-    const _creditPackPurchaseRequestResponseInstance =
-      await CreditPackPurchaseRequestResponse.create(signedCreditPackTicket);
-
     const burnTransactionTxid = await sendToAddress(
       burnAddress,
       Math.round(
@@ -259,8 +246,8 @@ async function handleCreditPackTicketEndToEnd(
           creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields,
         sha3_256_hash_of_credit_pack_purchase_request_response_fields:
           signedCreditPackTicket.sha3_256_hash_of_credit_pack_purchase_request_response_fields,
-        credit_pack_purchase_request_fields_json:
-          signedCreditPackTicket.credit_pack_purchase_request_fields_json,
+        credit_pack_purchase_request_fields_json_b64:
+          signedCreditPackTicket.credit_pack_purchase_request_fields_json_b64,
         requesting_end_user_pastelid: MY_LOCAL_PASTELID,
         txid_of_credit_purchase_burn_transaction: burnTransactionTxid,
         credit_purchase_request_confirmation_utc_iso_string:
@@ -310,25 +297,13 @@ async function handleCreditPackTicketEndToEnd(
       return null;
     }
 
-    const { error: confirmationResponseValidationError } =
-      creditPackPurchaseRequestConfirmationResponseSchema.validate(
-        creditPackPurchaseRequestConfirmationResponse
-      );
-    if (confirmationResponseValidationError) {
-      throw new Error(
-        `Invalid credit pack purchase request confirmation response: ${confirmationResponseValidationError.message}`
-      );
-    }
-    const _creditPackPurchaseRequestConfirmationResponseInstance =
-      await CreditPackPurchaseRequestConfirmationResponse.create(
-        creditPackPurchaseRequestConfirmationResponse
-      );
-
-    for (const supernodePastelID of signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms) {
+    for (const supernodePastelID of JSON.parse(
+      signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
+    )) {
       let supernodeURL;
       try {
         if (checkIfPastelIDIsValid(supernodePastelID)) {
-          supernodeURL = await getSupernodeURLFromPastelID(
+          supernodeURL = await getSupernodeUrlFromPastelID(
             supernodePastelID,
             validMasternodeListFullDF
           );
@@ -407,8 +382,8 @@ async function handleCreditPackTicketEndToEnd(
         {
           sha3_256_hash_of_credit_pack_purchase_request_response_fields:
             signedCreditPackTicket.sha3_256_hash_of_credit_pack_purchase_request_response_fields,
-          credit_pack_purchase_request_fields_json:
-            signedCreditPackTicket.credit_pack_purchase_request_fields_json,
+          credit_pack_purchase_request_fields_json_b64:
+            signedCreditPackTicket.credit_pack_purchase_request_fields_json_b64,
           requesting_end_user_pastelid: MY_LOCAL_PASTELID,
           closest_agreeing_supernode_to_retry_storage_pastelid:
             closestAgreeingSupernodePastelID,
@@ -449,7 +424,7 @@ async function handleCreditPackTicketEndToEnd(
           creditPackStorageRetryRequest.toJSON()
         );
 
-      const closestAgreeingSupernodeURL = await getSupernodeURLFromPastelID(
+      const closestAgreeingSupernodeURL = await getSupernodeUrlFromPastelID(
         closestAgreeingSupernodePastelID,
         validMasternodeListFullDF
       );
@@ -473,7 +448,7 @@ async function handleCreditPackTicketEndToEnd(
         let supernodeURL;
         try {
           if (checkIfPastelIDIsValid(supernodePastelID)) {
-            supernodeURL = await getSupernodeURLFromPastelID(
+            supernodeURL = await getSupernodeUrlFromPastelID(
               supernodePastelID,
               validMasternodeListFullDF
             );
@@ -825,8 +800,8 @@ async function handleInferenceRequestEndToEnd(
                 `Validation results: ${safeStringify(validationResults)}`
               );
             } else {
-              var auditResults = "";
-              var validationResults = "";
+              var auditResults = null;
+              var validationResults = null;
             }
 
             if (!inferenceResultDict) {

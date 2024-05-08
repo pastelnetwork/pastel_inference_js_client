@@ -231,8 +231,8 @@ const CreditPackPurchaseRequestRejection = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     rejection_reason_string: {
@@ -282,8 +282,8 @@ const CreditPackPurchaseRequestPreliminaryPriceQuote = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     preliminary_quoted_price_per_credit_in_psl: {
@@ -344,8 +344,8 @@ const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define(
         type: DataTypes.STRING,
         allowNull: false,
       },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     agree_with_preliminary_price_quote: {
@@ -400,8 +400,8 @@ const CreditPackPurchaseRequestResponseTermination = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     termination_reason_string: {
@@ -456,8 +456,8 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
         key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
       },
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     psl_cost_per_credit: {
@@ -488,20 +488,18 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    list_of_potentially_agreeing_supernodes: {
+      type: DataTypes.JSON,
+      allowNull: false,
+    },
     list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms: {
       type: DataTypes.JSON,
       allowNull: false,
     },
-    list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash:
-      {
-        type: DataTypes.JSON,
-        allowNull: false,
-      },
-    list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json:
-      {
-        type: DataTypes.JSON,
-        allowNull: false,
-      },
+    agreeing_supernodes_signatures_dict: {
+      type: DataTypes.JSON,
+      allowNull: false,
+    },
     sha3_256_hash_of_credit_pack_purchase_request_response_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -543,8 +541,8 @@ const CreditPackPurchaseRequestConfirmation = sequelize.define(
         key: "sha3_256_hash_of_credit_pack_purchase_request_response_fields",
       },
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     requesting_end_user_pastelid: {
@@ -618,7 +616,8 @@ const CreditPackPurchaseRequestConfirmationResponse = sequelize.define(
     },
     credit_pack_confirmation_failure_reason_if_applicable: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      defaultValue: "",
     },
     credit_purchase_request_confirmation_response_utc_iso_string: {
       type: DataTypes.STRING,
@@ -657,6 +656,11 @@ const CreditPackPurchaseRequestConfirmationResponse = sequelize.define(
 const CreditPackRequestStatusCheck = sequelize.define(
   "CreditPackRequestStatusCheck",
   {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -744,8 +748,8 @@ const CreditPackStorageRetryRequest = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    credit_pack_purchase_request_fields_json: {
-      type: DataTypes.JSON,
+    credit_pack_purchase_request_fields_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     requesting_end_user_pastelid: {

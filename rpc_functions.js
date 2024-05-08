@@ -566,7 +566,7 @@ async function checkPSLAddressBalanceAlternative(addressToCheck) {
 }
 
 function formatNumberWithCommas(number) {
-  return new Intl.NumberFormat('en-US').format(number);
+  return new Intl.NumberFormat("en-US").format(number);
 }
 
 async function createAndFundNewPSLCreditTrackingAddress(
@@ -587,7 +587,9 @@ async function createAndFundNewPSLCreditTrackingAddress(
       false
     );
     logger.info(
-      `Funded new credit tracking address ${newCreditTrackingAddress} with ${formatNumberWithCommas(amountOfPSLToFundAddressWith)} PSL. TXID: ${txid}`
+      `Funded new credit tracking address ${newCreditTrackingAddress} with ${formatNumberWithCommas(
+        amountOfPSLToFundAddressWith
+      )} PSL. TXID: ${txid}`
     );
     return { newCreditTrackingAddress, txid };
   } catch (error) {

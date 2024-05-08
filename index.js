@@ -13,18 +13,18 @@ const {
   getCreditPackTicketInfoEndToEnd,
   handleInferenceRequestEndToEnd,
 } = require("./end_to_end_functions");
-const { logger, safeStringify }= require("./logger"); 
+const { logger, safeStringify } = require("./logger");
 
 async function main() {
-  const { rpcPort } = await getLocalRPCSettings();
+  const { rpcport } = await getLocalRPCSettings();
   await initializeRPCConnection();
 
   let burnAddress;
-  if (rpcPort === "9932") {
+  if (rpcport === "9932") {
     burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
-  } else if (rpcPort === "19932") {
+  } else if (rpcport === "19932") {
     burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
-  } else if (rpcPort === "29932") {
+  } else if (rpcport === "29932") {
     burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
   }
 
@@ -140,8 +140,11 @@ async function main() {
         creditPackTicketPastelTxid
       );
 
+      let credit_pack_purchase_request_fields_json = atob(
+        creditTicketObject.credit_pack_purchase_request_fields_json_b64
+      );
       const creditPackPurchaseRequestDict = JSON.parse(
-        creditTicketObject.credit_pack_purchase_request_fields_json
+        credit_pack_purchase_request_fields_json
       );
       const initialCreditPackBalance =
         creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;

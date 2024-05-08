@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
 const Sequelize = require("sequelize");
+const { v4: uuidv4 } = require("uuid");
 const { logger, safeStringify } = require("./logger");
 
 const {
@@ -129,9 +130,9 @@ function logActionWithPayload(action, payloadName, jsonPayload) {
 function transformCreditPackPurchaseRequestResponse(result) {
   const transformedResult = { ...result };
   const fieldsToConvert = [
+    "list_of_potentially_agreeing_supernodes",
     "list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms",
-    "list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash",
-    "list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json",
+    "agreeing_supernodes_signatures_dict",
   ];
   fieldsToConvert.forEach((field) => {
     if (transformedResult[field]) {
@@ -181,6 +182,10 @@ function adjustJSONSpacing(jsonString) {
   return jsonString.replace(/(?<!\d):(\s*)/g, ": ").replace(/,(\s*)/g, ", ");
 }
 
+function escapeJsonString(str) {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 function pythonCompatibleStringify(obj) {
   function sortObjectByKeys(unsortedObj) {
     const priorityKeys = ["challenge", "challenge_id", "challenge_signature"];
@@ -220,12 +225,21 @@ function pythonCompatibleStringify(obj) {
         return acc;
       }, {});
   }
+
   function customReplacer(key, value) {
     if (value instanceof Date) {
       return value.toISOString();
     }
     if (typeof value === "object" && value !== null) {
       return sortObjectByKeys(value);
+    }
+    if (
+      typeof value === "string" &&
+      value.startsWith("{") &&
+      value.endsWith("}")
+    ) {
+      // If the value is a string that looks like a JSON object, escape the double quotes
+      return escapeJsonString(value);
     }
     // Ensure that numbers are not converted into strings
     if (typeof value === "number") {
@@ -237,8 +251,12 @@ function pythonCompatibleStringify(obj) {
   let jsonString = JSON.stringify(sortedObject, customReplacer);
   // Remove quotes around "true" and "false"
   jsonString = jsonString.replace(/"(true|false)"/g, "$1");
-  // Apply the spacing adjustment right before returning the string
-  return adjustJSONSpacing(jsonString);
+  jsonString = adjustJSONSpacing(jsonString);
+  return jsonString;
+}
+
+function base64EncodeJson(jsonInput) {
+  return btoa(pythonCompatibleStringify(JSON.parse(jsonInput)));
 }
 
 async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
@@ -251,12 +269,12 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       : modelInstance;
 
   let lastHashFieldName = null;
-  let lastSignatureFieldName = null;
+  let lastSignatureFieldNames = [];
   for (const fieldName in plainObject) {
     if (fieldName.startsWith("sha3_256_hash_of")) {
       lastHashFieldName = fieldName;
     } else if (fieldName.includes("_signature_on_")) {
-      lastSignatureFieldName = fieldName;
+      lastSignatureFieldNames.push(fieldName);
     }
   }
   Object.keys(plainObject)
@@ -265,7 +283,7 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       if (
         ![
           lastHashFieldName,
-          lastSignatureFieldName,
+          lastSignatureFieldNames.at(-1),
           "id",
           "_changed",
           "_options",
@@ -278,10 +296,11 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
         const fieldValue = plainObject[fieldName];
         if (fieldValue instanceof Date) {
           responseFields[fieldName] = fieldValue.toISOString();
+        } else if (typeof fieldValue === "boolean") {
+          responseFields[fieldName] = fieldValue ? 1 : 0;
         } else if (typeof fieldValue === "object" && fieldValue !== null) {
-          responseFields[fieldName] = fieldValue;
+          responseFields[fieldName] = pythonCompatibleStringify(fieldValue);
         } else {
-          // Ensure numeric fields are not converted to strings
           responseFields[fieldName] =
             typeof fieldValue === "number" ? fieldValue : fieldValue.toString();
         }
@@ -291,7 +310,7 @@ async function extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
 }
 
 async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
-  const responseFieldsJSON =
+  let responseFieldsJSON =
     await extractResponseFieldsFromCreditPackTicketMessageDataAsJSON(
       modelInstance
     );
@@ -307,14 +326,27 @@ async function prepareModelForEndpoint(modelInstance) {
     typeof modelInstance.get === "function"
       ? modelInstance.get({ plain: true })
       : modelInstance;
-  // Check each property and stringify if the key ends with '_json'
   for (const key in instanceData) {
     if (Object.prototype.hasOwnProperty.call(instanceData, key)) {
       if (key.endsWith("_json")) {
-        // Apply Python-compatible stringification to properties ending with '_json'
-        preparedModelInstance[key] = pythonCompatibleStringify(
-          instanceData[key]
-        );
+        // Check if the property is already a string that needs to be parsed
+        if (typeof instanceData[key] === "string") {
+          try {
+            // Parse the JSON string to an object
+            const parsedJson = JSON.parse(instanceData[key]);
+            // Apply Python-compatible stringification to the parsed object
+            preparedModelInstance[key] = pythonCompatibleStringify(parsedJson);
+          } catch (e) {
+            console.error("Failed to parse JSON for key:", key, "Error:", e);
+            // Optionally handle the error, e.g., by not modifying the original value
+            preparedModelInstance[key] = instanceData[key];
+          }
+        } else {
+          // If it's already an object, apply Python-compatible stringification
+          preparedModelInstance[key] = pythonCompatibleStringify(
+            instanceData[key]
+          );
+        }
       } else {
         // Copy other properties as they are
         preparedModelInstance[key] = instanceData[key];
@@ -576,6 +608,27 @@ async function validatePastelIDSignatureFields(
       );
     }
   }
+}
+
+async function getClosestSupernodeToPastelIDURL(
+  inputPastelID,
+  supernodeListDF
+) {
+  if (supernodeListDF.length > 0) {
+    const listOfSupernodePastelIDs = supernodeListDF.map(
+      ({ extKey }) => extKey
+    );
+    const closestSupernodePastelID = await getClosestSupernodePastelIDFromList(
+      inputPastelID,
+      listOfSupernodePastelIDs
+    );
+    const supernodeURL = await getSupernodeURLFromPastelID(
+      closestSupernodePastelID,
+      supernodeListDF
+    );
+    return { url: supernodeURL, pastelID: closestSupernodePastelID };
+  }
+  return { url: null, pastelID: null };
 }
 
 async function getNClosestSupernodesToPastelIDURLs(
@@ -908,6 +961,7 @@ module.exports = {
   getClosestSupernodePastelIDFromList,
   checkIfPastelIDIsValid,
   getSupernodeUrlFromPastelID,
+  getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceResponseFields,

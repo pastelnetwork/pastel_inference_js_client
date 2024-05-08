@@ -26,7 +26,7 @@ const messageSchema = Joi.object({
   sending_sn_txid_vout: Joi.string().required(),
   receiving_sn_txid_vout: Joi.string().required(),
   message_type: Joi.string().required(),
-  message_body: Joi.object().required(),
+  message_body: Joi.string().required(),
   signature: Joi.string().required(),
   timestamp: Joi.date().iso(),
 });
@@ -35,7 +35,7 @@ const userMessageSchema = Joi.object({
   id: Joi.string().guid({ version: "uuidv4" }).required(),
   from_pastelid: Joi.string().required(),
   to_pastelid: Joi.string().required(),
-  message_body: Joi.object().required(),
+  message_body: Joi.string().required(),
   message_signature: Joi.string().required(),
   timestamp: Joi.date().iso(),
 });
@@ -57,7 +57,7 @@ const creditPackPurchaseRequestSchema = Joi.object({
 
 const creditPackPurchaseRequestRejectionSchema = Joi.object({
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   rejection_reason_string: Joi.string().required(),
   rejection_timestamp_utc_iso_string: Joi.string().required(),
   rejection_pastel_block_height: Joi.number().integer().required(),
@@ -73,7 +73,7 @@ const creditPackPurchaseRequestRejectionSchema = Joi.object({
 const creditPackPurchaseRequestPreliminaryPriceQuoteSchema = Joi.object({
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
   credit_usage_tracking_psl_address: Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   preliminary_quoted_price_per_credit_in_psl: Joi.number().required(),
   preliminary_total_cost_of_credit_pack_in_psl: Joi.number().required(),
   preliminary_price_quote_timestamp_utc_iso_string: Joi.string().required(),
@@ -95,7 +95,7 @@ const creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema = Joi.object(
       Joi.string().required(),
     sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
       Joi.string().required(),
-    credit_pack_purchase_request_fields_json: Joi.object().required(),
+    credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
     agree_with_preliminary_price_quote: Joi.boolean().required(),
     credit_usage_tracking_psl_address: Joi.string().required(),
     preliminary_quoted_price_per_credit_in_psl: Joi.number().required(),
@@ -116,7 +116,7 @@ const creditPackPurchaseRequestPreliminaryPriceQuoteResponseSchema = Joi.object(
 
 const creditPackPurchaseRequestResponseTerminationSchema = Joi.object({
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   termination_reason_string: Joi.string().required(),
   termination_timestamp_utc_iso_string: Joi.string().required(),
   termination_pastel_block_height: Joi.number().integer().required(),
@@ -132,7 +132,7 @@ const creditPackPurchaseRequestResponseTerminationSchema = Joi.object({
 const creditPackPurchaseRequestResponseSchema = Joi.object({
   id: Joi.string().guid({ version: "uuidv4" }).required(),
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   psl_cost_per_credit: Joi.number().required(),
   proposed_total_cost_of_credit_pack_in_psl: Joi.number().required(),
   credit_usage_tracking_psl_address: Joi.string().required(),
@@ -141,12 +141,10 @@ const creditPackPurchaseRequestResponseSchema = Joi.object({
   credit_purchase_request_response_message_version_string:
     Joi.string().required(),
   responding_supernode_pastelid: Joi.string().required(),
+  list_of_potentially_agreeing_supernodes: Joi.string().required(),
   list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms:
     Joi.string().required(),
-  list_of_agreeing_supernode_pastelids_signatures_on_price_agreement_request_response_hash:
-    Joi.string().required(),
-  list_of_agreeing_supernode_pastelids_signatures_on_credit_pack_purchase_request_fields_json:
-    Joi.string().required(),
+  agreeing_supernodes_signatures_dict: Joi.string().required(),
   sha3_256_hash_of_credit_pack_purchase_request_response_fields:
     Joi.string().required(),
   responding_supernode_signature_on_credit_pack_purchase_request_response_hash:
@@ -158,7 +156,7 @@ const creditPackPurchaseRequestConfirmationSchema = Joi.object({
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
   sha3_256_hash_of_credit_pack_purchase_request_response_fields:
     Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   requesting_end_user_pastelid: Joi.string().required(),
   txid_of_credit_purchase_burn_transaction: Joi.string().required(),
   credit_purchase_request_confirmation_utc_iso_string: Joi.string().required(),
@@ -180,8 +178,7 @@ const creditPackPurchaseRequestConfirmationResponseSchema = Joi.object({
     Joi.string().required(),
   credit_pack_confirmation_outcome_string: Joi.string().required(),
   pastel_api_credit_pack_ticket_registration_txid: Joi.string().required(),
-  credit_pack_confirmation_failure_reason_if_applicable:
-    Joi.string().required(),
+  credit_pack_confirmation_failure_reason_if_applicable: Joi.string().allow(""),
   credit_purchase_request_confirmation_response_utc_iso_string:
     Joi.string().required(),
   credit_purchase_request_confirmation_response_pastel_block_height:
@@ -196,6 +193,7 @@ const creditPackPurchaseRequestConfirmationResponseSchema = Joi.object({
 });
 
 const creditPackRequestStatusCheckSchema = Joi.object({
+  id: Joi.string().guid({ version: "uuidv4" }).required(),
   sha3_256_hash_of_credit_pack_purchase_request_fields: Joi.string().required(),
   requesting_end_user_pastelid: Joi.string().required(),
   requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
@@ -222,7 +220,7 @@ const creditPackPurchaseRequestStatusSchema = Joi.object({
 const creditPackStorageRetryRequestSchema = Joi.object({
   sha3_256_hash_of_credit_pack_purchase_request_response_fields:
     Joi.string().required(),
-  credit_pack_purchase_request_fields_json: Joi.object().required(),
+  credit_pack_purchase_request_fields_json_b64: Joi.string().required(),
   requesting_end_user_pastelid: Joi.string().required(),
   closest_agreeing_supernode_to_retry_storage_pastelid: Joi.string().required(),
   credit_pack_storage_retry_request_timestamp_utc_iso_string:
@@ -266,7 +264,7 @@ const inferenceAPIUsageRequestSchema = Joi.object({
   credit_pack_ticket_pastel_txid: Joi.string().required(),
   requested_model_canonical_string: Joi.string().required(),
   model_inference_type_string: Joi.string().required(),
-  model_parameters_json: Joi.object().required(),
+  model_parameters_json: Joi.string().required(),
   model_input_data_json_b64: Joi.string().required(),
   inference_request_utc_iso_string: Joi.string().required(),
   inference_request_pastel_block_height: Joi.number().integer().required(),
@@ -316,7 +314,7 @@ const inferenceAPIOutputResultSchema = Joi.object({
 const inferenceConfirmationSchema = Joi.object({
   inference_request_id: Joi.string().required(),
   requesting_pastelid: Joi.string().required(),
-  confirmation_transaction: Joi.object().required(),
+  confirmation_transaction: Joi.string().required(),
 });
 
 module.exports = {
