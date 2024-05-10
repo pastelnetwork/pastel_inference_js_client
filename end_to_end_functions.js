@@ -35,6 +35,7 @@ const {
 } = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
+  prettyJSON,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceData,
@@ -57,13 +58,17 @@ async function sendMessageAndCheckForNewIncomingMessages(
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { supernodeListDF } = await checkSupernodeList();
+    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
 
     logger.info("Sending user message...");
     logger.info(`Recipient pastelid: ${toPastelID}`);
 
     const closestSupernodesToRecipient =
-      await getNClosestSupernodesToPastelIDURLs(3, toPastelID, supernodeListDF);
+      await getNClosestSupernodesToPastelIDURLs(
+        3,
+        toPastelID,
+        validMasternodeListFullDF
+      );
     logger.info(
       `Closest Supernodes to recipient pastelid: ${closestSupernodesToRecipient.map(
         (sn) => sn.pastelID
@@ -234,12 +239,10 @@ async function handleCreditPackTicketEndToEnd(
       ) / 100000,
       "Burn transaction for credit pack ticket"
     );
-
     if (!burnTransactionTxid) {
       logger.error("Error sending PSL to burn address for credit pack ticket");
       return null;
     }
-
     const creditPackPurchaseRequestConfirmation =
       CreditPackPurchaseRequestConfirmation.build({
         sha3_256_hash_of_credit_pack_purchase_request_fields:
@@ -259,7 +262,6 @@ async function handleCreditPackTicketEndToEnd(
         requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields:
           "",
       });
-
     creditPackPurchaseRequestConfirmation.sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields =
       await computeSHA3256HashOfSQLModelResponseFields(
         creditPackPurchaseRequestConfirmation
@@ -270,7 +272,6 @@ async function handleCreditPackTicketEndToEnd(
         creditPackPurchaseRequestConfirmation.sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields,
         MY_PASTELID_PASSPHRASE
       );
-
     const { error: confirmationValidationError } =
       creditPackPurchaseRequestConfirmationSchema.validate(
         creditPackPurchaseRequestConfirmation.toJSON()
@@ -280,23 +281,19 @@ async function handleCreditPackTicketEndToEnd(
         `Invalid credit pack purchase request confirmation: ${confirmationValidationError.message}`
       );
     }
-
     const _creditPackPurchaseRequestConfirmationInstance =
       await CreditPackPurchaseRequestConfirmation.create(
         creditPackPurchaseRequestConfirmation.toJSON()
       );
-
     const creditPackPurchaseRequestConfirmationResponse =
       await inferenceClient.confirmCreditPurchaseRequest(
         highestRankedSupernodeURL,
         creditPackPurchaseRequestConfirmation
       );
-
     if (!creditPackPurchaseRequestConfirmationResponse) {
       logger.error("Credit pack ticket storage failed!");
       return null;
     }
-
     for (const supernodePastelID of JSON.parse(
       signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
     )) {
@@ -314,7 +311,6 @@ async function handleCreditPackTicketEndToEnd(
         );
         continue;
       }
-
       try {
         await inferenceClient.creditPackPurchaseCompletionAnnouncement(
           supernodeURL,
@@ -326,7 +322,6 @@ async function handleCreditPackTicketEndToEnd(
         );
       }
     }
-
     let creditPackPurchaseRequestStatus;
     for (let i = 0; i < closestSupernodes.length; i++) {
       try {
@@ -336,19 +331,8 @@ async function handleCreditPackTicketEndToEnd(
             supernodeURL,
             creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields
           );
-
-        const { error: statusValidationError } =
-          creditPackPurchaseRequestStatusSchema.validate(
-            creditPackPurchaseRequestStatus.toJSON()
-          );
-        if (statusValidationError) {
-          throw new Error(
-            `Invalid credit pack purchase request status: ${statusValidationError.message}`
-          );
-        }
-
         logger.info(
-          `Credit pack purchase request status: ${safeStringify(
+          `Credit pack purchase request status: ${prettyJSON(
             creditPackPurchaseRequestStatus
           )}`
         );
@@ -367,7 +351,6 @@ async function handleCreditPackTicketEndToEnd(
         }
       }
     }
-
     if (creditPackPurchaseRequestStatus.status !== "completed") {
       logger.error(
         `Credit pack purchase request failed: ${creditPackPurchaseRequestStatus.status}`
@@ -377,7 +360,6 @@ async function handleCreditPackTicketEndToEnd(
           MY_LOCAL_PASTELID,
           signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
         );
-
       const creditPackStorageRetryRequest = CreditPackStorageRetryRequest.build(
         {
           sha3_256_hash_of_credit_pack_purchase_request_response_fields:
@@ -397,7 +379,6 @@ async function handleCreditPackTicketEndToEnd(
             "",
         }
       );
-
       creditPackStorageRetryRequest.sha3_256_hash_of_credit_pack_storage_retry_request_fields =
         await computeSHA3256HashOfSQLModelResponseFields(
           creditPackStorageRetryRequest
@@ -408,7 +389,6 @@ async function handleCreditPackTicketEndToEnd(
           creditPackStorageRetryRequest.sha3_256_hash_of_credit_pack_storage_retry_request_fields,
           MY_PASTELID_PASSPHRASE
         );
-
       const { error: storageRetryRequestValidationError } =
         creditPackStorageRetryRequestSchema.validate(
           creditPackStorageRetryRequest.toJSON()
@@ -418,12 +398,10 @@ async function handleCreditPackTicketEndToEnd(
           `Invalid credit pack storage retry request: ${storageRetryRequestValidationError.message}`
         );
       }
-
       const _creditPackStorageRetryRequestInstance =
         await CreditPackStorageRetryRequest.create(
           creditPackStorageRetryRequest.toJSON()
         );
-
       const closestAgreeingSupernodeURL = await getSupernodeUrlFromPastelID(
         closestAgreeingSupernodePastelID,
         validMasternodeListFullDF
@@ -433,7 +411,6 @@ async function handleCreditPackTicketEndToEnd(
           closestAgreeingSupernodeURL,
           creditPackStorageRetryRequest
         );
-
       const { error: storageRetryResponseValidationError } =
         creditPackStorageRetryRequestResponseSchema.validate(
           creditPackStorageRetryRequestResponse.toJSON()
@@ -443,7 +420,6 @@ async function handleCreditPackTicketEndToEnd(
           `Invalid credit pack storage retry request response: ${storageRetryResponseValidationError.message}`
         );
       }
-
       for (const supernodePastelID of signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms) {
         let supernodeURL;
         try {
@@ -459,7 +435,6 @@ async function handleCreditPackTicketEndToEnd(
           );
           continue;
         }
-
         try {
           await inferenceClient.creditPackPurchaseCompletionAnnouncement(
             supernodeURL,
@@ -471,7 +446,6 @@ async function handleCreditPackTicketEndToEnd(
           );
         }
       }
-
       return creditPackStorageRetryRequestResponse;
     } else {
       return creditPackPurchaseRequestConfirmationResponse;
@@ -488,16 +462,14 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { supernodeListDF, _ } = await checkSupernodeList();
+    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
       MY_LOCAL_PASTELID,
-      supernodeListDF
+      validMasternodeListFullDF
     );
-
     if (!supernodeURL) {
       throw new Error("Supernode URL is undefined");
     }
-
     logger.info(
       `Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`
     );
@@ -506,7 +478,6 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
         supernodeURL,
         creditPackTicketPastelTxid
       );
-
     const { error: creditPackDataValidationError } =
       creditPackPurchaseRequestResponseSchema.validate(
         creditPackDataObject.toJSON()
@@ -516,7 +487,6 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
         `Invalid credit pack ticket data: ${creditPackDataValidationError.message}`
       );
     }
-
     return creditPackDataObject;
   } catch (error) {
     logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message}`);
@@ -539,7 +509,6 @@ async function handleInferenceRequestEndToEnd(
       MY_PASTELID_PASSPHRASE
     );
     const modelParametersJSON = safeStringify(modelParameters);
-
     const {
       closestSupportingSupernodePastelID,
       closestSupportingSupernodeURL,
@@ -548,20 +517,16 @@ async function handleInferenceRequestEndToEnd(
       modelInferenceTypeString,
       modelParametersJSON
     );
-
     const supernodeURL = closestSupportingSupernodeURL;
     const supernodePastelID = closestSupportingSupernodePastelID;
-
     if (!supernodeURL) {
       logger.error(
         `Error! No supporting Supernode found for the desired model: ${requestedModelCanonicalString} with inference type: ${modelInferenceTypeString}`
       );
       return null;
     }
-
     const inputPromptToLLMBase64Encoded =
       Buffer.from(inputPromptToLLM).toString("base64");
-
     const inferenceRequestData = InferenceAPIUsageRequest.build({
       inference_request_id: crypto.randomUUID(),
       requesting_pastelid: MY_LOCAL_PASTELID,
@@ -578,7 +543,6 @@ async function handleInferenceRequestEndToEnd(
       sha3_256_hash_of_inference_request_fields: "",
       requesting_pastelid_signature_on_request_hash: "",
     });
-
     const sha3256HashOfInferenceRequestFields =
       await computeSHA3256HashOfSQLModelResponseFields(inferenceRequestData);
     inferenceRequestData.sha3_256_hash_of_inference_request_fields =
@@ -591,24 +555,24 @@ async function handleInferenceRequestEndToEnd(
       );
     inferenceRequestData.requesting_pastelid_signature_on_request_hash =
       requestingPastelIDSignatureOnRequestHash;
-
-    const { error: inferenceRequestValidationError } =
-      inferenceAPIUsageRequestSchema.validate(inferenceRequestData.toJSON());
+    const {
+      error: inferenceRequestValidationError,
+      value: validatedInferenceRequestData,
+    } = await inferenceAPIUsageRequestSchema.validate(
+      inferenceRequestData.toJSON()
+    );
     if (inferenceRequestValidationError) {
       throw new Error(
         `Invalid inference API usage request: ${inferenceRequestValidationError.message}`
       );
     }
-
     const _inferenceAPIUsageRequestInstance =
-      await InferenceAPIUsageRequest.create(inferenceRequestData.toJSON());
-
+      await InferenceAPIUsageRequest.create(validatedInferenceRequestData);
     const usageRequestResponse =
       await inferenceClient.makeInferenceAPIUsageRequest(
         supernodeURL,
         inferenceRequestData
       );
-
     const { error: inferenceResponseValidationError } =
       inferenceAPIUsageResponseSchema.validate(usageRequestResponse.toJSON());
     if (inferenceResponseValidationError) {
@@ -618,7 +582,7 @@ async function handleInferenceRequestEndToEnd(
     }
 
     logger.info(
-      `Received inference API usage request response from SN:\n${safeStringify(
+      `Received inference API usage request response from SN:\n${prettyJSON(
         usageRequestResponse
       )}`
     );
@@ -626,14 +590,15 @@ async function handleInferenceRequestEndToEnd(
     const validationErrors = await validateCreditPackTicketMessageData(
       usageRequestResponse
     );
-    if (validationErrors.length > 0) {
-      throw new Error(
-        `Invalid inference request response from Supernode URL ${supernodeURL}: ${validationErrors.join(
-          ", "
-        )}`
-      );
+    if (validationErrors) {
+      if (validationErrors.length > 0) {
+        throw new Error(
+          `Invalid inference request response from Supernode URL ${supernodeURL}: ${validationErrors.join(
+            ", "
+          )}`
+        );
+      }
     }
-
     const usageRequestResponseDict = usageRequestResponse.toJSON();
     const inferenceRequestID = usageRequestResponseDict.inference_request_id;
     const inferenceResponseID = usageRequestResponseDict.inference_response_id;
@@ -692,7 +657,7 @@ async function handleInferenceRequestEndToEnd(
             confirmationData
           );
         logger.info(
-          `Sent inference confirmation: ${safeStringify(confirmationResult)}`
+          `Sent inference confirmation: ${prettyJSON(confirmationResult)}`
         );
 
         const maxTriesToGetConfirmation = 10;
@@ -748,7 +713,7 @@ async function handleInferenceRequestEndToEnd(
 
             if (outputResultsSize < maxResponseSizeToLog) {
               logger.info(
-                `Retrieved inference output results: ${safeStringify(
+                `Retrieved inference output results: ${prettyJSON(
                   outputResults
                 )}`
               );
@@ -797,7 +762,7 @@ async function handleInferenceRequestEndToEnd(
                 auditResults
               );
               logger.info(
-                `Validation results: ${safeStringify(validationResults)}`
+                `Validation results: ${prettyJSON(validationResults)}`
               );
             } else {
               var auditResults = null;

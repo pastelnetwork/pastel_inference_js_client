@@ -13,8 +13,8 @@ const {
   getCreditPackTicketInfoEndToEnd,
   handleInferenceRequestEndToEnd,
 } = require("./end_to_end_functions");
-const { logger, safeStringify } = require("./logger");
-
+const { logger } = require("./logger");
+const { prettyJSON } = require("./utility_functions");
 async function main() {
   const { rpcport } = await getLocalRPCSettings();
   await initializeRPCConnection();
@@ -29,8 +29,8 @@ async function main() {
   }
 
   const useTestMessagingFunctionality = false;
-  const useTestCreditPackTicketFunctionality = true;
-  const useTestCreditPackTicketUsage = true;
+  const useTestCreditPackTicketFunctionality = false;
+  const useTestCreditPackTicketUsage = false;
   const useTestInferenceRequestFunctionality = true;
   const useTestLLMTextCompletion = true;
   const useTestImageGeneration = false;
@@ -44,22 +44,8 @@ async function main() {
   let creditPackTicketPastelTxid;
   let creditUsageTrackingPSLAddress;
 
-  // Check if a previously created credit pack ticket TXID is provided
-  const previouslyCreditPackTicketPastelTxid =
-    process.env.PREVIOUSLY_CREATED_CREDIT_PACK_TICKET_TXID;
-  if (previouslyCreditPackTicketPastelTxid) {
-    // Look up the corresponding PSL tracking address in the local database
-    creditPackTicketPastelTxid = previouslyCreditPackTicketPastelTxid;
-    creditUsageTrackingPSLAddress = await lookupCreditPackTicketTrackingAddress(
-      creditPackTicketPastelTxid
-    );
-    if (!creditUsageTrackingPSLAddress) {
-      logger.error(
-        `No tracking address found for credit pack ticket TXID: ${creditPackTicketPastelTxid}`
-      );
-      process.exit(1);
-    }
-  }
+  const savedCreditPackTicketPastelTxid =
+    "f0cc8eb36ebcea911eac58cee5fbd24e643e7bef6f526b22b7a4172adf37bb84";
 
   if (useTestMessagingFunctionality) {
     const messageBody =
@@ -70,7 +56,7 @@ async function main() {
       toPastelID,
       messageBody
     );
-    logger.info(`Message data: ${safeStringify(messageDict)}`);
+    logger.info(`Message data: ${prettyJSON(messageDict)}`);
   }
 
   if (useTestCreditPackTicketFunctionality && !creditPackTicketPastelTxid) {
@@ -78,13 +64,11 @@ async function main() {
     const amountOfPSLForTrackingTransactions = 10.0;
     const creditPriceCushionPercentage = 0.15;
     const maximumTotalAmountOfPSLToFundInNewTrackingAddress = 150000.0;
-
     const estimatedTotalCostInPSLForCreditPack =
       await inferenceClient.internalEstimateOfCreditPackTicketCostInPSL(
         desiredNumberOfCredits,
         creditPriceCushionPercentage
       );
-
     if (
       estimatedTotalCostInPSLForCreditPack >
       maximumTotalAmountOfPSLToFundInNewTrackingAddress
@@ -96,7 +80,6 @@ async function main() {
         `Estimated total cost of credit pack exceeds the maximum allowed amount of ${maximumTotalAmountOfPSLToFundInNewTrackingAddress} PSL`
       );
     }
-
     const amountToFundCreditTrackingAddress = Math.round(
       amountOfPSLForTrackingTransactions + estimatedTotalCostInPSLForCreditPack
     );
@@ -104,26 +87,23 @@ async function main() {
       await createAndFundNewPSLCreditTrackingAddress(
         amountToFundCreditTrackingAddress
       );
-
     const creditPackPurchaseRequestConfirmationResponse =
       await handleCreditPackTicketEndToEnd(
         desiredNumberOfCredits,
         creditUsageTrackingPSLAddress,
         burnAddress
       );
-
     if (creditPackPurchaseRequestConfirmationResponse) {
       // Store the TXID and tracking address from the credit pack ticket creation response
       creditPackTicketPastelTxid =
         creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid;
       const creditUsageTrackingPSLAddress =
         creditPackPurchaseRequestConfirmationResponse.credit_usage_tracking_psl_address;
-
       logger.info(
         `Credit pack ticket stored on the blockchain with transaction ID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid} (corresponding to tracking address: ${creditUsageTrackingPSLAddress})`
       );
       logger.info(
-        `Credit pack details: ${safeStringify(
+        `Credit pack details: ${prettyJSON(
           creditPackPurchaseRequestConfirmationResponse
         )}`
       );
@@ -132,6 +112,15 @@ async function main() {
     }
   }
 
+  // Check if creditPackTicketPastelTxid is undefined
+  if (typeof creditPackTicketPastelTxid === "undefined") {
+    // If undefined, assign the value of savedCreditPackTicketPastelTxid
+    creditPackTicketPastelTxid = savedCreditPackTicketPastelTxid;
+  }
+  logger.info(
+    `Selected credit pack ticket transaction ID: ${creditPackTicketPastelTxid}`
+  );
+
   if (useTestCreditPackTicketUsage) {
     // Check if a credit pack ticket TXID is available
     if (creditPackTicketPastelTxid) {
@@ -139,7 +128,6 @@ async function main() {
       const creditTicketObject = await getCreditPackTicketInfoEndToEnd(
         creditPackTicketPastelTxid
       );
-
       let credit_pack_purchase_request_fields_json = atob(
         creditTicketObject.credit_pack_purchase_request_fields_json_b64
       );
@@ -148,16 +136,14 @@ async function main() {
       );
       const initialCreditPackBalance =
         creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;
-
       logger.info(
         `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`
       );
       logger.info(
-        `Corresponding credit pack request dict: ${safeStringify(
+        `Corresponding credit pack request dict: ${prettyJSON(
           creditPackPurchaseRequestDict
         )}`
       );
-
       const endTime = Date.now();
       const durationInSeconds = (endTime - startTime) / 1000;
       logger.info(
@@ -182,7 +168,6 @@ async function main() {
           number_of_completions_to_generate: 1,
         };
         const maxCreditCostToApproveInferenceRequest = 200.0;
-
         const { inferenceResultDict, auditResults, validationResults } =
           await handleInferenceRequestEndToEnd(
             creditPackTicketPastelTxid,
@@ -193,14 +178,11 @@ async function main() {
             maxCreditCostToApproveInferenceRequest,
             burnAddress
           );
-
         logger.info(
-          `Inference result data:\n\n${safeStringify(inferenceResultDict)}`
+          `Inference result data:\n\n${prettyJSON(inferenceResultDict)}`
         );
-        logger.info(`Audit results:\n\n${safeStringify(auditResults)}`);
-        logger.info(
-          `Validation results:\n\n${safeStringify(validationResults)}`
-        );
+        logger.info(`Audit results:\n\n${prettyJSON(auditResults)}`);
+        logger.info(`Validation results:\n\n${prettyJSON(validationResults)}`);
         logger.info(
           "\n_____________________________________________________________________\n"
         );
@@ -299,10 +281,8 @@ async function main() {
             inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
           }`
         );
-        logger.info(`Audit results:\n\n${safeStringify(auditResults)}`);
-        logger.info(
-          `Validation results:\n\n${safeStringify(validationResults)}`
-        );
+        logger.info(`Audit results:\n\n${prettyJSON(auditResults)}`);
+        logger.info(`Validation results:\n\n${prettyJSON(validationResults)}`);
 
         logger.info(
           "\n_____________________________________________________________________\n"

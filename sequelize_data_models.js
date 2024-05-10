@@ -451,10 +451,6 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
     sha3_256_hash_of_credit_pack_purchase_request_fields: {
       type: DataTypes.STRING,
       allowNull: false,
-      references: {
-        model: "credit_pack_purchase_requests",
-        key: "sha3_256_hash_of_credit_pack_purchase_request_fields",
-      },
     },
     credit_pack_purchase_request_fields_json_b64: {
       type: DataTypes.STRING,
@@ -846,15 +842,10 @@ const CreditPackStorageRetryRequestResponse = sequelize.define(
 const InferenceAPIUsageRequest = sequelize.define(
   "InferenceAPIUsageRequest",
   {
-    id: {
+    inference_request_id: {
       type: DataTypes.UUID,
       primaryKey: true,
       defaultValue: DataTypes.UUIDV4,
-    },
-    inference_request_id: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
     },
     requesting_pastelid: {
       type: DataTypes.STRING,

@@ -340,6 +340,10 @@ class PastelInferenceClient {
         quotedPricePerCredit,
         estimatedPricePerCredit
       );
+
+    const numberFormat = new Intl.NumberFormat("en-US");
+    const percentageFormat = (value) => value.toFixed(2);
+
     if (
       quotedPricePerCredit <= maximumPerCreditPriceInPSL &&
       quotedTotalPrice <= maximumTotalCreditPackPriceInPSL &&
@@ -348,24 +352,40 @@ class PastelInferenceClient {
           .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
     ) {
       logger.info(
-        `Preliminary price quote is within the acceptable range: ${quotedPricePerCredit} PSL per credit, ${quotedTotalPrice} PSL total, which is within the maximum of ${maximumPerCreditPriceInPSL} PSL per credit and ${maximumTotalCreditPackPriceInPSL} PSL total. The price difference from the estimated fair market price is ${
+        `Preliminary price quote is within the acceptable range: ${numberFormat.format(
+          quotedPricePerCredit
+        )} PSL per credit, ${numberFormat.format(
+          quotedTotalPrice
+        )} PSL total, which is within the maximum of ${numberFormat.format(
+          maximumPerCreditPriceInPSL
+        )} PSL per credit and ${numberFormat.format(
+          maximumTotalCreditPackPriceInPSL
+        )} PSL total. The price difference from the estimated fair market price is ${percentageFormat(
           priceDifferencePercentage * 100
-        }%, which is within the allowed maximum of ${
+        )}%, which is within the allowed maximum of ${percentageFormat(
           process.env
             .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
-          100
-        }%.`
+            100
+        )}%.`
       );
       return true;
     } else {
       logger.warn(
-        `Preliminary price quote exceeds the maximum acceptable price or the price difference from the estimated fair price is too high! Quoted price: ${quotedPricePerCredit} PSL per credit, ${quotedTotalPrice} PSL total, maximum price: ${maximumPerCreditPriceInPSL} PSL per credit, ${maximumTotalCreditPackPriceInPSL} PSL total. The price difference from the estimated fair market price is ${
+        `Preliminary price quote exceeds the maximum acceptable price or the price difference from the estimated fair price is too high! Quoted price: ${numberFormat.format(
+          quotedPricePerCredit
+        )} PSL per credit, ${numberFormat.format(
+          quotedTotalPrice
+        )} PSL total, maximum price: ${numberFormat.format(
+          maximumPerCreditPriceInPSL
+        )} PSL per credit, ${numberFormat.format(
+          maximumTotalCreditPackPriceInPSL
+        )} PSL total. The price difference from the estimated fair market price is ${percentageFormat(
           priceDifferencePercentage * 100
-        }%, which exceeds the allowed maximum of ${
+        )}%, which exceeds the allowed maximum of ${percentageFormat(
           process.env
             .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
-          100
-        }%.`
+            100
+        )}%.`
       );
       return false;
     }
@@ -537,86 +557,6 @@ class PastelInferenceClient {
     }
   }
 
-  async checkStatusOfCreditPurchaseRequest(
-    supernodeURL,
-    creditPackPurchaseRequestHash
-  ) {
-    try {
-      const { challenge, challenge_id, challenge_signature } =
-        await this.requestAndSignChallenge(supernodeURL);
-
-      const statusCheck = CreditPackRequestStatusCheck.build({
-        sha3_256_hash_of_credit_pack_purchase_request_fields:
-          creditPackPurchaseRequestHash,
-        requesting_end_user_pastelid: this.pastelID,
-        requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
-          await signMessageWithPastelID(
-            this.pastelID,
-            creditPackPurchaseRequestHash,
-            this.passphrase
-          ),
-      });
-
-      const { error: validationError, value: validatedStatusCheck } =
-        await creditPackRequestStatusCheckSchema.validate(statusCheck.toJSON());
-      if (validationError) {
-        throw new Error(
-          `Invalid credit pack request status check: ${validationError.message}`
-        );
-      }
-
-      await CreditPackRequestStatusCheck.create(validatedStatusCheck);
-
-      const payload = await prepareModelForEndpoint(statusCheck);
-      logActionWithPayload(
-        "checking",
-        "status of credit pack purchase request",
-        payload
-      );
-
-      const response = await axios.post(
-        `${supernodeURL}/check_status_of_credit_purchase_request`,
-        {
-          credit_pack_request_status_check: payload,
-          challenge,
-          challenge_id,
-          challenge_signature,
-        },
-        {
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
-        }
-      );
-
-      const result = response.data;
-      logActionWithPayload(
-        "receiving",
-        "credit pack purchase request response from Supernode",
-        result
-      );
-
-      let transformedResult = await prepareModelForValidation(result);
-      const { error: resultError, value: validatedResult } =
-        await creditPackPurchaseRequestStatusSchema.validate(transformedResult);
-      if (resultError) {
-        throw new Error(
-          `Invalid credit pack purchase request status: ${resultError.message}`
-        );
-      }
-
-      const statusInstance = await CreditPackPurchaseRequestStatus.create(
-        validatedResult
-      );
-      return statusInstance;
-    } catch (error) {
-      logger.error(
-        `Error checking status of credit purchase request: ${safeStringify(
-          error.message
-        )}`
-      );
-      throw error;
-    }
-  }
-
   async confirmCreditPurchaseRequest(
     supernodeURL,
     creditPackPurchaseRequestConfirmation
@@ -624,7 +564,6 @@ class PastelInferenceClient {
     try {
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
       const payload = await prepareModelForEndpoint(
         creditPackPurchaseRequestConfirmation
       );
@@ -633,7 +572,6 @@ class PastelInferenceClient {
         "credit pack purchase request",
         payload
       );
-
       const response = await axios.post(
         `${supernodeURL}/confirm_credit_purchase_request`,
         {
@@ -646,14 +584,12 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 30 * 1000, // Need to be patient with the timeout here since it requires the transaction to be mined/confirmed
         }
       );
-
       const result = response.data;
       logActionWithPayload(
         "receiving",
         "response to credit pack purchase confirmation",
         result
       );
-
       const { error: validationError, value: validatedResult } =
         await creditPackPurchaseRequestConfirmationResponseSchema.validate(
           result
@@ -663,11 +599,8 @@ class PastelInferenceClient {
           `Invalid credit pack purchase request confirmation response: ${validationError.message}`
         );
       }
-
       const creditPackPurchaseRequestConfirmationResponseInstance =
-        await CreditPackPurchaseRequestConfirmationResponse.create(
-          validatedResult
-        );
+        await CreditPackPurchaseRequestConfirmationResponse.create(result);
       return creditPackPurchaseRequestConfirmationResponseInstance;
     } catch (error) {
       logger.error(
@@ -679,36 +612,116 @@ class PastelInferenceClient {
     }
   }
 
+  async checkStatusOfCreditPurchaseRequest(
+    supernodeURL,
+    creditPackPurchaseRequestHash
+  ) {
+    try {
+      // Request challenge from the server
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+      // Build and validate the status check model
+      const statusCheck = CreditPackRequestStatusCheck.build({
+        sha3_256_hash_of_credit_pack_purchase_request_fields:
+          creditPackPurchaseRequestHash,
+        requesting_end_user_pastelid: this.pastelID,
+        requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
+          await signMessageWithPastelID(
+            this.pastelID,
+            creditPackPurchaseRequestHash,
+            this.passphrase
+          ),
+      });
+      const { error: validationError, value: validatedStatusCheck } =
+        await creditPackRequestStatusCheckSchema.validate(statusCheck.toJSON());
+      if (validationError) {
+        logger.error(
+          `Invalid credit pack request status check: ${validationError.message}`
+        );
+        throw new Error(
+          `Invalid credit pack request status check: ${validationError.message}`
+        );
+      }
+      delete validatedStatusCheck["id"];
+      logActionWithPayload(
+        "checking",
+        "status of credit pack purchase request",
+        validatedStatusCheck
+      );
+      // Send the request to the server
+      const response = await axios.post(
+        `${supernodeURL}/check_status_of_credit_purchase_request`,
+        {
+          credit_pack_request_status_check: validatedStatusCheck,
+          challenge,
+          challenge_id,
+          challenge_signature,
+        },
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+      // Check response status and handle any errors
+      if (response.status !== 200) {
+        throw new Error(
+          `HTTP error ${response.status}: ${response.statusText}`
+        );
+      }
+      logActionWithPayload(
+        "receiving",
+        "credit pack purchase request response from Supernode",
+        response.data
+      );
+      // Validate the received result
+      let transformedResult = await prepareModelForValidation(response.data);
+      delete transformedResult["id"];
+      const { error: resultError, value: validatedResult } =
+        await creditPackPurchaseRequestStatusSchema.validate(transformedResult);
+      if (resultError) {
+        throw new Error(
+          `Invalid credit pack purchase request status: ${resultError.message}`
+        );
+      }
+      // Create and return the status instance from the validated result
+      const statusInstance = await CreditPackPurchaseRequestStatus.create(
+        validatedResult
+      );
+      return statusInstance;
+    } catch (error) {
+      logger.error(
+        `Error checking status of credit purchase request: ${safeStringify(
+          error.message
+        )}`
+      );
+      throw error; // Rethrow to handle error upstream
+    }
+  }
+
   async creditPackPurchaseCompletionAnnouncement(
     supernodeURL,
     creditPackPurchaseRequestConfirmation
   ) {
     try {
+      // Validate the incoming data
       const { error, value: validatedConfirmation } =
         await creditPackPurchaseRequestConfirmationSchema.validate(
           creditPackPurchaseRequestConfirmation.toJSON()
         );
       if (error) {
+        logger.error(
+          `Invalid credit pack purchase request confirmation: ${error.message}`
+        );
         throw new Error(
           `Invalid credit pack purchase request confirmation: ${error.message}`
         );
       }
-
-      const confirmationInstance =
-        await CreditPackPurchaseRequestConfirmation.create(
-          validatedConfirmation
-        );
-
+      // Request challenge from the server
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
-      const payload = await prepareModelForEndpoint(confirmationInstance);
-      logActionWithPayload(
-        "sending",
-        "purchase completion announcement message",
-        payload
-      );
-
+      // Prepare the model for the endpoint
+      let payload = validatedConfirmation;
+      delete payload["id"]; // Removing the 'id' key as done in the Python method
+      // Send the request to the server
       const response = await axios.post(
         `${supernodeURL}/credit_pack_purchase_completion_announcement`,
         {
@@ -721,15 +734,19 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
         }
       );
-
-      response.data; // Access the response data to trigger any potential errors
+      // Check response status and handle any errors
+      if (response.status !== 200) {
+        throw new Error(
+          `HTTP error ${response.status}: ${response.statusText}`
+        );
+      }
     } catch (error) {
       logger.error(
-        `Error sending credit pack purchase completion announcement: ${safeStringify(
-          error.message
-        )}`
+        `Error sending credit pack purchase completion announcement: ${
+          error.message || error
+        }`
       );
-      throw error;
+      throw error; // Rethrow to handle error upstream
     }
   }
 
@@ -866,21 +883,22 @@ class PastelInferenceClient {
           `Invalid inference API usage request: ${error.message}`
         );
       }
-
+      delete validatedRequest["id"];
       const requestInstance = await InferenceAPIUsageRequest.create(
         validatedRequest
       );
-
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
       const payload = await prepareModelForEndpoint(requestInstance);
-      logActionWithPayload("making", "inference usage request", payload);
-
+      logActionWithPayload(
+        "making",
+        "inference usage request",
+        validatedRequest
+      );
       const response = await axios.post(
         `${supernodeURL}/make_inference_api_usage_request`,
         {
-          inference_api_usage_request: payload,
+          inference_api_usage_request: validatedRequest,
           challenge,
           challenge_id,
           challenge_signature,
@@ -889,14 +907,12 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 6 * 1000,
         }
       );
-
       const result = response.data;
       logActionWithPayload(
         "received",
         "response to inference usage request",
         result
       );
-
       let transformedResult = await prepareModelForValidation(result);
       const { error: responseError, value: validatedResponse } =
         await inferenceAPIUsageResponseSchema.validate(transformedResult);
@@ -912,9 +928,7 @@ class PastelInferenceClient {
       return responseInstance;
     } catch (error) {
       logger.error(
-        `Error making inference API usage request: ${safeStringify(
-          error.message
-        )}`
+        `Error making inference API usage request: ${safeStringify(error)}`
       );
       throw error;
     }
@@ -1183,13 +1197,13 @@ class PastelInferenceClient {
     pastelIDOfSupernodeToAudit
   ) {
     try {
-      const supernodeListDF = await checkSupernodeList();
+      const { validMasternodeListFullDF, _ } = await checkSupernodeList();
       const n = 4;
       const supernodeURLsAndPastelIDs =
         await getNClosestSupernodesToPastelIDURLs(
           n,
           this.pastelID,
-          supernodeListDF
+          validMasternodeListFullDF
         );
       const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs
         .filter(({ pastelID }) => pastelID !== pastelIDOfSupernodeToAudit)
@@ -1316,7 +1330,6 @@ class PastelInferenceClient {
           }
         }
       }
-
       return false;
     } catch (error) {
       logger.error(
@@ -1334,13 +1347,13 @@ class PastelInferenceClient {
     desiredModelParametersJSON
   ) {
     try {
-      const supernodeListDF = await checkSupernodeList();
-      const n = supernodeListDF.length;
+      const { validMasternodeListFullDF, _ } = await checkSupernodeList();
+      const n = validMasternodeListFullDF.length;
       const supernodeURLsAndPastelIDs =
         await getNClosestSupernodesToPastelIDURLs(
           n,
           this.pastelID,
-          supernodeListDF
+          validMasternodeListFullDF
         );
       const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs.map(
         ({ pastelID }) => pastelID
@@ -1351,11 +1364,10 @@ class PastelInferenceClient {
       const listOfSupernodeIPs = listOfSupernodeURLs.map(
         (url) => url.split("//")[1].split(":")[0]
       );
-
+      const formattedIPs = listOfSupernodeIPs.join(", ");
       logger.info(
-        `Now attempting to check which supernodes support the desired model (${desiredModelCanonicalString}) with ${listOfSupernodePastelIDs.length} closest supernodes (with Supernode IPs of ${listOfSupernodeIPs})...`
+        `Now attempting to check which supernodes support the desired model (${desiredModelCanonicalString}) with ${listOfSupernodePastelIDs.length} closest supernodes (with Supernode IPs of ${formattedIPs})...`
       );
-
       const modelSupportTasks = listOfSupernodeURLs.map((url) =>
         this.checkIfSupernodeSupportsDesiredModel(
           url,
@@ -1365,7 +1377,6 @@ class PastelInferenceClient {
         )
       );
       const modelSupportResults = await Promise.all(modelSupportTasks);
-
       const supernodeSupportDict = listOfSupernodePastelIDs.reduce(
         (dict, pastelID, index) => {
           dict[pastelID] = modelSupportResults[index];
@@ -1373,7 +1384,6 @@ class PastelInferenceClient {
         },
         {}
       );
-
       logger.info(
         `Found ${
           modelSupportResults.filter(Boolean).length
@@ -1381,7 +1391,6 @@ class PastelInferenceClient {
           modelSupportResults.length
         } checked.`
       );
-
       const closestSupportingSupernodePastelID =
         modelSupportResults.indexOf(true) !== -1
           ? listOfSupernodePastelIDs[modelSupportResults.indexOf(true)]
@@ -1390,11 +1399,9 @@ class PastelInferenceClient {
         modelSupportResults.indexOf(true) !== -1
           ? listOfSupernodeURLs[modelSupportResults.indexOf(true)]
           : null;
-
       logger.info(
         `Closest supporting supernode PastelID: ${closestSupportingSupernodePastelID} | URL: ${closestSupportingSupernodeURL}`
       );
-
       return {
         supernodeSupportDict,
         closestSupportingSupernodePastelID,

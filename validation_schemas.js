@@ -259,6 +259,7 @@ const creditPackStorageRetryRequestResponseSchema = Joi.object({
 });
 
 const inferenceAPIUsageRequestSchema = Joi.object({
+  id: Joi.string().guid({ version: "uuidv4" }).required(),
   inference_request_id: Joi.string().required(),
   requesting_pastelid: Joi.string().required(),
   credit_pack_ticket_pastel_txid: Joi.string().required(),
@@ -275,6 +276,7 @@ const inferenceAPIUsageRequestSchema = Joi.object({
 });
 
 const inferenceAPIUsageResponseSchema = Joi.object({
+  id: Joi.string().guid({ version: "uuidv4" }).required(),
   inference_response_id: Joi.string().required(),
   inference_request_id: Joi.string().required(),
   proposed_cost_of_request_in_inference_credits: Joi.number().required(),
@@ -312,6 +314,7 @@ const inferenceAPIOutputResultSchema = Joi.object({
 });
 
 const inferenceConfirmationSchema = Joi.object({
+  id: Joi.string().guid({ version: "uuidv4" }).required(),
   inference_request_id: Joi.string().required(),
   requesting_pastelid: Joi.string().required(),
   confirmation_transaction: Joi.string().required(),

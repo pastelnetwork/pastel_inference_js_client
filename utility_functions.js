@@ -3,7 +3,6 @@ const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
 const Sequelize = require("sequelize");
-const { v4: uuidv4 } = require("uuid");
 const { logger, safeStringify } = require("./logger");
 
 const {
@@ -90,35 +89,44 @@ async function estimatedMarketPriceOfInferenceCreditsInPSLTerms() {
 
 function parseAndFormat(value) {
   try {
-    if (typeof value === "string" && value.includes("\n")) {
-      return value;
+    if (typeof value === "string") {
+      // Check if the JSON string is already formatted
+      if (value.includes("\n")) {
+        return value;
+      }
+      // Parse JSON string to handle it properly
+      const parsedValue = JSON.parse(value);
+      return JSON.stringify(parsedValue, null, 4); // Indent JSON string
     }
-    const parsedValue = typeof value === "string" ? JSON.parse(value) : value;
-    return safeStringify(parsedValue, null, 4);
+    return JSON.stringify(value, null, 4); // Format other values
   } catch (error) {
-    logger.error(`Error parsing and formatting value: ${error.message}`);
-    return value;
+    return value; // Return original value if parsing fails
   }
 }
 
 function prettyJSON(data) {
-  if (typeof data === "object" && data !== null) {
+  if (data instanceof Sequelize.Model) {
+    data = data.get({ plain: true }); // Convert Sequelize models to plain objects
+  }
+  if (data instanceof Map) {
+    data = Object.fromEntries(data); // Convert Map to object
+  }
+  if (Array.isArray(data) || (typeof data === "object" && data !== null)) {
     const formattedData = {};
     for (const [key, value] of Object.entries(data)) {
-      if (key.endsWith("_json")) {
+      if (typeof value === "string" && key.endsWith("_json")) {
         formattedData[key] = parseAndFormat(value);
       } else if (typeof value === "object" && value !== null) {
-        formattedData[key] = prettyJSON(value);
+        formattedData[key] = prettyJSON(value); // Recurse for nested objects
       } else {
-        formattedData[key] = value;
+        formattedData[key] = value; // Handle other types
       }
     }
-    return safeStringify(formattedData, null, 4);
+    return JSON.stringify(formattedData, null, 4); // Pretty print the object
   } else if (typeof data === "string") {
-    return parseAndFormat(data);
-  } else {
-    return data;
+    return parseAndFormat(data); // Handle strings separately
   }
+  return data; // Return data as is for other types
 }
 
 function logActionWithPayload(action, payloadName, jsonPayload) {
@@ -492,9 +500,11 @@ async function getClosestSupernodePastelIDFromList(
       return { pastelID: supernodePastelID, distance };
     })
   );
-  const sortedXorDistances = xorDistances.sort(
-    (a, b) => a.distance - b.distance
-  );
+  const sortedXorDistances = xorDistances.sort((a, b) => {
+    if (a.distance < b.distance) return -1;
+    if (a.distance > b.distance) return 1;
+    return 0;
+  });
   return sortedXorDistances[0].pastelID;
 }
 
@@ -622,7 +632,7 @@ async function getClosestSupernodeToPastelIDURL(
       inputPastelID,
       listOfSupernodePastelIDs
     );
-    const supernodeURL = await getSupernodeURLFromPastelID(
+    const supernodeURL = await getSupernodeUrlFromPastelID(
       closestSupernodePastelID,
       supernodeListDF
     );
