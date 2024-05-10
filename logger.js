@@ -83,7 +83,6 @@ function safeStringify(obj, space = 2) {
     }
     return value;
   };
-
   // Return the stringified object with sorted keys
   return JSON.stringify(obj, replacer, space);
 }

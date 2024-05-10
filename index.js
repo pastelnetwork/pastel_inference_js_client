@@ -30,7 +30,7 @@ async function main() {
 
   const useTestMessagingFunctionality = false;
   const useTestCreditPackTicketFunctionality = false;
-  const useTestCreditPackTicketUsage = false;
+  const useTestCreditPackTicketUsage = true;
   const useTestInferenceRequestFunctionality = true;
   const useTestLLMTextCompletion = true;
   const useTestImageGeneration = false;

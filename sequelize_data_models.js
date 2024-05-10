@@ -863,8 +863,8 @@ const InferenceAPIUsageRequest = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    model_parameters_json: {
-      type: DataTypes.JSON,
+    model_parameters_json_b64: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
     model_input_data_json_b64: {
@@ -905,11 +905,6 @@ const InferenceAPIUsageRequest = sequelize.define(
 const InferenceAPIUsageResponse = sequelize.define(
   "InferenceAPIUsageResponse",
   {
-    id: {
-      type: DataTypes.UUID,
-      primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
-    },
     inference_response_id: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -973,11 +968,6 @@ const InferenceAPIUsageResponse = sequelize.define(
 const InferenceAPIOutputResult = sequelize.define(
   "InferenceAPIOutputResult",
   {
-    id: {
-      type: DataTypes.UUID,
-      primaryKey: true,
-      defaultValue: DataTypes.UUIDV4,
-    },
     inference_result_id: {
       type: DataTypes.STRING,
       allowNull: false,

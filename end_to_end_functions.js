@@ -527,13 +527,14 @@ async function handleInferenceRequestEndToEnd(
     }
     const inputPromptToLLMBase64Encoded =
       Buffer.from(inputPromptToLLM).toString("base64");
+    const modelParametersJSONBase64Encoded =
+      Buffer.from(modelParametersJSON).toString("base64");
     const inferenceRequestData = InferenceAPIUsageRequest.build({
-      inference_request_id: crypto.randomUUID(),
       requesting_pastelid: MY_LOCAL_PASTELID,
       credit_pack_ticket_pastel_txid: creditPackTicketPastelTxid,
       requested_model_canonical_string: requestedModelCanonicalString,
       model_inference_type_string: modelInferenceTypeString,
-      model_parameters_json: modelParametersJSON,
+      model_parameters_json_b64: modelParametersJSONBase64Encoded,
       model_input_data_json_b64: inputPromptToLLMBase64Encoded,
       inference_request_utc_iso_string: new Date().toISOString(),
       inference_request_pastel_block_height:
@@ -555,19 +556,6 @@ async function handleInferenceRequestEndToEnd(
       );
     inferenceRequestData.requesting_pastelid_signature_on_request_hash =
       requestingPastelIDSignatureOnRequestHash;
-    const {
-      error: inferenceRequestValidationError,
-      value: validatedInferenceRequestData,
-    } = await inferenceAPIUsageRequestSchema.validate(
-      inferenceRequestData.toJSON()
-    );
-    if (inferenceRequestValidationError) {
-      throw new Error(
-        `Invalid inference API usage request: ${inferenceRequestValidationError.message}`
-      );
-    }
-    const _inferenceAPIUsageRequestInstance =
-      await InferenceAPIUsageRequest.create(validatedInferenceRequestData);
     const usageRequestResponse =
       await inferenceClient.makeInferenceAPIUsageRequest(
         supernodeURL,
@@ -580,13 +568,11 @@ async function handleInferenceRequestEndToEnd(
         `Invalid inference API usage response: ${inferenceResponseValidationError.message}`
       );
     }
-
     logger.info(
       `Received inference API usage request response from SN:\n${prettyJSON(
         usageRequestResponse
       )}`
     );
-
     const validationErrors = await validateCreditPackTicketMessageData(
       usageRequestResponse
     );
@@ -611,7 +597,6 @@ async function handleInferenceRequestEndToEnd(
       parseFloat(
         usageRequestResponseDict.request_confirmation_message_amount_in_patoshis
       ) / 100000;
-
     const trackingAddressBalance = await checkPSLAddressBalanceAlternative(
       creditUsageTrackingPSLAddress
     );
@@ -623,7 +608,6 @@ async function handleInferenceRequestEndToEnd(
       );
       return null;
     }
-
     if (proposedCostInCredits <= maximumInferenceCostInCredits) {
       const trackingTransactionTxid =
         await sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferenceRequest(

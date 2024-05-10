@@ -602,6 +602,29 @@ async function createAndFundNewPSLCreditTrackingAddress(
   }
 }
 
+async function waitForTableCreation() {
+  const maxRetries = 5;
+  const retryDelay = 1000; // 1 second
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await SupernodeList.findOne();
+      return; // Table exists, proceed with data insertion
+    } catch (error) {
+      if (
+        error.name === "SequelizeDatabaseError" &&
+        error.original.code === "SQLITE_ERROR" &&
+        error.original.errno === 1
+      ) {
+        // Table doesn't exist, wait and retry
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } else {
+        throw error; // Rethrow other errors
+      }
+    }
+  }
+  throw new Error("Table creation timed out.");
+}
+
 async function checkSupernodeList() {
   try {
     const isConnectionReady = await waitForRPCConnection();
@@ -664,6 +687,9 @@ async function checkSupernodeList() {
     if (validation.error) {
       throw new Error(`Validation error: ${validation.error.message}`);
     }
+    // Wait for the table to be created before inserting data
+    await waitForTableCreation();
+
     try {
       const _ = await SupernodeList.bulkCreate(validMasternodeListFullDF, {
         updateOnDuplicate: [
