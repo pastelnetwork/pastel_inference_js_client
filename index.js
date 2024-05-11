@@ -30,9 +30,9 @@ async function main() {
 
   const useTestMessagingFunctionality = false;
   const useTestCreditPackTicketFunctionality = false;
-  const useTestCreditPackTicketUsage = true;
-  const useTestInferenceRequestFunctionality = true;
-  const useTestLLMTextCompletion = true;
+  const useTestCreditPackTicketUsage = false;
+  const useTestInferenceRequestFunctionality = false;
+  const useTestLLMTextCompletion = false;
   const useTestImageGeneration = false;
 
   const inferenceClient = new PastelInferenceClient(

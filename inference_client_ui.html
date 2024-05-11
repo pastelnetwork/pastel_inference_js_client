@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pastel Inference Client UI</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+      }
+
+      .tooltip::before {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px;
+        background-color: #000;
+        color: #fff;
+        font-size: 14px;
+        border-radius: 4px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .tooltip:hover::before {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 font-sans">
+    <header
+      class="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-6"
+    >
+      <div class="container mx-auto px-4">
+        <h1 class="text-3xl font-bold tracking-tight">
+          Pastel Inference Client UI
+        </h1>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-12">
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">User Information</h2>
+        <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8">
+          <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2">
+              Your PastelID:
+            </label>
+            <span id="userPastelID" class="text-gray-700">Loading...</span>
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2">
+              Wallet Balance (PSL):
+            </label>
+            <span id="walletBalance" class="text-gray-700">Loading...</span>
+          </div>
+          <button
+            id="createPastelIDButton"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            style="display: none"
+          >
+            Create a PastelID so you can make inference requests? (Costs 1,000
+            PSL)
+          </button>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">Create New Credit Pack Ticket</h2>
+        <form
+          id="createTicketForm"
+          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
+        >
+          <div class="mb-6">
+            <label class="block text-gray-700 font-bold mb-2" for="numCredits">
+              Number of Credits
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="numCredits"
+              type="number"
+              placeholder="Enter number of credits"
+              value="1500"
+            />
+          </div>
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="creditUsageTrackingPSLAddress"
+            >
+              Credit Usage Tracking PSL Address
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="creditUsageTrackingPSLAddress"
+              type="text"
+              placeholder="Enter credit usage tracking PSL address"
+              value="tPsj2K9tnWQWNUmunqJYvKQsKqXrewJFrFK"
+            />
+          </div>
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="maxTotalPrice"
+            >
+              Maximum Total Price (PSL)
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="maxTotalPrice"
+              type="number"
+              step="0.01"
+              placeholder="Enter maximum total price"
+              value="150000"
+            />
+          </div>
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="maxPerCreditPrice"
+            >
+              Maximum Per Credit Price (PSL)
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="maxPerCreditPrice"
+              type="number"
+              step="0.01"
+              placeholder="Enter maximum per credit price"
+              value="0.1"
+            />
+          </div>
+          <div class="flex justify-between">
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Create Ticket
+            </button>
+            <button
+              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="button"
+              id="clearTicketForm"
+            >
+              Clear Demo Input
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">Select Credit Pack Ticket</h2>
+        <div class="relative inline-block w-full text-gray-700">
+          <select
+            id="creditPackTicketSelect"
+            class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+          >
+            <option value="">Select a credit pack ticket</option>
+            <option value="ticket1" selected>
+              Ticket 1 - 1500 credits - 150000 PSL
+            </option>
+            <option value="ticket2">
+              Ticket 2 - 1000 credits - 100000 PSL
+            </option>
+            <option value="ticket3">Ticket 3 - 500 credits - 50000 PSL</option>
+          </select>
+          <div
+            class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+          >
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+              <path
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+                fill-rule="evenodd"
+              ></path>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">Check Credit Pack Ticket Info</h2>
+        <form
+          id="checkCreditPackForm"
+          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
+        >
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="creditPackTxid"
+            >
+              Credit Pack Ticket TXID
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="creditPackTxid"
+              type="text"
+              placeholder="Enter credit pack ticket TXID"
+              value="e8954607c3e64a00e81b216516f403b687698c59ca31ef3faf92793a113fcd5e"
+            />
+          </div>
+          <div class="flex justify-between">
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Check Credit Pack
+            </button>
+            <button
+              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="button"
+              id="clearCheckCreditPackForm"
+            >
+              Clear Demo Input
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold mb-6">Create New Inference Request</h2>
+        <form
+          id="inferenceRequestForm"
+          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
+        >
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="inferenceType"
+            >
+              Inference Type
+            </label>
+            <div class="relative inline-block w-full text-gray-700">
+              <select
+                id="inferenceType"
+                class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+              >
+                <option value="">Select an inference type</option>
+                <option value="text_completion" selected>
+                  Text Completion
+                </option>
+                <option value="image_generation">Image Generation</option>
+              </select>
+              <div
+                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+              >
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                  <path
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                    fill-rule="evenodd"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="mb-6">
+            <label class="block text-gray-700 font-bold mb-2" for="model">
+              Model/Service
+            </label>
+            <div class="relative inline-block w-full text-gray-700">
+              <select
+                id="model"
+                class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+              >
+                <option value="">Select a model/service</option>
+                <option value="claude3-opus" selected>Claude3-Opus</option>
+                <option value="gpt-3">GPT-3</option>
+              </select>
+              <div
+                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+              >
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                  <path
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                    fill-rule="evenodd"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div id="textCompletionSettings">
+            <div class="mb-6">
+              <label class="block text-gray-700 font-bold mb-2" for="prompt">
+                Prompt
+              </label>
+              <textarea
+                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                id="prompt"
+                rows="5"
+                placeholder="Enter your prompt"
+              >
+How do you measure the speed of an earthquake?</textarea
+              >
+            </div>
+            <div class="mb-6">
+              <label class="block text-gray-700 font-bold mb-2" for="maxTokens">
+                Max Tokens
+              </label>
+              <input
+                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                id="maxTokens"
+                type="number"
+                placeholder="Enter maximum tokens"
+                value="2000"
+              />
+            </div>
+            <div class="mb-6">
+              <label
+                class="block text-gray-700 font-bold mb-2"
+                for="numCompletions"
+              >
+                Number of Completions
+              </label>
+              <input
+                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                id="numCompletions"
+                type="number"
+                placeholder="Enter number of completions"
+                value="1"
+              />
+            </div>
+          </div>
+          <div id="imageGenerationSettings" style="display: none">
+            <div class="mb-6">
+              <label
+                class="block text-gray-700 font-bold mb-2"
+                for="imagePrompt"
+              >
+                Image Prompt
+              </label>
+              <textarea
+                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                id="imagePrompt"
+                rows="5"
+                placeholder="Enter your image prompt"
+              >
+A picture of a clown holding a sign that says PASTEL</textarea
+              >
+            </div>
+            <div class="mb-6">
+              <label
+                class="block text-gray-700 font-bold mb-2"
+                for="stylePreset"
+              >
+                Style Preset
+              </label>
+              <div class="relative inline-block w-full text-gray-700">
+                <select
+                  id="stylePreset"
+                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+                >
+                  <option value="">Select a style preset</option>
+                  <option value="photographic" selected>Photographic</option>
+                  <option value="digital-art">Digital Art</option>
+                  <option value="comic-book">Comic Book</option>
+                  <!-- Add more style preset options as needed -->
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                >
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                    <path
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clip-rule="evenodd"
+                      fill-rule="evenodd"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="mb-6">
+              <label
+                class="block text-gray-700 font-bold mb-2"
+                for="outputFormat"
+              >
+                Output Format
+              </label>
+              <div class="relative inline-block w-full text-gray-700">
+                <select
+                  id="outputFormat"
+                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+                >
+                  <option value="">Select an output format</option>
+                  <option value="png" selected>PNG</option>
+                  <option value="jpeg">JPEG</option>
+                  <option value="webp">WebP</option>
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                >
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                    <path
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clip-rule="evenodd"
+                      fill-rule="evenodd"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="mb-6">
+              <label
+                class="block text-gray-700 font-bold mb-2"
+                for="aspectRatio"
+              >
+                Aspect Ratio
+              </label>
+              <div class="relative inline-block w-full text-gray-700">
+                <select
+                  id="aspectRatio"
+                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
+                >
+                  <option value="">Select an aspect ratio</option>
+                  <option value="16:9" selected>16:9</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:5">4:5</option>
+                  <!-- Add more aspect ratio options as needed -->
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                >
+                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                    <path
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clip-rule="evenodd"
+                      fill-rule="evenodd"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-6">
+            <label class="block text-gray-700 font-bold mb-2" for="maxCost">
+              Maximum Cost (Credits)
+            </label>
+            <input
+              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              id="maxCost"
+              type="number"
+              step="0.01"
+              placeholder="Enter maximum cost"
+              value="200"
+            />
+          </div>
+          <div class="flex justify-between">
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Create Inference Request
+            </button>
+            <button
+              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+              type="button"
+              id="clearInferenceForm"
+            >
+              Clear Demo Input
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">Send and Receive Messages</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div>
+            <h3 class="text-xl font-bold mb-4">Send Message</h3>
+            <form
+              id="sendMessageForm"
+              class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
+            >
+              <div class="mb-6">
+                <label
+                  class="block text-gray-700 font-bold mb-2"
+                  for="toPastelID"
+                >
+                  Recipient Pastel ID
+                </label>
+                <input
+                  class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                  id="toPastelID"
+                  type="text"
+                  placeholder="Enter recipient Pastel ID"
+                  value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr"
+                />
+              </div>
+              <div class="mb-6">
+                <label
+                  class="block text-gray-700 font-bold mb-2"
+                  for="messageBody"
+                >
+                  Message Body
+                </label>
+                <textarea
+                  class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+                  id="messageBody"
+                  rows="5"
+                  placeholder="Enter your message"
+                >
+      Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
+                >
+              </div>
+              <div class="flex justify-between">
+                <button
+                  class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+                  type="submit"
+                >
+                  Send Message
+                </button>
+                <button
+                  class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
+                  type="button"
+                  id="clearMessageForm"
+                >
+                  Clear Demo Input
+                </button>
+              </div>
+            </form>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold mb-4">Received Messages</h3>
+            <div
+              id="receivedMessages"
+              class="bg-white shadow-lg rounded-lg px-8 py-6"
+            >
+              <!-- Received messages will be dynamically populated here -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6">Manage Wallet</h2>
+        <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8">
+          <div class="mb-4">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="importPrivKey"
+            >
+              Import Private Key
+              <span
+                class="tooltip"
+                data-tooltip="Import a private key into your wallet."
+                >&#9432;</span
+              >
+            </label>
+            <input
+              id="importPrivKey"
+              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              type="text"
+              placeholder="Enter private key"
+            />
+            <button
+              id="importPrivKeyButton"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2"
+            >
+              Import
+            </button>
+          </div>
+          <div class="mb-4">
+            <label
+              class="block text-gray-700 font-bold mb-2"
+              for="importWallet"
+            >
+              Import Wallet
+              <span
+                class="tooltip"
+                data-tooltip="Import a wallet file into your wallet."
+                >&#9432;</span
+              >
+            </label>
+            <input
+              id="importWallet"
+              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+              type="file"
+              accept=".dat"
+            />
+            <button
+              id="importWalletButton"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2"
+            >
+              Import
+            </button>
+          </div>
+          <div class="mb-4">
+            <button
+              id="listAddressAmountsButton"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              List Address Amounts
+              <span
+                class="tooltip"
+                data-tooltip="List the amounts associated with each address in your wallet."
+                >&#9432;</span
+              >
+            </button>
+          </div>
+          <div class="mb-4">
+            <button
+              id="getWalletInfoButton"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              Get Wallet Info
+              <span
+                class="tooltip"
+                data-tooltip="Retrieve information about your wallet."
+                >&#9432;</span
+              >
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-6">
+      <div class="container mx-auto px-4">
+        <p class="text-center">
+          &copy; 2023 Pastel Inference Client UI. All rights reserved.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Handle create ticket form submission
+      const createTicketForm = document.getElementById("createTicketForm");
+      createTicketForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const numCredits = parseInt(
+          document.getElementById("numCredits").value
+        );
+        const creditUsageTrackingPSLAddress = document.getElementById(
+          "creditUsageTrackingPSLAddress"
+        ).value;
+        const maxTotalPrice = parseFloat(
+          document.getElementById("maxTotalPrice").value
+        );
+        const maxPerCreditPrice = parseFloat(
+          document.getElementById("maxPerCreditPrice").value
+        );
+        await createNewCreditPackTicket(
+          numCredits,
+          creditUsageTrackingPSLAddress,
+          maxTotalPrice,
+          maxPerCreditPrice
+        );
+      });
+
+      // Handle check credit pack form submission
+      const checkCreditPackForm = document.getElementById(
+        "checkCreditPackForm"
+      );
+      checkCreditPackForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const creditPackTxid = document.getElementById("creditPackTxid").value;
+        await checkCreditPackTicketInfo(creditPackTxid);
+      });
+
+      // Handle inference request stuff:
+      let modelMenu = null;
+
+      async function fetchModelMenu() {
+        try {
+          const response = await axios.get(
+            `${supernodeURL}/get_inference_model_menu`,
+            {
+              timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+            }
+          );
+          modelMenu = response.data;
+          populateModelDropdown();
+        } catch (error) {
+          console.error("Error fetching model menu:", error);
+        }
+      }
+
+      function populateModelDropdown() {
+        const selectedInferenceType = inferenceTypeSelect.value;
+        const modelSelect = document.getElementById("model");
+        modelSelect.innerHTML =
+          '<option value="">Select a model/service</option>';
+
+        if (modelMenu) {
+          const filteredModels = modelMenu.models.filter((model) =>
+            model.supported_inference_type_strings.includes(
+              selectedInferenceType
+            )
+          );
+
+          filteredModels.forEach((model) => {
+            const option = document.createElement("option");
+            option.value = model.model_name;
+            option.textContent = model.model_name;
+            modelSelect.appendChild(option);
+          });
+        }
+      }
+
+      // Load inference request settings from localStorage
+      function loadInferenceRequestSettings() {
+        const selectedInferenceType = inferenceTypeSelect.value;
+        const storedSettings = localStorage.getItem(
+          `inferenceRequestSettings_${selectedInferenceType}`
+        );
+        if (storedSettings) {
+          const settings = JSON.parse(storedSettings);
+          document.getElementById("model").value = settings.model || "";
+          document.getElementById("prompt").value = settings.prompt || "";
+          document.getElementById("maxTokens").value = settings.maxTokens || "";
+          document.getElementById("numCompletions").value =
+            settings.numCompletions || "";
+          document.getElementById("maxCost").value = settings.maxCost || "";
+          document.getElementById("imagePrompt").value =
+            settings.imagePrompt || "";
+          document.getElementById("stylePreset").value =
+            settings.stylePreset || "";
+          document.getElementById("outputFormat").value =
+            settings.outputFormat || "";
+          document.getElementById("aspectRatio").value =
+            settings.aspectRatio || "";
+        }
+      }
+
+      // Save inference request settings to localStorage
+      function saveInferenceRequestSettings() {
+        const selectedInferenceType = inferenceTypeSelect.value;
+        const settings = {
+          model: document.getElementById("model").value,
+          prompt: document.getElementById("prompt").value,
+          maxTokens: document.getElementById("maxTokens").value,
+          numCompletions: document.getElementById("numCompletions").value,
+          maxCost: document.getElementById("maxCost").value,
+          imagePrompt: document.getElementById("imagePrompt").value,
+          stylePreset: document.getElementById("stylePreset").value,
+          outputFormat: document.getElementById("outputFormat").value,
+          aspectRatio: document.getElementById("aspectRatio").value,
+        };
+        localStorage.setItem(
+          `inferenceRequestSettings_${selectedInferenceType}`,
+          JSON.stringify(settings)
+        );
+      }
+
+      // Fetch the model menu when the page loads
+      fetchModelMenu();
+
+      // Handle inference type change
+      const inferenceTypeSelect = document.getElementById("inferenceType");
+      const textCompletionSettings = document.getElementById(
+        "textCompletionSettings"
+      );
+      const imageGenerationSettings = document.getElementById(
+        "imageGenerationSettings"
+      );
+
+      inferenceTypeSelect.addEventListener("change", () => {
+        const selectedInferenceType = inferenceTypeSelect.value;
+        if (selectedInferenceType === "text_completion") {
+          textCompletionSettings.style.display = "block";
+          imageGenerationSettings.style.display = "none";
+        } else if (selectedInferenceType === "image_generation") {
+          textCompletionSettings.style.display = "none";
+          imageGenerationSettings.style.display = "block";
+        }
+        populateModelDropdown();
+        loadInferenceRequestSettings();
+      });
+
+      // Handle inference request form submission
+      const inferenceRequestForm = document.getElementById(
+        "inferenceRequestForm"
+      );
+      inferenceRequestForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        saveInferenceRequestSettings();
+        const selectedCreditPackTicketId = document.getElementById(
+          "creditPackTicketSelect"
+        ).value;
+        const selectedInferenceType =
+          document.getElementById("inferenceType").value;
+        const selectedModel = document.getElementById("model").value;
+        const prompt = document.getElementById("prompt").value;
+        const maxTokens = parseInt(document.getElementById("maxTokens").value);
+        const numCompletions = parseInt(
+          document.getElementById("numCompletions").value
+        );
+        const maxCost = parseFloat(document.getElementById("maxCost").value);
+        await createNewInferenceRequest(
+          selectedCreditPackTicketId,
+          selectedInferenceType,
+          selectedModel,
+          prompt,
+          maxTokens,
+          numCompletions,
+          maxCost
+        );
+      });
+
+      // Handle clear ticket form button click
+      const clearTicketFormButton = document.getElementById("clearTicketForm");
+      clearTicketFormButton.addEventListener("click", () => {
+        document.getElementById("numCredits").value = "";
+        document.getElementById("creditUsageTrackingPSLAddress").value = "";
+        document.getElementById("maxTotalPrice").value = "";
+        document.getElementById("maxPerCreditPrice").value = "";
+      });
+
+      // Handle clear inference form button click
+      const clearInferenceFormButton =
+        document.getElementById("clearInferenceForm");
+      clearInferenceFormButton.addEventListener("click", () => {
+        document.getElementById("creditPackTicketSelect").selectedIndex = 0;
+        document.getElementById("inferenceType").selectedIndex = 0;
+        document.getElementById("model").selectedIndex = 0;
+        document.getElementById("prompt").value = "";
+        document.getElementById("maxTokens").value = "";
+        document.getElementById("numCompletions").value = "";
+        document.getElementById("maxCost").value = "";
+      });
+
+      // Handle send message form submission
+      const sendMessageForm = document.getElementById("sendMessageForm");
+      sendMessageForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const toPastelID = document.getElementById("toPastelID").value;
+        const messageBody = document.getElementById("messageBody").value;
+        await sendMessage(toPastelID, messageBody);
+        await fetchReceivedMessages();
+      });
+
+      // Handle clear message form button click
+      const clearMessageFormButton =
+        document.getElementById("clearMessageForm");
+      clearMessageFormButton.addEventListener("click", () => {
+        document.getElementById("toPastelID").value = "";
+        document.getElementById("messageBody").value = "";
+      });
+      // Function to fetch and display received messages
+      async function fetchReceivedMessages() {
+        try {
+          const response = await axios.get("/get-received-messages");
+          const messageDict = response.data.messageDict;
+
+          const receivedMessagesContainer =
+            document.getElementById("receivedMessages");
+          receivedMessagesContainer.innerHTML = ""; // Clear previous messages
+
+          for (const pastelId in messageDict) {
+            const messages = messageDict[pastelId];
+            messages.forEach((message) => {
+              const messageElement = document.createElement("div");
+              messageElement.classList.add(
+                "mb-4",
+                "border",
+                "border-gray-300",
+                "rounded-lg",
+                "p-4"
+              );
+
+              const fromPastelIDElement = document.createElement("p");
+              fromPastelIDElement.classList.add(
+                "text-sm",
+                "font-medium",
+                "text-gray-600",
+                "mb-2"
+              );
+              fromPastelIDElement.textContent = `From: ${pastelId}`;
+
+              const messageBodyElement = document.createElement("p");
+              messageBodyElement.classList.add(
+                "text-base",
+                "text-gray-800",
+                "mb-2"
+              );
+              messageBodyElement.textContent = message.message_body;
+
+              const timestampElement = document.createElement("p");
+              timestampElement.classList.add("text-xs", "text-gray-500");
+              timestampElement.textContent = new Date(
+                message.timestamp
+              ).toLocaleString();
+
+              messageElement.appendChild(fromPastelIDElement);
+              messageElement.appendChild(messageBodyElement);
+              messageElement.appendChild(timestampElement);
+
+              receivedMessagesContainer.appendChild(messageElement);
+            });
+          }
+        } catch (error) {
+          console.error("Error retrieving received messages:", error);
+        }
+      }
+
+      // Fetch received messages when the page loads
+      window.addEventListener("DOMContentLoaded", fetchReceivedMessages);
+
+      // Handle clear check credit pack form button click
+      const clearCheckCreditPackFormButton = document.getElementById(
+        "clearCheckCreditPackForm"
+      );
+      clearCheckCreditPackFormButton.addEventListener("click", () => {
+        document.getElementById("creditPackTxid").value = "";
+      });
+
+      // Check user's PastelID and wallet balance on page load
+      window.addEventListener("DOMContentLoaded", async () => {
+        const pastelIDElement = document.getElementById("userPastelID");
+        const walletBalanceElement = document.getElementById("walletBalance");
+        const createPastelIDButton = document.getElementById(
+          "createPastelIDButton"
+        );
+
+        try {
+          const response = await axios.get("/get-wallet-info");
+          const walletInfo = response.data.result;
+
+          if (walletInfo.pastelID) {
+            pastelIDElement.textContent = walletInfo.pastelID;
+          } else {
+            pastelIDElement.textContent = "No PastelID found";
+            createPastelIDButton.style.display = "inline-block";
+          }
+
+          walletBalanceElement.textContent = `${walletInfo.balance} PSL`;
+        } catch (error) {
+          console.error("Error retrieving wallet info:", error);
+        }
+      });
+
+      // Handle create PastelID button click
+      document
+        .getElementById("createPastelIDButton")
+        .addEventListener("click", async () => {
+          try {
+            await axios.post("/check-for-pastel-id", { autoRegister: true });
+            location.reload(); // Refresh the page to update the UI
+          } catch (error) {
+            console.error("Error creating PastelID:", error);
+          }
+        });
+
+      // Handle import private key form submission
+      document
+        .getElementById("importPrivKeyButton")
+        .addEventListener("click", async () => {
+          const privKey = document.getElementById("importPrivKey").value;
+          try {
+            await axios.post("/import-priv-key", { zcashPrivKey: privKey });
+            alert("Private key imported successfully!");
+          } catch (error) {
+            console.error("Error importing private key:", error);
+          }
+        });
+
+      // Handle import wallet form submission
+      document
+        .getElementById("importWalletButton")
+        .addEventListener("click", async () => {
+          const walletFile = document.getElementById("importWallet").files[0];
+          const formData = new FormData();
+          formData.append("walletFile", walletFile);
+          try {
+            await axios.post("/import-wallet", formData);
+            alert("Wallet imported successfully!");
+          } catch (error) {
+            console.error("Error importing wallet:", error);
+          }
+        });
+
+      // Handle list address amounts button click
+      document
+        .getElementById("listAddressAmountsButton")
+        .addEventListener("click", async () => {
+          try {
+            const response = await axios.get("/list-address-amounts");
+            const addressAmounts = response.data.result;
+            console.log("Address amounts:", addressAmounts);
+            // Display the address amounts in the UI as needed
+          } catch (error) {
+            console.error("Error retrieving address amounts:", error);
+          }
+        });
+
+      // Handle get wallet info button click
+      document
+        .getElementById("getWalletInfoButton")
+        .addEventListener("click", async () => {
+          try {
+            const response = await axios.get("/get-wallet-info");
+            const walletInfo = response.data.result;
+            console.log("Wallet info:", walletInfo);
+            // Display the wallet info in the UI as needed
+          } catch (error) {
+            console.error("Error retrieving wallet info:", error);
+          }
+        });
+    </script>
+  </body>
+</html>

@@ -3,13 +3,13 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
+const readline = require("readline");
 const { URL } = require("url");
 const axios = require("axios");
 const Joi = require("joi");
 const { SupernodeList } = require("./sequelize_data_models");
 const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
-
 let rpc_connection;
 
 function getLocalRPCSettings(
@@ -709,6 +709,427 @@ async function checkSupernodeList() {
   }
 }
 
+async function registerPastelID(pastelid, passphrase, address) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets(
+      "register",
+      "id",
+      pastelid,
+      passphrase,
+      address
+    );
+    logger.info(`Registered PastelID: ${pastelid}. TXID: ${result}`);
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error registering PastelID: ${pastelid}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function listPastelIDTickets(filter = "mine", minheight = null) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const params = [filter];
+    if (minheight !== null) {
+      params.push(minheight);
+    }
+    const result = await rpc_connection.tickets("list", "id", ...params);
+    logger.info(`Listed PastelID tickets with filter: ${filter}`);
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error listing PastelID tickets with filter: ${filter}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function findPastelIDTicket(key) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets("find", "id", key);
+    logger.info(`Found PastelID ticket with key: ${key}`);
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error finding PastelID ticket with key: ${key}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function getPastelTicket(txid, decodeProperties = false) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets("get", txid, decodeProperties);
+    logger.info(`Got Pastel ticket with TXID: ${txid}`);
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error getting Pastel ticket with TXID: ${txid}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function listContractTickets(
+  ticketTypeIdentifier,
+  startingBlockHeight = 0
+) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets(
+      "list",
+      "contract",
+      ticketTypeIdentifier,
+      startingBlockHeight
+    );
+    logger.info(
+      `Listed contract tickets of type ${ticketTypeIdentifier} starting from block height ${startingBlockHeight}`
+    );
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error listing contract tickets of type ${ticketTypeIdentifier}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function findContractTicket(key) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets("find", "contract", key);
+    logger.info(`Found contract ticket with key: ${key}`);
+    return result;
+  } catch (error) {
+    logger.error(
+      `Error finding contract ticket with key: ${key}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function getContractTicket(txid, decodeProperties = true) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.tickets("get", txid, decodeProperties);
+    if (result && result.ticket && result.ticket.contract_ticket) {
+      logger.info(`Got contract ticket with TXID: ${txid}`);
+      return result.ticket.contract_ticket;
+    } else {
+      logger.error(`Error getting contract ticket with TXID: ${txid}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(
+      `Error getting contract ticket with TXID: ${txid}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function importPrivKey(zcashPrivKey, label = "", rescan = true) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.importprivkey(
+      zcashPrivKey,
+      label,
+      rescan
+    );
+    logger.info(`Imported private key with label: ${label}`);
+    return result;
+  } catch (error) {
+    logger.error(`Error importing private key: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
+async function importWallet(filename) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.importwallet(filename);
+    logger.info(`Imported wallet from file: ${filename}`);
+    return result;
+  } catch (error) {
+    logger.error(`Error importing wallet: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
+async function listAddressAmounts(includeEmpty = false, isMineFilter = "all") {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.listaddressamounts(
+      includeEmpty,
+      isMineFilter
+    );
+    logger.info(
+      `Listed address amounts with includeEmpty: ${includeEmpty} and isMineFilter: ${isMineFilter}`
+    );
+    return result;
+  } catch (error) {
+    logger.error(`Error listing address amounts: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
+async function getBalance(
+  account = "*",
+  minConf = 1,
+  includeWatchOnly = false
+) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.getbalance(
+      account,
+      minConf,
+      includeWatchOnly
+    );
+    logger.info(`Got balance for account: ${account}`);
+    return result;
+  } catch (error) {
+    logger.error(`Error getting balance: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
+async function getWalletInfo() {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.getwalletinfo();
+    logger.info("Got wallet info");
+    return result;
+  } catch (error) {
+    logger.error(`Error getting wallet info: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
+async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
+  try {
+    const { rpchost, rpcport, rpcuser, rpcpassword } = getLocalRPCSettings();
+    const { network, burnAddress } = getNetworkInfo(rpcport);
+    const pastelIDDir = getPastelIDDirectory(network);
+    const pastelIDs = await getPastelIDsFromDirectory(pastelIDDir);
+    for (const pastelID of pastelIDs) {
+      const isRegistered = await isPastelIDRegistered(pastelID);
+      if (isRegistered) {
+        logger.info(`Found registered Pastel ID: ${pastelID}`);
+        return pastelID;
+      }
+    }
+    logger.info("No registered Pastel ID found. Checking wallet balance...");
+    const balance = await getBalance();
+    const registrationFee = 1000;
+    const transactionFee = 1;
+    const requiredBalance = registrationFee + transactionFee;
+    if (balance < requiredBalance) {
+      logger.error(
+        `Insufficient balance to register a new Pastel ID. Required: ${requiredBalance} PSL, Available: ${balance} PSL`
+      );
+      logger.info(
+        "Please acquire PSL through the faucet or purchase it on an exchange."
+      );
+      return null;
+    }
+    if (!autoRegister) {
+      const confirmRegistration = await promptUserConfirmation(
+        "Do you want to proceed with registering a new Pastel ID? (yes/no)"
+      );
+      if (confirmRegistration.toLowerCase() !== "yes") {
+        logger.info("User declined to register a new Pastel ID.");
+        return null;
+      }
+    }
+    logger.info("Registering a new Pastel ID...");
+    const newPastelID = await createAndRegisterPastelID(burnAddress);
+    logger.info(`New Pastel ID registered successfully: ${newPastelID}`);
+    return newPastelID;
+  } catch (error) {
+    logger.error(
+      `Error in checkForPastelIDAndCreateIfNeeded: ${safeStringify(error)}`
+    );
+    throw error;
+  }
+}
+
+function getLocalRPCSettings(
+  directoryWithPastelConf = path.join(process.env.HOME, ".pastel")
+) {
+  const pastelConfPath = path.join(directoryWithPastelConf, "pastel.conf");
+  const lines = fs.readFileSync(pastelConfPath, "utf-8").split("\n");
+  const otherFlags = {};
+  let rpchost = "127.0.0.1";
+  let rpcport = "19932";
+  let rpcuser = "";
+  let rpcpassword = "";
+  for (const line of lines) {
+    if (line.startsWith("rpcport")) {
+      rpcport = line.split("=")[1].trim();
+    } else if (line.startsWith("rpcuser")) {
+      rpcuser = line.split("=")[1].trim();
+    } else if (line.startsWith("rpcpassword")) {
+      rpcpassword = line.split("=")[1].trim();
+    } else if (line.startsWith("rpchost")) {
+      // Skip rpchost
+    } else if (line.trim() !== "") {
+      const [currentFlag, currentValue] = line.trim().split("=");
+      otherFlags[currentFlag.trim()] = currentValue.trim();
+    }
+  }
+  return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };
+}
+
+function getNetworkInfo(rpcport) {
+  let network = "";
+  let burnAddress = "";
+  if (rpcport === "9932") {
+    network = "mainnet";
+    burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
+  } else if (rpcport === "19932") {
+    network = "testnet";
+    burnAddress = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u";
+  } else if (rpcport === "29932") {
+    network = "devnet";
+    burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
+  } else {
+    throw new Error(`Unknown RPC port: ${rpcport}`);
+  }
+  return { network, burnAddress };
+}
+
+function getPastelIDDirectory(network) {
+  const homeDir = process.env.HOME;
+  let pastelIDDir = "";
+
+  if (network === "mainnet") {
+    pastelIDDir = path.join(homeDir, ".pastel", "pastelkeys");
+  } else if (network === "testnet") {
+    pastelIDDir = path.join(homeDir, ".pastel", "testnet3", "pastelkeys");
+  } else if (network === "devnet") {
+    pastelIDDir = path.join(homeDir, ".pastel", "devnet3", "pastelkeys");
+  }
+  return pastelIDDir;
+}
+
+async function getPastelIDsFromDirectory(directory) {
+  const files = await fs.promises.readdir(directory);
+  const pastelIDs = files.filter((file) => file.length === 87);
+  return pastelIDs;
+}
+
+async function isPastelIDRegistered(pastelID) {
+  try {
+    const ticketFindResult = await rpc_connection.tickets(
+      "find",
+      "id",
+      pastelID
+    );
+    return ticketFindResult.length > 0;
+  } catch (error) {
+    logger.error(
+      `Error checking if Pastel ID is registered: ${safeStringify(error)}`
+    );
+    return false;
+  }
+}
+
+async function promptUserConfirmation(message) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    rl.question(message + " ", (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+async function createAndRegisterPastelID(burnAddress) {
+  try {
+    const newPastelIDResult = await rpc_connection.pastelid("newkey");
+    const newPastelID = newPastelIDResult.pastelid;
+    const passphrase = newPastelIDResult.passphrase;
+    const address = await rpc_connection.getnewaddress();
+    const registrationResult = await registerPastelID(
+      newPastelID,
+      passphrase,
+      address
+    );
+    if (registrationResult) {
+      return newPastelID;
+    } else {
+      throw new Error("Failed to register new Pastel ID");
+    }
+  } catch (error) {
+    logger.error(
+      `Error creating and registering Pastel ID: ${safeStringify(error)}`
+    );
+    throw error;
+  }
+}
+
 module.exports = {
   safeStringify,
   getLocalRPCSettings,
@@ -734,5 +1155,26 @@ module.exports = {
   checkPSLAddressBalanceAlternative,
   createAndFundNewPSLCreditTrackingAddress,
   checkSupernodeList,
+  checkForPastelIDAndCreateIfNeeded,
+  getLocalRPCSettings,
+  getNetworkInfo,
+  getPastelIDDirectory,
+  getPastelIDsFromDirectory,
+  isPastelIDRegistered,
+  promptUserConfirmation,
+  createAndRegisterPastelID,
+  getBalance,
+  getWalletInfo,
+  listAddressAmounts,
+  getPastelTicket,
+  listPastelIDTickets,
+  findPastelIDTicket,
+  getPastelTicket,
+  listContractTickets,
+  findContractTicket,
+  getContractTicket,
+  importPrivKey,
+  importWallet,
+  registerPastelID,
   rpc_connection,
 };
