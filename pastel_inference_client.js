@@ -914,8 +914,8 @@ class PastelInferenceClient {
         result
       );
       let transformedResult = await prepareModelForValidation(result);
+      delete transformedResult["id"];
       const { error: responseError, value: validatedResponse } =
-      delete transformedResult["id"]
         await inferenceAPIUsageResponseSchema.validate(transformedResult);
       if (responseError) {
         throw new Error(
