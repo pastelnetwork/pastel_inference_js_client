@@ -462,7 +462,7 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
+    const { validMasternodeListFullDF } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
       MY_LOCAL_PASTELID,
       validMasternodeListFullDF
@@ -470,29 +470,34 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
     if (!supernodeURL) {
       throw new Error("Supernode URL is undefined");
     }
-    logger.info(
-      `Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`
-    );
-    const creditPackDataObject =
-      await inferenceClient.getCreditPackTicketFromTxid(
-        supernodeURL,
-        creditPackTicketPastelTxid
-      );
-    const { error: creditPackDataValidationError } =
-      creditPackPurchaseRequestResponseSchema.validate(
-        creditPackDataObject.toJSON()
-      );
-    if (creditPackDataValidationError) {
-      throw new Error(
-        `Invalid credit pack ticket data: ${creditPackDataValidationError.message}`
-      );
+    logger.info(`Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`);
+
+    const {
+      creditPackPurchaseRequestResponse,
+      creditPackPurchaseRequestConfirmation
+    } = await inferenceClient.getCreditPackTicketFromTxid(supernodeURL, creditPackTicketPastelTxid);
+
+    // Validate the responses individually (assuming separate schemas for each)
+    const requestResponseError = CreditPackPurchaseRequestResponseSchema.validate(creditPackPurchaseRequestResponse.toJSON());
+    const requestConfirmationError = CreditPackPurchaseRequestConfirmationSchema.validate(creditPackPurchaseRequestConfirmation.toJSON());
+
+    if (requestResponseError) {
+      throw new Error(`Invalid credit pack request response: ${requestResponseError.message}`);
     }
-    return creditPackDataObject;
+    if (requestConfirmationError) {
+      throw new Error(`Invalid credit pack confirmation response: ${requestConfirmationError.message}`);
+    }
+
+    return {
+      requestResponse: creditPackPurchaseRequestResponse,
+      requestConfirmation: creditPackPurchaseRequestConfirmation
+    };
   } catch (error) {
     logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message}`);
     throw error;
   }
 }
+
 
 async function handleInferenceRequestEndToEnd(
   creditPackTicketPastelTxid,

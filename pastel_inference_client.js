@@ -180,6 +180,7 @@ class PastelInferenceClient {
         "credit pack ticket from txid",
         params
       );
+
       const response = await axios.get(
         `${supernodeURL}/get_credit_pack_ticket_from_txid`,
         {
@@ -187,28 +188,49 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
         }
       );
-      const result = response.data;
-      const resultTransformed =
-        transformCreditPackPurchaseRequestResponse(result);
-      logActionWithPayload(
-        "receiving",
-        "credit pack ticket from Supernode",
-        resultTransformed
-      );
-      const { resultError, value: validatedResult } =
-        await creditPackPurchaseRequestResponseSchema.validate(
-          resultTransformed
-        );
-      if (resultError) {
-        throw new Error(
-          `Invalid credit pack purchase request response: ${resultError.message}`
-        );
+
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      const creditPackPurchaseRequestResponseInstance =
-        await CreditPackPurchaseRequestResponse.create(validatedResult);
-      return creditPackPurchaseRequestResponseInstance;
+
+      const {
+        credit_pack_purchase_request_response,
+        credit_pack_purchase_request_confirmation,
+      } = response.data;
+
+      logActionWithPayload("received", "credit pack ticket from Supernode", {
+        credit_pack_purchase_request_response,
+        credit_pack_purchase_request_confirmation,
+      });
+
+      const validatedRequestResponse =
+        CreditPackPurchaseRequestResponse.validate(
+          credit_pack_purchase_request_response
+        );
+      const validatedRequestConfirmation =
+        CreditPackPurchaseRequestConfirmation.validate(
+          credit_pack_purchase_request_confirmation
+        );
+
+      if (
+        !validatedRequestResponse.isValid ||
+        !validatedRequestConfirmation.isValid
+      ) {
+        throw new Error("Invalid data received from the supernode.");
+      }
+
+      return {
+        creditPackPurchaseRequestResponse:
+          new CreditPackPurchaseRequestResponse(validatedRequestResponse.data),
+        creditPackPurchaseRequestConfirmation:
+          new CreditPackPurchaseRequestConfirmation(
+            validatedRequestConfirmation.data
+          ),
+      };
     } catch (error) {
-      logger.error(`Error retrieving credit pack ticket: ${error.message}`);
+      logger.error(
+        `Error retrieving credit pack ticket from txid: ${error.message}`
+      );
       throw error;
     }
   }

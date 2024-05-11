@@ -125,11 +125,11 @@ async function main() {
     // Check if a credit pack ticket TXID is available
     if (creditPackTicketPastelTxid) {
       const startTime = Date.now();
-      const creditTicketObject = await getCreditPackTicketInfoEndToEnd(
-        creditPackTicketPastelTxid
-      );
+      const { requestResponse, requestConfirmation } =
+        await getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid);
+
       let credit_pack_purchase_request_fields_json = atob(
-        creditTicketObject.credit_pack_purchase_request_fields_json_b64
+        requestResponse.credit_pack_purchase_request_fields_json_b64
       );
       const creditPackPurchaseRequestDict = JSON.parse(
         credit_pack_purchase_request_fields_json
