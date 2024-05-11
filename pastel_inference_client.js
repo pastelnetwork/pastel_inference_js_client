@@ -1152,11 +1152,6 @@ class PastelInferenceClient {
         pastel_id: this.pastelID,
         signature,
       };
-      logActionWithPayload(
-        "calling",
-        "audit inference request result",
-        payload
-      );
       const response = await axios.post(
         `${supernodeURL}/audit_inference_request_result`,
         payload,
@@ -1166,11 +1161,6 @@ class PastelInferenceClient {
       );
       const result = response.data;
       delete result["id"]; // Remove the 'id' field from the JSON object
-      logActionWithPayload(
-        "receiving",
-        "response to audit inference request result",
-        result
-      );
       let transformedResult = await prepareModelForValidation(result);
       const { error: validationError, value: validatedResult } =
         await inferenceAPIOutputResultSchema.validate(transformedResult);
@@ -1215,9 +1205,6 @@ class PastelInferenceClient {
 
       logger.info(
         `Now attempting to audit inference request response with ID ${inferenceResponseID} with ${listOfSupernodePastelIDs.length} closest supernodes (with Supernode IPs of ${listOfSupernodeIPs})...`
-      );
-      logger.info(
-        `Now attempting to audit inference request response with ID ${inferenceResponseID} by comparing information from other Supernodes to the information reported by the Responding Supernode...`
       );
 
       const responseAuditTasks = listOfSupernodeURLs.map((url) =>

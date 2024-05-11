@@ -559,11 +559,6 @@ async function handleInferenceRequestEndToEnd(
         supernodeURL,
         inferenceRequestData
       );
-    logger.info(
-      `Received inference API usage request response from SN:\n${prettyJSON(
-        usageRequestResponse
-      )}`
-    );
     const validationErrors = await validateCreditPackTicketMessageData(
       usageRequestResponse
     );
@@ -667,14 +662,6 @@ async function handleInferenceRequestEndToEnd(
             const outputResultsSize =
               outputResults.inference_result_json_base64.length;
             const maxResponseSizeToLog = 20000;
-
-            if (outputResultsSize < maxResponseSizeToLog) {
-              logger.info(
-                `Retrieved inference output results: ${prettyJSON(
-                  outputResults
-                )}`
-              );
-            }
 
             const inferenceResultDict = {
               supernode_url: supernodeURL,
