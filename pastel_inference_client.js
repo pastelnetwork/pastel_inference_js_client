@@ -203,28 +203,30 @@ class PastelInferenceClient {
         credit_pack_purchase_request_confirmation,
       });
 
-      const validatedRequestResponse =
-        CreditPackPurchaseRequestResponse.validate(
+      const { errorRequestResponse, value: validatedRequestResponse } =
+        creditPackPurchaseRequestResponseSchema.validate(
           credit_pack_purchase_request_response
         );
-      const validatedRequestConfirmation =
-        CreditPackPurchaseRequestConfirmation.validate(
+      if (errorRequestResponse) {
+        throw new Error(
+          `Invalid credit pack request response: ${errorRequestResponse.message}`
+        );
+      }
+      const { errorRequestConfirmation, value: validatedRequestConfirmation } =
+        creditPackPurchaseRequestConfirmationSchema.validate(
           credit_pack_purchase_request_confirmation
         );
-
-      if (
-        !validatedRequestResponse.isValid ||
-        !validatedRequestConfirmation.isValid
-      ) {
-        throw new Error("Invalid data received from the supernode.");
+      if (errorRequestConfirmation) {
+        throw new Error(
+          `Invalid credit pack request confirmation: ${errorRequestConfirmation.message}`
+        );
       }
-
       return {
         creditPackPurchaseRequestResponse:
-          new CreditPackPurchaseRequestResponse(validatedRequestResponse.data),
+          new CreditPackPurchaseRequestResponse(validatedRequestResponse),
         creditPackPurchaseRequestConfirmation:
           new CreditPackPurchaseRequestConfirmation(
-            validatedRequestConfirmation.data
+            validatedRequestConfirmation
           ),
       };
     } catch (error) {
@@ -944,7 +946,6 @@ class PastelInferenceClient {
           `Invalid inference API usage response: ${responseError.message}`
         );
       }
-
       const responseInstance = await InferenceAPIUsageResponse.create(
         validatedResponse
       );
@@ -959,28 +960,29 @@ class PastelInferenceClient {
 
   async sendInferenceConfirmation(supernodeURL, confirmationData) {
     try {
+      const confirmationDataJSON = confirmationData.toJSON();
+      // Remove the 'id' field from the JSON object
+      delete confirmationDataJSON["id"];
+
       const { error, value: validatedConfirmation } =
-        await inferenceConfirmationSchema.validate(confirmationData.toJSON());
+        await inferenceConfirmationSchema.validate(confirmationDataJSON);
       if (error) {
         throw new Error(
           `Invalid inference confirmation data: ${error.message}`
         );
       }
-
       const confirmationInstance = await InferenceConfirmation.create(
         validatedConfirmation
       );
-
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
 
       const payload = await prepareModelForEndpoint(confirmationInstance);
       logActionWithPayload("sending", "inference confirmation", payload);
-
       const response = await axios.post(
         `${supernodeURL}/confirm_inference_request`,
         {
-          inference_confirmation: payload,
+          inference_confirmation: confirmationDataJSON,
           challenge,
           challenge_id,
           challenge_signature,
@@ -989,7 +991,6 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 4 * 1000,
         }
       );
-
       const result = response.data;
       logActionWithPayload(
         "receiving",
@@ -1055,32 +1056,28 @@ class PastelInferenceClient {
     try {
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
-      const params = {
+      const params = new URLSearchParams({
         inference_response_id: inferenceResponseID,
         pastelid: this.pastelID,
         challenge,
         challenge_id,
         challenge_signature,
-      };
+      }).toString();
       logActionWithPayload(
         "attempting",
         `to retrieve inference output results for response ID ${inferenceResponseID}`,
         params
       );
-
       const response = await axios.post(
-        `${supernodeURL}/retrieve_inference_output_results`,
-        null,
+        `${supernodeURL}/retrieve_inference_output_results?${params}`,
+        {}, // No data object needed since we're sending parameters in the URL
         {
-          params,
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 4 * 1000,
         }
       );
-
       const result = response.data;
+      delete result["id"]; // Remove the 'id' field from the JSON object
       logActionWithPayload("receiving", "inference output results", result);
-
       let transformedResult = await prepareModelForValidation(result);
       const { error: validationError, value: validatedResult } =
         await inferenceAPIOutputResultSchema.validate(transformedResult);
@@ -1089,7 +1086,6 @@ class PastelInferenceClient {
           `Invalid inference API output result: ${validationError.message}`
         );
       }
-
       const resultInstance = await InferenceAPIOutputResult.create(
         validatedResult
       );
@@ -1103,6 +1099,7 @@ class PastelInferenceClient {
       throw error;
     }
   }
+
   async callAuditInferenceRequestResponse(supernodeURL, inferenceResponseID) {
     try {
       const signature = await signMessageWithPastelID(
@@ -1115,12 +1112,6 @@ class PastelInferenceClient {
         pastel_id: this.pastelID,
         signature,
       };
-      logActionWithPayload(
-        "calling",
-        "audit inference request response",
-        payload
-      );
-
       const response = await axios.post(
         `${supernodeURL}/audit_inference_request_response`,
         payload,
@@ -1128,14 +1119,8 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 2 * 1000,
         }
       );
-
       const result = response.data;
-      logActionWithPayload(
-        "receiving",
-        "response to audit inference request response",
-        result
-      );
-
+      delete result["id"]; // Remove the 'id' field from the JSON object
       let transformedResult = await prepareModelForValidation(result);
       const { error: validationError, value: validatedResult } =
         await inferenceAPIUsageResponseSchema.validate(transformedResult);
@@ -1144,11 +1129,7 @@ class PastelInferenceClient {
           `Invalid inference API usage response: ${validationError.message}`
         );
       }
-
-      const resultInstance = await InferenceAPIUsageResponse.create(
-        validatedResult
-      );
-      return resultInstance;
+      return validatedResult;
     } catch (error) {
       logger.error(
         `Error calling audit inference request response from Supernode URL: ${supernodeURL}: ${safeStringify(
@@ -1176,7 +1157,6 @@ class PastelInferenceClient {
         "audit inference request result",
         payload
       );
-
       const response = await axios.post(
         `${supernodeURL}/audit_inference_request_result`,
         payload,
@@ -1184,14 +1164,13 @@ class PastelInferenceClient {
           timeout: MESSAGING_TIMEOUT_IN_SECONDS * 2 * 1000,
         }
       );
-
       const result = response.data;
+      delete result["id"]; // Remove the 'id' field from the JSON object
       logActionWithPayload(
         "receiving",
         "response to audit inference request result",
         result
       );
-
       let transformedResult = await prepareModelForValidation(result);
       const { error: validationError, value: validatedResult } =
         await inferenceAPIOutputResultSchema.validate(transformedResult);
@@ -1200,11 +1179,7 @@ class PastelInferenceClient {
           `Invalid inference API output result: ${validationError.message}`
         );
       }
-
-      const resultInstance = await InferenceAPIOutputResult.create(
-        validatedResult
-      );
-      return resultInstance;
+      return validatedResult;
     } catch (error) {
       logger.error(
         `Error calling audit inference request result from Supernode URL: ${supernodeURL}: ${safeStringify(
@@ -1276,6 +1251,7 @@ class PastelInferenceClient {
       throw error;
     }
   }
+
   async checkIfSupernodeSupportsDesiredModel(
     supernodeURL,
     modelCanonicalString,

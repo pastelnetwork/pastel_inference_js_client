@@ -470,34 +470,27 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
     if (!supernodeURL) {
       throw new Error("Supernode URL is undefined");
     }
-    logger.info(`Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`);
+    logger.info(
+      `Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`
+    );
 
     const {
       creditPackPurchaseRequestResponse,
-      creditPackPurchaseRequestConfirmation
-    } = await inferenceClient.getCreditPackTicketFromTxid(supernodeURL, creditPackTicketPastelTxid);
-
-    // Validate the responses individually (assuming separate schemas for each)
-    const requestResponseError = CreditPackPurchaseRequestResponseSchema.validate(creditPackPurchaseRequestResponse.toJSON());
-    const requestConfirmationError = CreditPackPurchaseRequestConfirmationSchema.validate(creditPackPurchaseRequestConfirmation.toJSON());
-
-    if (requestResponseError) {
-      throw new Error(`Invalid credit pack request response: ${requestResponseError.message}`);
-    }
-    if (requestConfirmationError) {
-      throw new Error(`Invalid credit pack confirmation response: ${requestConfirmationError.message}`);
-    }
+      creditPackPurchaseRequestConfirmation,
+    } = await inferenceClient.getCreditPackTicketFromTxid(
+      supernodeURL,
+      creditPackTicketPastelTxid
+    );
 
     return {
       requestResponse: creditPackPurchaseRequestResponse,
-      requestConfirmation: creditPackPurchaseRequestConfirmation
+      requestConfirmation: creditPackPurchaseRequestConfirmation,
     };
   } catch (error) {
     logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message}`);
     throw error;
   }
 }
-
 
 async function handleInferenceRequestEndToEnd(
   creditPackTicketPastelTxid,
@@ -566,13 +559,6 @@ async function handleInferenceRequestEndToEnd(
         supernodeURL,
         inferenceRequestData
       );
-    const { error: inferenceResponseValidationError } =
-      inferenceAPIUsageResponseSchema.validate(usageRequestResponse.toJSON());
-    if (inferenceResponseValidationError) {
-      throw new Error(
-        `Invalid inference API usage response: ${inferenceResponseValidationError.message}`
-      );
-    }
     logger.info(
       `Received inference API usage request response from SN:\n${prettyJSON(
         usageRequestResponse
@@ -630,16 +616,6 @@ async function handleInferenceRequestEndToEnd(
           confirmation_transaction: { txid: trackingTransactionTxid },
         });
 
-        const { error: confirmationValidationError } =
-          inferenceConfirmationSchema.validate(confirmationData.toJSON());
-        if (confirmationValidationError) {
-          throw new Error(
-            `Invalid inference confirmation data: ${confirmationValidationError.message}`
-          );
-        }
-        const _inferenceConfirmationInstance =
-          await InferenceConfirmation.create(confirmationData.toJSON());
-
         const confirmationResult =
           await inferenceClient.sendInferenceConfirmation(
             supernodeURL,
@@ -687,14 +663,6 @@ async function handleInferenceRequestEndToEnd(
                 inferenceResponseID
               );
 
-            const { error: outputResultsValidationError } =
-              inferenceAPIOutputResultSchema.validate(outputResults.toJSON());
-            if (outputResultsValidationError) {
-              throw new Error(
-                `Invalid inference API output result: ${outputResultsValidationError.message}`
-              );
-            }
-
             const outputResultsDict = outputResults.toJSON();
             const outputResultsSize =
               outputResults.inference_result_json_base64.length;
@@ -734,12 +702,14 @@ async function handleInferenceRequestEndToEnd(
             }
 
             const useAuditFeature = true;
+            let auditResults;
+            let validationResults;
 
             if (useAuditFeature) {
               logger.info(
-                "Waiting 5 seconds for audit results to be available..."
+                "Waiting 3 seconds for audit results to be available..."
               );
-              await new Promise((resolve) => setTimeout(resolve, 5000));
+              await new Promise((resolve) => setTimeout(resolve, 3000));
 
               const auditResults =
                 await inferenceClient.auditInferenceRequestResponseID(
@@ -753,9 +723,16 @@ async function handleInferenceRequestEndToEnd(
               logger.info(
                 `Validation results: ${prettyJSON(validationResults)}`
               );
+              if (!auditResults) {
+                logger.warn("Audit results are null");
+              }
+              if (!validationResults) {
+                logger.warn("Validation results are null");
+              }
+              return { inferenceResultDict, auditResults, validationResults };
             } else {
-              var auditResults = null;
-              var validationResults = null;
+              auditResults = null;
+              validationResults = null;
             }
 
             if (!inferenceResultDict) {
@@ -766,13 +743,6 @@ async function handleInferenceRequestEndToEnd(
                 validationResults: null,
               };
             }
-            if (!auditResults) {
-              logger.warn("Audit results are null");
-            }
-            if (!validationResults) {
-              logger.warn("Validation results are null");
-            }
-
             return { inferenceResultDict, auditResults, validationResults };
           } else {
             logger.info("Inference results not available yet; retrying...");

@@ -312,10 +312,9 @@ const inferenceAPIOutputResultSchema = Joi.object({
 });
 
 const inferenceConfirmationSchema = Joi.object({
-  id: Joi.string().guid({ version: "uuidv4" }).required(),
   inference_request_id: Joi.string().required(),
   requesting_pastelid: Joi.string().required(),
-  confirmation_transaction: Joi.string().required(),
+  confirmation_transaction: Joi.object().required(),
 });
 
 module.exports = {

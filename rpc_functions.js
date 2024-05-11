@@ -249,19 +249,6 @@ async function verifyMessageWithPastelID(
     logger.error("RPC connection is not available. Cannot proceed.");
     return; // Stop the function if the connection is not available
   }
-  const { error } = messageSchema.validate({
-    pastelid,
-    messageToVerify,
-    pastelIDSignatureOnMessage,
-  });
-  if (error) {
-    logger.error(
-      `Invalid data for verifyMessageWithPastelID: ${error.message}`
-    );
-    throw new Error(
-      `Invalid data for verifyMessageWithPastelID: ${error.message}`
-    );
-  }
   const verificationResult = await rpc_connection.pastelid(
     "verify",
     messageToVerify,
@@ -269,7 +256,7 @@ async function verifyMessageWithPastelID(
     pastelid,
     "ed448"
   );
-  return verificationResult.verification;
+  return verificationResult.verification; // Return the verification result
 }
 
 async function sendToAddress(

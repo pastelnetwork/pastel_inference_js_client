@@ -45,7 +45,7 @@ async function main() {
   let creditUsageTrackingPSLAddress;
 
   const savedCreditPackTicketPastelTxid =
-    "f0cc8eb36ebcea911eac58cee5fbd24e643e7bef6f526b22b7a4172adf37bb84";
+    "e8954607c3e64a00e81b216516f403b687698c59ca31ef3faf92793a113fcd5e";
 
   if (useTestMessagingFunctionality) {
     const messageBody =
@@ -128,14 +128,17 @@ async function main() {
       const { requestResponse, requestConfirmation } =
         await getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid);
 
-      let credit_pack_purchase_request_fields_json = atob(
-        requestResponse.credit_pack_purchase_request_fields_json_b64
-      );
+      // Decoding Base64 using Buffer
+      let credit_pack_purchase_request_fields_json = Buffer.from(
+        requestResponse.credit_pack_purchase_request_fields_json_b64,
+        "base64"
+      ).toString("utf-8");
       const creditPackPurchaseRequestDict = JSON.parse(
         credit_pack_purchase_request_fields_json
       );
       const initialCreditPackBalance =
         creditPackPurchaseRequestDict.requested_initial_credits_in_credit_pack;
+
       logger.info(
         `Credit pack ticket data retrieved with initial balance ${initialCreditPackBalance}`
       );
@@ -144,6 +147,7 @@ async function main() {
           creditPackPurchaseRequestDict
         )}`
       );
+
       const endTime = Date.now();
       const durationInSeconds = (endTime - startTime) / 1000;
       logger.info(

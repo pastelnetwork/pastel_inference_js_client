@@ -542,15 +542,23 @@ async function validatePastelIDSignatureFields(
   let lastSignatureFieldName = null;
   let lastHashFieldName = null;
   let firstPastelID;
-
-  for (const fieldName in modelInstance) {
-    if (fieldName.includes("_pastelid")) {
-      firstPastelID = fieldName;
+  let pastelID, messageToVerify, signature; // Declare these variables in function scope
+  // Determine if the modelInstance is a Sequelize model or a plain object
+  const fields = modelInstance.dataValues
+    ? modelInstance.dataValues
+    : modelInstance;
+  // Look for the first PastelID field
+  for (const fieldName in fields) {
+    if (
+      fieldName.toLowerCase().includes("_pastelid") &&
+      fields[fieldName] !== "NA"
+    ) {
+      firstPastelID = fields[fieldName];
       break;
     }
   }
-
-  for (const fieldName in modelInstance) {
+  // Identify the relevant fields for hash and signature
+  for (const fieldName in fields) {
     if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
     } else if (
@@ -560,63 +568,47 @@ async function validatePastelIDSignatureFields(
       lastHashFieldName = fieldName;
     }
   }
-
-  if (lastSignatureFieldName && lastHashFieldName) {
-    if (firstPastelID || firstPastelID === "NA") {
-      let pastelID, messageToVerify, signature;
-
-      if (firstPastelID === "NA") {
-        const pastelIDAndSignatureCombinedFieldName = lastSignatureFieldName;
-        const pastelIDAndSignatureCombinedFieldJSON =
-          modelInstance[pastelIDAndSignatureCombinedFieldName];
-        const pastelIDAndSignatureCombinedFieldDict = JSON.parse(
-          pastelIDAndSignatureCombinedFieldJSON
-        );
-
-        for (const key in pastelIDAndSignatureCombinedFieldDict) {
-          if (key.includes("pastelid")) {
-            pastelID = pastelIDAndSignatureCombinedFieldDict[key];
-          }
-          if (key.includes("signature")) {
-            signature = pastelIDAndSignatureCombinedFieldDict[key];
-          }
-        }
-
-        messageToVerify = modelInstance[lastHashFieldName];
-      } else {
-        pastelID = modelInstance[firstPastelID];
-        messageToVerify = modelInstance[lastHashFieldName];
-        signature = modelInstance[lastSignatureFieldName];
-      }
-
-      const { error } = messageSchema.validate({
-        pastelid: pastelID,
-        messageToVerify,
-        pastelIDSignatureOnMessage: signature,
-      });
-      if (error) {
-        validationErrors.push(
-          `Invalid data for verifyMessageWithPastelID: ${safeStringify(
-            error.message
-          )}`
-        );
-      } else {
-        const verificationResult = await verifyMessageWithPastelID(
-          pastelID,
-          messageToVerify,
-          signature
-        );
-        if (verificationResult !== "OK") {
-          validationErrors.push(
-            `Pastelid signature in field ${lastSignatureFieldName} failed verification`
-          );
-        }
-      }
-    } else {
+  // Check if the field might be embedded in JSON
+  const embeddedField =
+    fields[
+      "supernode_pastelid_and_signature_on_inference_request_response_hash"
+    ];
+  if (embeddedField) {
+    try {
+      const parsedData = JSON.parse(embeddedField);
+      firstPastelID = parsedData["signing_sn_pastelid"];
+      signature = parsedData["sn_signature_on_response_hash"]; // Correctly retrieve signature
+    } catch (e) {
       validationErrors.push(
-        `Corresponding pastelid field ${firstPastelID} not found for signature field ${lastSignatureFieldName}`
+        "Error parsing JSON from signature field: " + e.message
+      );
+      return; // Exit if JSON parsing fails
+    }
+  }
+  if (
+    firstPastelID &&
+    lastHashFieldName &&
+    lastSignatureFieldName &&
+    signature
+  ) {
+    pastelID = firstPastelID;
+    messageToVerify = fields[lastHashFieldName];
+    if (!embeddedField) {
+      // If not from embedded field, fetch normally
+      signature = fields[lastSignatureFieldName];
+    }
+    const verificationResult = await verifyMessageWithPastelID(
+      pastelID,
+      messageToVerify,
+      signature
+    );
+    if (verificationResult !== "OK") {
+      validationErrors.push(
+        `PastelID signature in field ${lastSignatureFieldName} failed verification`
       );
     }
+  } else {
+    validationErrors.push(`Necessary fields for validation are missing`);
   }
 }
 
