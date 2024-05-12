@@ -34,7 +34,7 @@
       class="flex gap-6 items-center sticky top-0 p-4 bg-bw-50 z-10 ground-glass shadow-md"
       id="title"
     >
-      <h1 class="text-4xl font-bold text-info-800">Pastel Inference Client</h1>
+      <h1 class="text-4xl font-bold text-bw-600">Pastel Inference Client</h1>
       <input
         id="theme-toggle"
         class="switch success lg"
@@ -46,11 +46,11 @@
     <div
       class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl col-span-full text-info-800">User Information</h2>
+      <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
       <div class="col-span-full">
         <button
           id="changePastelIDButton"
-          class="btn solid success"
+          class="btn success"
           onclick="togglePastelIDDropdown()"
         >
           Switch to a Different PastelID
@@ -75,7 +75,7 @@
           </label>
           <span id="walletBalance" class="text-bw-700">Loading...</span>
         </div>
-        <button id="createPastelIDButton" class="btn solid success mt-4 hidden">
+        <button id="createPastelIDButton" class="btn success mt-4 hidden">
           Create a PastelID so you can make inference requests? (Costs 1,000
           PSL)
         </button>
@@ -85,7 +85,7 @@
     <div
       class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl text-success-800">Create New Credit Pack Ticket</h2>
+      <h2 class="text-2xl text-bw-800">Create New Credit Pack Ticket</h2>
       <form id="createTicketForm" class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-bw-700 font-bold mb-2" for="numCredits">
@@ -144,7 +144,7 @@
           />
         </div>
         <div class="col-span-full flex justify-between">
-          <button class="btn solid success" type="submit">Create Ticket</button>
+          <button class="btn success" type="submit">Create Ticket</button>
           <button class="btn outline bw" type="button" id="clearTicketForm">
             Clear Demo Input
           </button>
@@ -155,7 +155,7 @@
     <div
       class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl text-warn-800">Select Existing Credit Pack Ticket</h2>
+      <h2 class="text-2xl text-bw-800">Select Existing Credit Pack Ticket</h2>
       <div class="relative text-bw-700">
         <select id="creditPackTicketSelect" class="select w-full">
           <option value="">Select a credit pack ticket</option>
@@ -171,7 +171,7 @@
     <div
       class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl text-danger-800">
+      <h2 class="text-2xl text-bw-800">
         Check Existing Credit Pack Ticket Info
       </h2>
       <form id="checkCreditPackForm" class="grid grid-cols-1 gap-4">
@@ -188,9 +188,7 @@
           />
         </div>
         <div class="flex justify-between">
-          <button class="btn solid success" type="submit">
-            Check Credit Pack
-          </button>
+          <button class="btn success" type="submit">Check Credit Pack</button>
           <button
             class="btn outline bw"
             type="button"
@@ -205,7 +203,7 @@
     <div
       class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl text-info-800">Create New Inference Request</h2>
+      <h2 class="text-2xl text-bw-800">Create New Inference Request</h2>
       <form id="inferenceRequestForm" class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-bw-700 font-bold mb-2" for="inferenceType">
@@ -347,7 +345,7 @@ A picture of a clown holding a sign that says PASTEL</textarea
           />
         </div>
         <div class="col-span-full flex justify-between">
-          <button class="btn solid success" type="submit">
+          <button class="btn success" type="submit">
             Create Inference Request
           </button>
           <button class="btn outline bw" type="button" id="clearInferenceForm">
@@ -361,7 +359,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
       class="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 has-border rounded-xl bg-white shadow-md"
     >
       <div>
-        <h2 class="text-2xl mb-4 text-info-800">Send Message</h2>
+        <h2 class="text-2xl mb-4 text-bw-800">
+          Send and Receive Messages using PastelIDs
+        </h2>
         <form id="sendMessageForm" class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-bw-700 font-bold mb-2" for="toPastelID">
@@ -390,9 +390,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             >
           </div>
           <div class="flex justify-between">
-            <button class="btn solid success" type="submit">
-              Send Message
-            </button>
+            <button class="btn success" type="submit">Send Message</button>
             <button class="btn outline bw" type="button" id="clearMessageForm">
               Clear Demo Input
             </button>
@@ -424,7 +422,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           type="text"
           placeholder="Enter private key"
         />
-        <button id="importPrivKeyButton" class="btn solid success mt-2">
+        <button id="importPrivKeyButton" class="btn success mt-2">
           Import
         </button>
       </div>
@@ -443,12 +441,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           type="file"
           accept=".dat"
         />
-        <button id="importWalletButton" class="btn solid success mt-2">
-          Import
-        </button>
+        <button id="importWalletButton" class="btn success mt-2">Import</button>
       </div>
       <div class="mb-4">
-        <button id="listAddressAmountsButton" class="btn solid success">
+        <button id="listAddressAmountsButton" class="btn success">
           List Address Amounts
           <span
             class="tooltip"
@@ -458,7 +454,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         </button>
       </div>
       <div>
-        <button id="getWalletInfoButton" class="btn solid success">
+        <button id="getWalletInfoButton" class="btn success">
           Get Wallet Info
           <span
             class="tooltip"
@@ -468,7 +464,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         </button>
       </div>
     </div>
-    <button onclick="toggleTerminal()" class="btn solid success">
+    <button onclick="toggleTerminal()" class="btn success">
       Toggle Terminal
     </button>
     <div id="terminal"></div>
@@ -807,7 +803,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         document.getElementById("creditPackTxid").value = "";
       });
 
-      // Check user's PastelID and wallet balance on page load
       window.addEventListener("DOMContentLoaded", async () => {
         const pastelIDElement = document.getElementById("userPastelID");
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");
@@ -828,6 +823,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           });
           const pastelIDTickets = response.data.result;
 
+          // Clear existing options
+          pastelIDDropdown.innerHTML = "";
+
           if (pastelIDTickets.length > 0) {
             pastelIDTickets.forEach((ticket, index) => {
               const option = document.createElement("option");
@@ -838,9 +836,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 pastelIDElement.textContent = ticket.ticket.pastelID; // Display the first PastelID by default
               }
             });
+            // Only show the change button and dropdown if there are multiple PastelIDs
             if (pastelIDTickets.length > 1) {
               changePastelIDButton.classList.remove("hidden");
               pastelIDDropdownContainer.classList.remove("hidden");
+            } else {
+              changePastelIDButton.classList.add("hidden");
+              pastelIDDropdownContainer.classList.add("hidden");
             }
           } else {
             pastelIDElement.textContent = "No PastelID found";
