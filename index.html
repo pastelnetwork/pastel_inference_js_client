@@ -1,685 +1,485 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pastel Inference Client UI</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.8/axios.min.js"
-      integrity="sha512-PJa3oQSLWRB7wHZ7GQ/g+qyv6r4mbuhmiDb8BjSFZ8NZ2a42oTtAq5n0ucWAwcQDlikAtkub+tPVCw4np27WCg=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
-    <script src="
-https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js
-"></script>
-    <link
-      href="
-https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css
-"
-      rel="stylesheet"
-    />
-    <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@sira-ui/tailwind/dist/css/styles.css"
     />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"
+      rel="stylesheet"
+    />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      .tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: pointer;
+      .ground-glass {
+        background-color: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
       }
-
-      .tooltip::before {
-        content: attr(data-tooltip);
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 8px;
-        background-color: #000;
-        color: #fff;
-        font-size: 14px;
-        border-radius: 4px;
-        white-space: nowrap;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s;
-      }
-
-      .tooltip:hover::before {
-        opacity: 1;
+      body {
+        font-family: Montserrat, sans-serif;
       }
     </style>
   </head>
-  <body class="bg-gray-100 font-sans">
-    <header
-      class="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-6"
+  <body class="flex flex-col gap-6 px-20 transition-all duration-300 bg-bw-50">
+    <div
+      class="flex gap-6 items-center sticky top-0 p-4 bg-bw-50 z-10 ground-glass shadow-md"
+      id="title"
     >
-      <div class="container mx-auto px-4">
-        <h1 class="text-3xl font-bold tracking-tight">
-          Pastel Inference Client UI
-        </h1>
+      <h1 class="text-4xl font-bold text-info-800">Pastel Inference Client</h1>
+      <input
+        id="theme-toggle"
+        class="switch success lg"
+        data-content="☀"
+        type="checkbox"
+        onchange="toggleDarkMode()"
+      />
+    </div>
+    <div
+      class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl col-span-full text-info-800">User Information</h2>
+      <div class="col-span-full">
+        <button
+          id="changePastelIDButton"
+          class="btn solid success"
+          onclick="togglePastelIDDropdown()"
+        >
+          Switch to a Different PastelID
+        </button>
+        <div id="pastelIDDropdownContainer" class="mt-4 hidden">
+          <label class="block text-bw-700 font-bold mb-2">
+            Select Existing PastelID to Use:
+          </label>
+          <select id="pastelIDDropdown" class="select w-full">
+            <!-- Options will be dynamically populated -->
+          </select>
+        </div>
+        <div class="mt-4">
+          <label class="block text-bw-700 font-bold mb-2">
+            Your Currently Selected PastelID:
+          </label>
+          <span id="userPastelID" class="text-bw-700">Loading...</span>
+        </div>
+        <div class="mt-4">
+          <label class="block text-bw-700 font-bold mb-2">
+            Wallet Balance (PSL):
+          </label>
+          <span id="walletBalance" class="text-bw-700">Loading...</span>
+        </div>
+        <button id="createPastelIDButton" class="btn solid success mt-4 hidden">
+          Create a PastelID so you can make inference requests? (Costs 1,000
+          PSL)
+        </button>
       </div>
-    </header>
+    </div>
 
-    <main class="container mx-auto px-4 py-12">
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">User Information</h2>
-        <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8">
-          <button
-            id="changePastelIDButton"
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline hidden"
-            onclick="togglePastelIDDropdown()"
+    <div
+      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl text-success-800">Create New Credit Pack Ticket</h2>
+      <form id="createTicketForm" class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-bw-700 font-bold mb-2" for="numCredits">
+            Number of Credits
+          </label>
+          <input
+            class="input w-full"
+            id="numCredits"
+            type="number"
+            placeholder="Enter number of credits"
+            value="1500"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-bw-700 font-bold mb-2"
+            for="creditUsageTrackingPSLAddress"
           >
-            Switch to a Different PastelID
+            Credit Usage Tracking PSL Address
+          </label>
+          <input
+            class="input w-full"
+            id="creditUsageTrackingPSLAddress"
+            type="text"
+            placeholder="Enter credit usage tracking PSL address"
+            value="tPsj2K9tnWQWNUmunqJYvKQsKqXrewJFrFK"
+          />
+        </div>
+        <div>
+          <label class="block text-bw-700 font-bold mb-2" for="maxTotalPrice">
+            Maximum Total Price (PSL)
+          </label>
+          <input
+            class="input w-full"
+            id="maxTotalPrice"
+            type="number"
+            step="0.01"
+            placeholder="Enter maximum total price"
+            value="150000"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-bw-700 font-bold mb-2"
+            for="maxPerCreditPrice"
+          >
+            Maximum Per Credit Price (PSL)
+          </label>
+          <input
+            class="input w-full"
+            id="maxPerCreditPrice"
+            type="number"
+            step="0.01"
+            placeholder="Enter maximum per credit price"
+            value="0.1"
+          />
+        </div>
+        <div class="col-span-full flex justify-between">
+          <button class="btn solid success" type="submit">Create Ticket</button>
+          <button class="btn outline bw" type="button" id="clearTicketForm">
+            Clear Demo Input
           </button>
-          <div id="pastelIDDropdownContainer" class="mb-4 hidden">
-            <label class="block text-gray-700 font-bold mb-2">
-              Select Existing PastelID to Use:
-            </label>
-            <select
-              id="pastelIDDropdown"
-              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-            >
-              <!-- Options will be dynamically populated -->
+        </div>
+      </form>
+    </div>
+
+    <div
+      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl text-warn-800">Select Existing Credit Pack Ticket</h2>
+      <div class="relative text-bw-700">
+        <select id="creditPackTicketSelect" class="select w-full">
+          <option value="">Select a credit pack ticket</option>
+          <option value="ticket1" selected>
+            Ticket 1 - 1500 credits - 150000 PSL
+          </option>
+          <option value="ticket2">Ticket 2 - 1000 credits - 100000 PSL</option>
+          <option value="ticket3">Ticket 3 - 500 credits - 50000 PSL</option>
+        </select>
+      </div>
+    </div>
+
+    <div
+      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl text-danger-800">
+        Check Existing Credit Pack Ticket Info
+      </h2>
+      <form id="checkCreditPackForm" class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="block text-bw-700 font-bold mb-2" for="creditPackTxid">
+            Credit Pack Ticket TXID
+          </label>
+          <input
+            class="input w-full"
+            id="creditPackTxid"
+            type="text"
+            placeholder="Enter credit pack ticket TXID"
+            value="e8954607c3e64a00e81b216516f403b687698c59ca31ef3faf92793a113fcd5e"
+          />
+        </div>
+        <div class="flex justify-between">
+          <button class="btn solid success" type="submit">
+            Check Credit Pack
+          </button>
+          <button
+            class="btn outline bw"
+            type="button"
+            id="clearCheckCreditPackForm"
+          >
+            Clear Demo Input
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div
+      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl text-info-800">Create New Inference Request</h2>
+      <form id="inferenceRequestForm" class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-bw-700 font-bold mb-2" for="inferenceType">
+            Inference Type
+          </label>
+          <div class="relative text-bw-700">
+            <select id="inferenceType" class="select w-full">
+              <option value="">Select an inference type</option>
+              <option value="text_completion" selected>Text Completion</option>
+              <option value="image_generation">Image Generation</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label class="block text-bw-700 font-bold mb-2" for="model">
+            Model/Service
+          </label>
+          <div class="relative text-bw-700">
+            <select id="model" class="select w-full">
+              <option value="">Select a model/service</option>
+              <option value="claude3-opus" selected>Claude3-Opus</option>
+              <option value="gpt-3">GPT-3</option>
+            </select>
+          </div>
+        </div>
+        <div id="textCompletionSettings" class="col-span-full">
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">
-              Your Currently Selected PastelID:
+            <label class="block text-bw-700 font-bold mb-2" for="prompt">
+              Prompt
             </label>
-            <span id="userPastelID" class="text-gray-700">Loading...</span>
+            <textarea
+              class="input w-full"
+              id="prompt"
+              rows="5"
+              placeholder="Enter your prompt"
+            >
+How do you measure the speed of an earthquake?</textarea
+            >
           </div>
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">
-              Wallet Balance (PSL):
+            <label class="block text-bw-700 font-bold mb-2" for="maxTokens">
+              Max Tokens
             </label>
-            <span id="walletBalance" class="text-gray-700">Loading...</span>
+            <input
+              class="input w-full"
+              id="maxTokens"
+              type="number"
+              placeholder="Enter maximum tokens"
+              value="2000"
+            />
           </div>
-          <button
-            id="createPastelIDButton"
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline hidden"
-          >
-            Create a PastelID so you can make inference requests? (Costs 1,000
-            PSL)
+          <div>
+            <label
+              class="block text-bw-700 font-bold mb-2"
+              for="numCompletions"
+            >
+              Number of Completions
+            </label>
+            <input
+              class="input w-full"
+              id="numCompletions"
+              type="number"
+              placeholder="Enter number of completions"
+              value="1"
+            />
+          </div>
+        </div>
+        <div
+          id="imageGenerationSettings"
+          class="col-span-full"
+          style="display: none"
+        >
+          <div class="mb-4">
+            <label class="block text-bw-700 font-bold mb-2" for="imagePrompt">
+              Image Prompt
+            </label>
+            <textarea
+              class="input w-full"
+              id="imagePrompt"
+              rows="5"
+              placeholder="Enter your image prompt"
+            >
+A picture of a clown holding a sign that says PASTEL</textarea
+            >
+          </div>
+          <div class="mb-4">
+            <label class="block text-bw-700 font-bold mb-2" for="stylePreset">
+              Style Preset
+            </label>
+            <div class="relative text-bw-700">
+              <select id="stylePreset" class="select w-full">
+                <option value="">Select a style preset</option>
+                <option value="photographic" selected>Photographic</option>
+                <option value="digital-art">Digital Art</option>
+                <option value="comic-book">Comic Book</option>
+                <!-- Add more style preset options as needed -->
+              </select>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="block text-bw-700 font-bold mb-2" for="outputFormat">
+              Output Format
+            </label>
+            <div class="relative text-bw-700">
+              <select id="outputFormat" class="select w-full">
+                <option value="">Select an output format</option>
+                <option value="png" selected>PNG</option>
+                <option value="jpeg">JPEG</option>
+                <option value="webp">WebP</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-bw-700 font-bold mb-2" for="aspectRatio">
+              Aspect Ratio
+            </label>
+            <div class="relative text-bw-700">
+              <select id="aspectRatio" class="select w-full">
+                <option value="">Select an aspect ratio</option>
+                <option value="16:9" selected>16:9</option>
+                <option value="1:1">1:1</option>
+                <option value="4:5">4:5</option>
+                <!-- Add more aspect ratio options as needed -->
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="block text-bw-700 font-bold mb-2" for="maxCost">
+            Maximum Cost (Credits)
+          </label>
+          <input
+            class="input w-full"
+            id="maxCost"
+            type="number"
+            step="0.01"
+            placeholder="Enter maximum cost"
+            value="200"
+          />
+        </div>
+        <div class="col-span-full flex justify-between">
+          <button class="btn solid success" type="submit">
+            Create Inference Request
+          </button>
+          <button class="btn outline bw" type="button" id="clearInferenceForm">
+            Clear Demo Input
           </button>
         </div>
-      </section>
+      </form>
+    </div>
 
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">Create New Credit Pack Ticket</h2>
-        <form
-          id="createTicketForm"
-          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
-        >
-          <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2" for="numCredits">
-              Number of Credits
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="numCredits"
-              type="number"
-              placeholder="Enter number of credits"
-              value="1500"
-            />
-          </div>
-          <div class="mb-6">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="creditUsageTrackingPSLAddress"
-            >
-              Credit Usage Tracking PSL Address
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="creditUsageTrackingPSLAddress"
-              type="text"
-              placeholder="Enter credit usage tracking PSL address"
-              value="tPsj2K9tnWQWNUmunqJYvKQsKqXrewJFrFK"
-            />
-          </div>
-          <div class="mb-6">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="maxTotalPrice"
-            >
-              Maximum Total Price (PSL)
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="maxTotalPrice"
-              type="number"
-              step="0.01"
-              placeholder="Enter maximum total price"
-              value="150000"
-            />
-          </div>
-          <div class="mb-6">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="maxPerCreditPrice"
-            >
-              Maximum Per Credit Price (PSL)
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="maxPerCreditPrice"
-              type="number"
-              step="0.01"
-              placeholder="Enter maximum per credit price"
-              value="0.1"
-            />
-          </div>
-          <div class="flex justify-between">
-            <button
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Create Ticket
-            </button>
-            <button
-              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="button"
-              id="clearTicketForm"
-            >
-              Clear Demo Input
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">
-          Select Existing Credit Pack Ticket
-        </h2>
-        <div class="relative inline-block w-full text-gray-700">
-          <select
-            id="creditPackTicketSelect"
-            class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-          >
-            <option value="">Select a credit pack ticket</option>
-            <option value="ticket1" selected>
-              Ticket 1 - 1500 credits - 150000 PSL
-            </option>
-            <option value="ticket2">
-              Ticket 2 - 1000 credits - 100000 PSL
-            </option>
-            <option value="ticket3">Ticket 3 - 500 credits - 50000 PSL</option>
-          </select>
-          <div
-            class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-          >
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-              <path
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-                fill-rule="evenodd"
-              ></path>
-            </svg>
-          </div>
-        </div>
-      </section>
-
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">
-          Check Existing Credit Pack Ticket Info
-        </h2>
-        <form
-          id="checkCreditPackForm"
-          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
-        >
-          <div class="mb-6">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="creditPackTxid"
-            >
-              Credit Pack Ticket TXID
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="creditPackTxid"
-              type="text"
-              placeholder="Enter credit pack ticket TXID"
-              value="e8954607c3e64a00e81b216516f403b687698c59ca31ef3faf92793a113fcd5e"
-            />
-          </div>
-          <div class="flex justify-between">
-            <button
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Check Credit Pack
-            </button>
-            <button
-              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="button"
-              id="clearCheckCreditPackForm"
-            >
-              Clear Demo Input
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section>
-        <h2 class="text-2xl font-bold mb-6">Create New Inference Request</h2>
-        <form
-          id="inferenceRequestForm"
-          class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
-        >
-          <div class="mb-6">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="inferenceType"
-            >
-              Inference Type
-            </label>
-            <div class="relative inline-block w-full text-gray-700">
-              <select
-                id="inferenceType"
-                class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-              >
-                <option value="">Select an inference type</option>
-                <option value="text_completion" selected>
-                  Text Completion
-                </option>
-                <option value="image_generation">Image Generation</option>
-              </select>
-              <div
-                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-              >
-                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                  <path
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                    clip-rule="evenodd"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2" for="model">
-              Model/Service
-            </label>
-            <div class="relative inline-block w-full text-gray-700">
-              <select
-                id="model"
-                class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-              >
-                <option value="">Select a model/service</option>
-                <option value="claude3-opus" selected>Claude3-Opus</option>
-                <option value="gpt-3">GPT-3</option>
-              </select>
-              <div
-                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-              >
-                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                  <path
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                    clip-rule="evenodd"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div id="textCompletionSettings">
-            <div class="mb-6">
-              <label class="block text-gray-700 font-bold mb-2" for="prompt">
-                Prompt
-              </label>
-              <textarea
-                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                id="prompt"
-                rows="5"
-                placeholder="Enter your prompt"
-              >
-How do you measure the speed of an earthquake?</textarea
-              >
-            </div>
-            <div class="mb-6">
-              <label class="block text-gray-700 font-bold mb-2" for="maxTokens">
-                Max Tokens
-              </label>
-              <input
-                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                id="maxTokens"
-                type="number"
-                placeholder="Enter maximum tokens"
-                value="2000"
-              />
-            </div>
-            <div class="mb-6">
-              <label
-                class="block text-gray-700 font-bold mb-2"
-                for="numCompletions"
-              >
-                Number of Completions
-              </label>
-              <input
-                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                id="numCompletions"
-                type="number"
-                placeholder="Enter number of completions"
-                value="1"
-              />
-            </div>
-          </div>
-          <div id="imageGenerationSettings" style="display: none">
-            <div class="mb-6">
-              <label
-                class="block text-gray-700 font-bold mb-2"
-                for="imagePrompt"
-              >
-                Image Prompt
-              </label>
-              <textarea
-                class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                id="imagePrompt"
-                rows="5"
-                placeholder="Enter your image prompt"
-              >
-A picture of a clown holding a sign that says PASTEL</textarea
-              >
-            </div>
-            <div class="mb-6">
-              <label
-                class="block text-gray-700 font-bold mb-2"
-                for="stylePreset"
-              >
-                Style Preset
-              </label>
-              <div class="relative inline-block w-full text-gray-700">
-                <select
-                  id="stylePreset"
-                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-                >
-                  <option value="">Select a style preset</option>
-                  <option value="photographic" selected>Photographic</option>
-                  <option value="digital-art">Digital Art</option>
-                  <option value="comic-book">Comic Book</option>
-                  <!-- Add more style preset options as needed -->
-                </select>
-                <div
-                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-                >
-                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                    <path
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clip-rule="evenodd"
-                      fill-rule="evenodd"
-                    ></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <div class="mb-6">
-              <label
-                class="block text-gray-700 font-bold mb-2"
-                for="outputFormat"
-              >
-                Output Format
-              </label>
-              <div class="relative inline-block w-full text-gray-700">
-                <select
-                  id="outputFormat"
-                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-                >
-                  <option value="">Select an output format</option>
-                  <option value="png" selected>PNG</option>
-                  <option value="jpeg">JPEG</option>
-                  <option value="webp">WebP</option>
-                </select>
-                <div
-                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-                >
-                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                    <path
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clip-rule="evenodd"
-                      fill-rule="evenodd"
-                    ></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <div class="mb-6">
-              <label
-                class="block text-gray-700 font-bold mb-2"
-                for="aspectRatio"
-              >
-                Aspect Ratio
-              </label>
-              <div class="relative inline-block w-full text-gray-700">
-                <select
-                  id="aspectRatio"
-                  class="w-full px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:shadow-outline appearance-none bg-white text-gray-700 font-medium"
-                >
-                  <option value="">Select an aspect ratio</option>
-                  <option value="16:9" selected>16:9</option>
-                  <option value="1:1">1:1</option>
-                  <option value="4:5">4:5</option>
-                  <!-- Add more aspect ratio options as needed -->
-                </select>
-                <div
-                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
-                >
-                  <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                    <path
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clip-rule="evenodd"
-                      fill-rule="evenodd"
-                    ></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2" for="maxCost">
-              Maximum Cost (Credits)
-            </label>
-            <input
-              class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              id="maxCost"
-              type="number"
-              step="0.01"
-              placeholder="Enter maximum cost"
-              value="200"
-            />
-          </div>
-          <div class="flex justify-between">
-            <button
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Create Inference Request
-            </button>
-            <button
-              class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-              type="button"
-              id="clearInferenceForm"
-            >
-              Clear Demo Input
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">Send and Receive Messages</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div
+      class="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <div>
+        <h2 class="text-2xl mb-4 text-info-800">Send Message</h2>
+        <form id="sendMessageForm" class="grid grid-cols-1 gap-4">
           <div>
-            <h3 class="text-xl font-bold mb-4">Send Message</h3>
-            <form
-              id="sendMessageForm"
-              class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
-            >
-              <div class="mb-6">
-                <label
-                  class="block text-gray-700 font-bold mb-2"
-                  for="toPastelID"
-                >
-                  Recipient Pastel ID
-                </label>
-                <input
-                  class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                  id="toPastelID"
-                  type="text"
-                  placeholder="Enter recipient Pastel ID"
-                  value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr"
-                />
-              </div>
-              <div class="mb-6">
-                <label
-                  class="block text-gray-700 font-bold mb-2"
-                  for="messageBody"
-                >
-                  Message Body
-                </label>
-                <textarea
-                  class="w-full px-4 py-3 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-                  id="messageBody"
-                  rows="5"
-                  placeholder="Enter your message"
-                >
-      Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
-                >
-              </div>
-              <div class="flex justify-between">
-                <button
-                  class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-                  type="submit"
-                >
-                  Send Message
-                </button>
-                <button
-                  class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline"
-                  type="button"
-                  id="clearMessageForm"
-                >
-                  Clear Demo Input
-                </button>
-              </div>
-            </form>
+            <label class="block text-bw-700 font-bold mb-2" for="toPastelID">
+              Recipient Pastel ID
+            </label>
+            <input
+              class="input w-full"
+              id="toPastelID"
+              type="text"
+              placeholder="Enter recipient Pastel ID"
+              value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr"
+            />
           </div>
           <div>
-            <h3 class="text-xl font-bold mb-4">Received Messages</h3>
-            <div
-              id="receivedMessages"
-              class="bg-white shadow-lg rounded-lg px-8 py-6"
-            >
-              <!-- Received messages will be dynamically populated here -->
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">Manage Wallet</h2>
-        <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8">
-          <div class="mb-4">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="importPrivKey"
-            >
-              Import Private Key
-              <span
-                class="tooltip"
-                data-tooltip="Import a private key into your wallet."
-                >&#9432;</span
-              >
+            <label class="block text-bw-700 font-bold mb-2" for="messageBody">
+              Message Body
             </label>
-            <input
-              id="importPrivKey"
-              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              type="text"
-              placeholder="Enter private key"
-            />
-            <button
-              id="importPrivKeyButton"
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2"
+            <textarea
+              class="input w-full"
+              id="messageBody"
+              rows="5"
+              placeholder="Enter your message"
             >
-              Import
+Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
+            >
+            >
+          </div>
+          <div class="flex justify-between">
+            <button class="btn solid success" type="submit">
+              Send Message
+            </button>
+            <button class="btn outline bw" type="button" id="clearMessageForm">
+              Clear Demo Input
             </button>
           </div>
-          <div class="mb-4">
-            <label
-              class="block text-gray-700 font-bold mb-2"
-              for="importWallet"
-            >
-              Import Wallet
-              <span
-                class="tooltip"
-                data-tooltip="Import a wallet file into your wallet."
-                >&#9432;</span
-              >
-            </label>
-            <input
-              id="importWallet"
-              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
-              type="file"
-              accept=".dat"
-            />
-            <button
-              id="importWalletButton"
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2"
-            >
-              Import
-            </button>
-          </div>
-          <div class="mb-4">
-            <button
-              id="listAddressAmountsButton"
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            >
-              List Address Amounts
-              <span
-                class="tooltip"
-                data-tooltip="List the amounts associated with each address in your wallet."
-                >&#9432;</span
-              >
-            </button>
-          </div>
-          <div class="mb-4">
-            <button
-              id="getWalletInfoButton"
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            >
-              Get Wallet Info
-              <span
-                class="tooltip"
-                data-tooltip="Retrieve information about your wallet."
-                >&#9432;</span
-              >
-            </button>
-          </div>
+        </form>
+      </div>
+      <div>
+        <h2 class="text-2xl mb-4">Received Messages</h2>
+        <div id="receivedMessages" class="bg-bw-50 p-4 rounded-xl">
+          <!-- Received messages will be dynamically populated here -->
         </div>
-      </section>
-      <button
-        onclick="toggleTerminal()"
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-      >
-        Toggle Terminal
-      </button>
-      <div id="terminal"></div>
-    </main>
+      </div>
+    </div>
 
-    <footer class="bg-gray-800 text-white py-6">
+    <div class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl">
+      <h2 class="text-2xl">Manage Wallet</h2>
+      <div class="mb-4">
+        <label class="block text-bw-700 font-bold mb-2" for="importPrivKey">
+          Import Private Key
+          <span
+            class="tooltip"
+            data-tooltip="Import a private key into your wallet."
+            >&#9432;</span
+          >
+        </label>
+        <input
+          id="importPrivKey"
+          class="input w-full"
+          type="text"
+          placeholder="Enter private key"
+        />
+        <button id="importPrivKeyButton" class="btn solid success mt-2">
+          Import
+        </button>
+      </div>
+      <div class="mb-4">
+        <label class="block text-bw-700 font-bold mb-2" for="importWallet">
+          Import Wallet
+          <span
+            class="tooltip"
+            data-tooltip="Import a wallet file into your wallet."
+            >&#9432;</span
+          >
+        </label>
+        <input
+          id="importWallet"
+          class="input w-full"
+          type="file"
+          accept=".dat"
+        />
+        <button id="importWalletButton" class="btn solid success mt-2">
+          Import
+        </button>
+      </div>
+      <div class="mb-4">
+        <button id="listAddressAmountsButton" class="btn solid success">
+          List Address Amounts
+          <span
+            class="tooltip"
+            data-tooltip="List the amounts associated with each address in your wallet."
+            >&#9432;</span
+          >
+        </button>
+      </div>
+      <div>
+        <button id="getWalletInfoButton" class="btn solid success">
+          Get Wallet Info
+          <span
+            class="tooltip"
+            data-tooltip="Retrieve information about your wallet."
+            >&#9432;</span
+          >
+        </button>
+      </div>
+    </div>
+    <button onclick="toggleTerminal()" class="btn solid success">
+      Toggle Terminal
+    </button>
+    <div id="terminal"></div>
+
+    <div class="bg-bw-800 text-bw-50 py-6">
       <div class="container mx-auto px-4">
         <p class="text-center">
           &copy; 2023 Pastel Inference Client UI. All rights reserved.
         </p>
       </div>
-    </footer>
+    </div>
 
     <script>
       const MESSAGING_TIMEOUT_IN_SECONDS = 60;
@@ -1150,6 +950,47 @@ A picture of a clown holding a sign that says PASTEL</textarea
         } else {
           terminal.style.display = "none";
         }
+      }
+
+      tailwind.config = {
+        theme: {
+          extend: {},
+        },
+      };
+
+      var storedTheme =
+        localStorage.getItem("theme") ||
+        (window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light");
+      if (storedTheme)
+        document.documentElement.setAttribute("data-theme", storedTheme);
+
+      function toggleDarkMode() {
+        var currentTheme = document.documentElement.getAttribute("data-theme");
+        var targetTheme = "light";
+
+        const toggle = document.querySelector("#theme-toggle");
+        if (currentTheme === "light") {
+          targetTheme = "dark";
+        }
+        console.debug("toggleDarkMode", targetTheme);
+        document.documentElement.setAttribute("data-theme", targetTheme);
+        localStorage.setItem("theme", targetTheme);
+        toggle.setAttribute(
+          "data-content",
+          targetTheme === "dark" ? "🌙" : "☀"
+        );
+      }
+
+      // Set the initial state of the switch toggle
+      const toggle = document.querySelector("#theme-toggle");
+      if (storedTheme === "dark") {
+        toggle.checked = true;
+        toggle.setAttribute("data-content", "🌙");
+      } else {
+        toggle.checked = false;
+        toggle.setAttribute("data-content", "☀");
       }
     </script>
   </body>
