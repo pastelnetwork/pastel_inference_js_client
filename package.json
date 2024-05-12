@@ -21,6 +21,7 @@
   "author": "Jeff Emanuel <jeff@pastel.network>",
   "license": "MIT",
   "dependencies": {
+    "@xterm/xterm": "^5.5.0",
     "axios": "^1.6.8",
     "body-parser": "^1.20.2",
     "dotenv": "^16.4.5",
@@ -29,6 +30,7 @@
     "sequelize": "^6.21.3",
     "sqlite3": "^5.1.7",
     "winston": "^3.8.1",
+    "ws": "^8.17.0",
     "zstd-codec": "^0.1.4"
   },
   "devDependencies": {

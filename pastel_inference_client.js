@@ -164,6 +164,73 @@ class PastelInferenceClient {
     }
   }
 
+  async getModelMenu(supernodeURL) {
+    try {
+      const response = await axios.get(
+        `${supernodeURL}/get_inference_model_menu`,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      logger.error(
+        `Error fetching model menu from Supernode URL: ${supernodeURL}: ${safeStringify(
+          error
+        )}`
+      );
+      throw error;
+    }
+  }
+
+  async getValidCreditPackTicketsForPastelID(supernodeURL) {
+    try {
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+
+      const payload = {
+        pastelid: this.pastelID,
+        challenge,
+        challenge_id,
+        challenge_signature,
+      };
+      logActionWithPayload(
+        "retrieving",
+        "valid credit pack tickets for PastelID",
+        payload
+      );
+      const response = await axios.post(
+        `${supernodeURL}/get_valid_credit_pack_tickets_for_pastelid`,
+        payload,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const validCreditPackTickets = response.data;
+      logActionWithPayload(
+        "received",
+        `${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`,
+        validCreditPackTickets
+      );
+      // Process and validate the received credit pack tickets as needed
+      const processedCreditPackTickets = validCreditPackTickets.map(
+        (ticket) => {
+          // Perform any necessary processing or validation on each ticket
+          return ticket;
+        }
+      );
+      return processedCreditPackTickets;
+    } catch (error) {
+      logger.error(
+        `Error retrieving valid credit pack tickets for PastelID: ${error.message}`
+      );
+      throw error;
+    }
+  }
+
   async getCreditPackTicketFromTxid(supernodeURL, txid) {
     try {
       const { challenge, challenge_id, challenge_signature } =

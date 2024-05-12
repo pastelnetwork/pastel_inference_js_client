@@ -49,6 +49,55 @@ const {
 const MY_LOCAL_PASTELID = process.env.MY_LOCAL_PASTELID;
 const MY_PASTELID_PASSPHRASE = process.env.MY_PASTELID_PASSPHRASE;
 
+async function checkForNewIncomingMessages() {
+  try {
+    const inferenceClient = new PastelInferenceClient(
+      MY_LOCAL_PASTELID,
+      MY_PASTELID_PASSPHRASE
+    );
+    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
+
+    logger.info("Retrieving incoming user messages...");
+    logger.info(`My local pastelid: ${inferenceClient.pastelID}`);
+
+    const closestSupernodesToLocal = await getNClosestSupernodesToPastelIDURLs(
+      3,
+      inferenceClient.pastelID,
+      validMasternodeListFullDF
+    );
+    logger.info(
+      `Closest Supernodes to local pastelid: ${closestSupernodesToLocal.map(
+        (sn) => sn.pastelID
+      )}`
+    );
+
+    const messageRetrievalTasks = closestSupernodesToLocal.map(({ url }) =>
+      inferenceClient.getUserMessages(url)
+    );
+    const messageLists = await Promise.all(messageRetrievalTasks);
+
+    const uniqueMessages = [];
+    const messageIDs = new Set();
+    for (const messageList of messageLists) {
+      for (const message of messageList) {
+        if (!messageIDs.has(message.id)) {
+          uniqueMessages.push(message);
+          messageIDs.add(message.id);
+        }
+      }
+    }
+
+    logger.info(
+      `Retrieved unique user messages: ${safeStringify(uniqueMessages)}`
+    );
+
+    return uniqueMessages;
+  } catch (error) {
+    logger.error(`Error in checkForNewIncomingMessages: ${error.message}`);
+    throw error;
+  }
+}
+
 async function sendMessageAndCheckForNewIncomingMessages(
   toPastelID,
   messageBody
@@ -97,43 +146,12 @@ async function sendMessageAndCheckForNewIncomingMessages(
     const sendResults = await Promise.all(sendTasks);
     logger.info(`Sent user messages: ${safeStringify(sendResults)}`);
 
-    logger.info("Retrieving incoming user messages...");
-    logger.info(`My local pastelid: ${inferenceClient.pastelID}`);
-
-    const closestSupernodesToLocal = await getNClosestSupernodesToPastelIDURLs(
-      3,
-      inferenceClient.pastelID,
-      supernodeListDF
-    );
-    logger.info(
-      `Closest Supernodes to local pastelid: ${closestSupernodesToLocal.map(
-        (sn) => sn.pastelID
-      )}`
-    );
-
-    const messageRetrievalTasks = closestSupernodesToLocal.map(({ url }) =>
-      inferenceClient.getUserMessages(url)
-    );
-    const messageLists = await Promise.all(messageRetrievalTasks);
-
-    const uniqueMessages = [];
-    const messageIDs = new Set();
-    for (const messageList of messageLists) {
-      for (const message of messageList) {
-        if (!messageIDs.has(message.id)) {
-          uniqueMessages.push(message);
-          messageIDs.add(message.id);
-        }
-      }
-    }
-
-    logger.info(
-      `Retrieved unique user messages: ${safeStringify(uniqueMessages)}`
-    );
+    // Now call the new function to check for incoming messages
+    const receivedMessages = await checkForNewIncomingMessages();
 
     const messageDict = {
       sent_messages: sendResults,
-      received_messages: uniqueMessages,
+      received_messages: receivedMessages,
     };
 
     return messageDict;
@@ -753,6 +771,7 @@ async function handleInferenceRequestEndToEnd(
 }
 
 module.exports = {
+  checkForNewIncomingMessages,
   sendMessageAndCheckForNewIncomingMessages,
   handleCreditPackTicketEndToEnd,
   getCreditPackTicketInfoEndToEnd,

@@ -746,6 +746,7 @@ async function listPastelIDTickets(filter = "mine", minheight = null) {
       params.push(minheight);
     }
     const result = await rpc_connection.tickets("list", "id", ...params);
+    logger.info(`Pastel ID Tickets: ${result}`);
     logger.info(`Listed PastelID tickets with filter: ${filter}`);
     return result;
   } catch (error) {
@@ -967,11 +968,18 @@ async function getWalletInfo() {
 async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
   try {
     const { rpchost, rpcport, rpcuser, rpcpassword } = getLocalRPCSettings();
+    logger.info(
+      `RPC settings: host=${rpchost}, port=${rpcport}, user=${rpcuser}, password=${rpcpassword}`
+    );
     const { network, burnAddress } = getNetworkInfo(rpcport);
+    logger.info(`Network: ${network}, Burn Address: ${burnAddress}`);
     const pastelIDDir = getPastelIDDirectory(network);
+    logger.info(`Pastel ID directory: ${pastelIDDir}`);
     const pastelIDs = await getPastelIDsFromDirectory(pastelIDDir);
+    logger.info(`Found Pastel IDs: ${pastelIDs}`);
     for (const pastelID of pastelIDs) {
       const isRegistered = await isPastelIDRegistered(pastelID);
+      logger.info(`Pastel ID ${pastelID} is registered: ${isRegistered}`);
       if (isRegistered) {
         logger.info(`Found registered Pastel ID: ${pastelID}`);
         return pastelID;
@@ -1060,7 +1068,6 @@ function getNetworkInfo(rpcport) {
 function getPastelIDDirectory(network) {
   const homeDir = process.env.HOME;
   let pastelIDDir = "";
-
   if (network === "mainnet") {
     pastelIDDir = path.join(homeDir, ".pastel", "pastelkeys");
   } else if (network === "testnet") {

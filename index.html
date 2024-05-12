@@ -8,6 +8,26 @@
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
       rel="stylesheet"
     />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.8/axios.min.js"
+      integrity="sha512-PJa3oQSLWRB7wHZ7GQ/g+qyv6r4mbuhmiDb8BjSFZ8NZ2a42oTtAq5n0ucWAwcQDlikAtkub+tPVCw4np27WCg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="
+https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js
+"></script>
+    <link
+      href="
+https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css
+"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@sira-ui/tailwind/dist/css/styles.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
       .tooltip {
         position: relative;
@@ -52,9 +72,27 @@
       <section class="mb-12">
         <h2 class="text-2xl font-bold mb-6">User Information</h2>
         <div class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8">
+          <button
+            id="changePastelIDButton"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline hidden"
+            onclick="togglePastelIDDropdown()"
+          >
+            Switch to a Different PastelID
+          </button>
+          <div id="pastelIDDropdownContainer" class="mb-4 hidden">
+            <label class="block text-gray-700 font-bold mb-2">
+              Select Existing PastelID to Use:
+            </label>
+            <select
+              id="pastelIDDropdown"
+              class="w-full px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:shadow-outline text-gray-700 font-medium"
+            >
+              <!-- Options will be dynamically populated -->
+            </select>
+          </div>
           <div class="mb-4">
             <label class="block text-gray-700 font-bold mb-2">
-              Your PastelID:
+              Your Currently Selected PastelID:
             </label>
             <span id="userPastelID" class="text-gray-700">Loading...</span>
           </div>
@@ -66,8 +104,7 @@
           </div>
           <button
             id="createPastelIDButton"
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            style="display: none"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline hidden"
           >
             Create a PastelID so you can make inference requests? (Costs 1,000
             PSL)
@@ -159,7 +196,9 @@
       </section>
 
       <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">Select Credit Pack Ticket</h2>
+        <h2 class="text-2xl font-bold mb-6">
+          Select Existing Credit Pack Ticket
+        </h2>
         <div class="relative inline-block w-full text-gray-700">
           <select
             id="creditPackTicketSelect"
@@ -189,7 +228,9 @@
       </section>
 
       <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-6">Check Credit Pack Ticket Info</h2>
+        <h2 class="text-2xl font-bold mb-6">
+          Check Existing Credit Pack Ticket Info
+        </h2>
         <form
           id="checkCreditPackForm"
           class="bg-white shadow-lg rounded-lg px-8 pt-6 pb-8"
@@ -623,6 +664,13 @@ A picture of a clown holding a sign that says PASTEL</textarea
           </div>
         </div>
       </section>
+      <button
+        onclick="toggleTerminal()"
+        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+      >
+        Toggle Terminal
+      </button>
+      <div id="terminal"></div>
     </main>
 
     <footer class="bg-gray-800 text-white py-6">
@@ -634,6 +682,32 @@ A picture of a clown holding a sign that says PASTEL</textarea
     </footer>
 
     <script>
+      const MESSAGING_TIMEOUT_IN_SECONDS = 60;
+
+      function togglePastelIDDropdown() {
+        const dropdown = document.getElementById("pastelIDDropdown");
+        dropdown.classList.toggle("hidden");
+      }
+
+      function updatePastelIDSelection() {
+        const selectedID = document.getElementById("pastelIDDropdown").value;
+        document.getElementById("userPastelID").textContent = selectedID;
+        togglePastelIDDropdown(); // Hide dropdown after selection
+      }
+
+      async function checkCreditPackTicketInfo() {
+        try {
+          const response = await axios.get("/get-credit-pack-ticket-info");
+          const { requestResponse, requestConfirmation } = response.data;
+          document.getElementById("requestResponse").textContent =
+            requestResponse;
+          document.getElementById("requestConfirmation").textContent =
+            requestConfirmation;
+        } catch (error) {
+          console.error("Error checking credit pack ticket info:", error);
+        }
+      } // Function to check credit pack ticket info
+
       // Handle create ticket form submission
       const createTicketForm = document.getElementById("createTicketForm");
       createTicketForm.addEventListener("submit", async (event) => {
@@ -673,16 +747,13 @@ A picture of a clown holding a sign that says PASTEL</textarea
 
       async function fetchModelMenu() {
         try {
-          const response = await axios.get(
-            `${supernodeURL}/get_inference_model_menu`,
-            {
-              timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
-            }
-          );
-          modelMenu = response.data;
+          const response = await axios.get("/get-inference-model-menu");
+          modelMenu = response.data.modelMenu;
+          console.log("Model Menu:", modelMenu); // Debugging line, consider removing for production
           populateModelDropdown();
         } catch (error) {
           console.error("Error fetching model menu:", error);
+          displayError("Failed to load model menu. Please try again later.");
         }
       }
 
@@ -693,10 +764,12 @@ A picture of a clown holding a sign that says PASTEL</textarea
           '<option value="">Select a model/service</option>';
 
         if (modelMenu) {
-          const filteredModels = modelMenu.models.filter((model) =>
-            model.supported_inference_type_strings.includes(
-              selectedInferenceType
-            )
+          const filteredModels = modelMenu.models.filter(
+            (model) =>
+              model.supported_inference_type_strings &&
+              model.supported_inference_type_strings.includes(
+                selectedInferenceType
+              )
           );
 
           filteredModels.forEach((model) => {
@@ -706,6 +779,11 @@ A picture of a clown holding a sign that says PASTEL</textarea
             modelSelect.appendChild(option);
           });
         }
+      }
+
+      function displayError(message) {
+        // Implement user-friendly error handling/display mechanism
+        alert(message); // Simplistic example, consider more sophisticated modal or notification systems
       }
 
       // Load inference request settings from localStorage
@@ -850,8 +928,18 @@ A picture of a clown holding a sign that says PASTEL</textarea
       // Function to fetch and display received messages
       async function fetchReceivedMessages() {
         try {
-          const response = await axios.get("/get-received-messages");
-          const messageDict = response.data.messageDict;
+          const userPastelID =
+            document.getElementById("pastelIDDropdown").value;
+
+          const response = await axios.get("/get-best-supernode-url", {
+            params: { userPastelID },
+          });
+          const supernodeURL = response.data.supernodeURL;
+
+          const messagesResponse = await axios.get("/get-received-messages", {
+            timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+          });
+          const messageDict = messagesResponse.data.messageDict;
 
           const receivedMessagesContainer =
             document.getElementById("receivedMessages");
@@ -901,6 +989,10 @@ A picture of a clown holding a sign that says PASTEL</textarea
           }
         } catch (error) {
           console.error("Error retrieving received messages:", error);
+          const receivedMessagesContainer =
+            document.getElementById("receivedMessages");
+          receivedMessagesContainer.innerHTML =
+            "Failed to retrieve received messages. Please try again later.";
         }
       }
 
@@ -918,25 +1010,54 @@ A picture of a clown holding a sign that says PASTEL</textarea
       // Check user's PastelID and wallet balance on page load
       window.addEventListener("DOMContentLoaded", async () => {
         const pastelIDElement = document.getElementById("userPastelID");
+        const pastelIDDropdown = document.getElementById("pastelIDDropdown");
+        const pastelIDDropdownContainer = document.getElementById(
+          "pastelIDDropdownContainer"
+        );
         const walletBalanceElement = document.getElementById("walletBalance");
         const createPastelIDButton = document.getElementById(
           "createPastelIDButton"
         );
+        const changePastelIDButton = document.getElementById(
+          "changePastelIDButton"
+        );
 
         try {
-          const response = await axios.get("/get-wallet-info");
-          const walletInfo = response.data.result;
+          const response = await axios.get("/list-pastel-id-tickets", {
+            params: { filter: "mine" },
+          });
+          const pastelIDTickets = response.data.result;
 
-          if (walletInfo.pastelID) {
-            pastelIDElement.textContent = walletInfo.pastelID;
+          if (pastelIDTickets.length > 0) {
+            pastelIDTickets.forEach((ticket, index) => {
+              const option = document.createElement("option");
+              option.value = ticket.ticket.pastelID;
+              option.textContent = ticket.ticket.pastelID;
+              pastelIDDropdown.appendChild(option);
+              if (index === 0) {
+                pastelIDElement.textContent = ticket.ticket.pastelID; // Display the first PastelID by default
+              }
+            });
+            if (pastelIDTickets.length > 1) {
+              changePastelIDButton.classList.remove("hidden");
+              pastelIDDropdownContainer.classList.remove("hidden");
+            }
           } else {
             pastelIDElement.textContent = "No PastelID found";
-            createPastelIDButton.style.display = "inline-block";
+            createPastelIDButton.style.display = "block"; // Show create button if no IDs
           }
-
-          walletBalanceElement.textContent = `${walletInfo.balance} PSL`;
         } catch (error) {
-          console.error("Error retrieving wallet info:", error);
+          console.error("Error retrieving Pastel ID tickets:", error);
+          pastelIDElement.textContent = "Failed to load PastelIDs";
+        }
+
+        try {
+          const walletInfoResponse = await axios.get("/get-wallet-info");
+          const walletInfo = walletInfoResponse.data.result;
+          walletBalanceElement.textContent = `${walletInfo.balance} PSL`;
+        } catch (walletError) {
+          console.error("Error retrieving wallet info:", walletError);
+          walletBalanceElement.textContent = "Failed to load balance";
         }
       });
 
@@ -1007,6 +1128,29 @@ A picture of a clown holding a sign that says PASTEL</textarea
             console.error("Error retrieving wallet info:", error);
           }
         });
+
+      // Create a terminal
+      const term = new Terminal();
+      term.open(document.getElementById("terminal"));
+
+      // Connect to the WebSocket
+      const socket = new WebSocket("ws://localhost:3101");
+      socket.onmessage = (event) => {
+        const logMessage = JSON.parse(event.data);
+        term.writeln(
+          `[${logMessage.timestamp}] [${logMessage.level}] ${logMessage.message}`
+        );
+      };
+
+      // Function to toggle the terminal visibility
+      function toggleTerminal() {
+        const terminal = document.getElementById("terminal");
+        if (terminal.style.display === "none") {
+          terminal.style.display = "block";
+        } else {
+          terminal.style.display = "none";
+        }
+      }
     </script>
   </body>
 </html>

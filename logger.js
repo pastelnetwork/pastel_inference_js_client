@@ -23,9 +23,26 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.File({ filename: "error.log", level: "error" }),
     new winston.transports.File({ filename: "combined.log" }),
-    // new winston.transports.Console(), // Logs to the Node.js console
   ],
 });
+
+// Add a new function to set the WebSocket transport
+logger.setWebSocketTransport = (ws) => {
+  logger.add(
+    new winston.transports.Stream({
+      stream: {
+        write: (message) => {
+          ws.send(message);
+        },
+      },
+    })
+  );
+};
+
+// Add a new function to remove the WebSocket transport
+logger.removeWebSocketTransport = () => {
+  logger.remove(winston.transports.Stream);
+};
 
 if (process.env.NODE_ENV !== "production") {
   logger.add(

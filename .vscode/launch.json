@@ -7,14 +7,14 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/index.js"
+            "program": "${workspaceFolder}/server.js"
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Debug with Nodemon",
             "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/nodemon",
-            "program": "${workspaceFolder}/index.js",
+            "program": "${workspaceFolder}/server.js",
             "restart": true,
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
@@ -26,7 +26,7 @@
             "type": "node",
             "request": "launch",
             "name": "Debug with Node",
-            "program": "${workspaceFolder}/index.js",
+            "program": "${workspaceFolder}/server.js",
             "console": "integratedTerminal",
             "skipFiles": [
                 "<node_internals>/**"

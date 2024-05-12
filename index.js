@@ -4,7 +4,6 @@ const {
   getLocalRPCSettings,
   initializeRPCConnection,
   createAndFundNewPSLCreditTrackingAddress,
-  lookupCreditPackTicketTrackingAddress,
 } = require("./rpc_functions");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
