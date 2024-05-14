@@ -500,12 +500,49 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
       creditPackTicketPastelTxid
     );
 
+    const balanceInfo = await inferenceClient.checkCreditPackBalance(
+      supernodeURL,
+      creditPackTicketPastelTxid
+    );
+
     return {
       requestResponse: creditPackPurchaseRequestResponse,
       requestConfirmation: creditPackPurchaseRequestConfirmation,
+      balanceInfo,
     };
   } catch (error) {
     logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message}`);
+    throw error;
+  }
+}
+
+async function getMyValidCreditPackTicketsEndToEnd() {
+  try {
+    const inferenceClient = new PastelInferenceClient(
+      MY_LOCAL_PASTELID,
+      MY_PASTELID_PASSPHRASE
+    );
+    const { validMasternodeListFullDF } = await checkSupernodeList();
+    const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
+      MY_LOCAL_PASTELID,
+      validMasternodeListFullDF
+    );
+    if (!supernodeURL) {
+      throw new Error("Supernode URL is undefined");
+    }
+    logger.info(
+      `Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`
+    );
+    const validCreditPackTickets =
+      await inferenceClient.getValidCreditPackTicketsForPastelID(
+        supernodeURL,
+        MY_LOCAL_PASTELID
+      );
+    return validCreditPackTickets;
+  } catch (error) {
+    logger.error(
+      `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`
+    );
     throw error;
   }
 }
@@ -775,5 +812,6 @@ module.exports = {
   sendMessageAndCheckForNewIncomingMessages,
   handleCreditPackTicketEndToEnd,
   getCreditPackTicketInfoEndToEnd,
+  getMyValidCreditPackTicketsEndToEnd,
   handleInferenceRequestEndToEnd,
 };

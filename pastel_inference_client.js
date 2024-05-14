@@ -203,29 +203,59 @@ class PastelInferenceClient {
         `${supernodeURL}/get_valid_credit_pack_tickets_for_pastelid`,
         payload,
         {
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000 * 3,
         }
       );
       if (response.status !== 200) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       const validCreditPackTickets = response.data;
-      logActionWithPayload(
-        "received",
-        `${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`,
-        validCreditPackTickets
+      logger.info(
+        `Received ${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`
       );
-      // Process and validate the received credit pack tickets as needed
-      const processedCreditPackTickets = validCreditPackTickets.map(
-        (ticket) => {
-          // Perform any necessary processing or validation on each ticket
-          return ticket;
-        }
-      );
-      return processedCreditPackTickets;
+      return validCreditPackTickets;
     } catch (error) {
       logger.error(
         `Error retrieving valid credit pack tickets for PastelID: ${error.message}`
+      );
+      throw error;
+    }
+  }
+
+  async checkCreditPackBalance(supernodeURL, txid) {
+    try {
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+      const payload = {
+        credit_pack_ticket_txid: txid,
+        challenge,
+        challenge_id,
+        challenge_signature,
+      };
+      logActionWithPayload("checking", "credit pack balance", payload);
+
+      const response = await axios.post(
+        `${supernodeURL}/check_credit_pack_balance`,
+        payload,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const balanceInfo = response.data;
+      logger.info(
+        `Received credit pack balance info for txid ${txid}: ${JSON.stringify(
+          balanceInfo
+        )}`
+      );
+      return balanceInfo;
+    } catch (error) {
+      logger.error(
+        `Error checking credit pack balance for txid ${txid}: ${error.message}`
       );
       throw error;
     }
@@ -965,6 +995,92 @@ class PastelInferenceClient {
       throw error;
     }
   }
+
+  async retrieveCreditPackTicketFromPurchaseBurnTxid(supernodeURL, txid) {
+    try {
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+      const payload = {
+        purchase_burn_txid: txid,
+        challenge,
+        challenge_id,
+        challenge_signature,
+      };
+      logActionWithPayload(
+        "retrieving",
+        "credit pack ticket from purchase burn txid",
+        payload
+      );
+
+      const response = await axios.post(
+        `${supernodeURL}/retrieve_credit_pack_ticket_from_purchase_burn_txid`,
+        payload,
+        {
+          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+        }
+      );
+
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const ticketInfo = response.data;
+      logger.info(
+        `Received credit pack ticket for purchase burn txid ${txid}: ${JSON.stringify(
+          ticketInfo
+        )}`
+      );
+      return ticketInfo;
+    } catch (error) {
+      logger.error(
+        `Error retrieving credit pack ticket for purchase burn txid ${txid}: ${error.message}`
+      );
+      throw error;
+    }
+  }
+
+  async getFinalCreditPackRegistrationTxidFromPurchaseBurnTxid(
+    supernodeURL,
+    purchaseBurnTxid
+  ) {
+    try {
+      const { challenge, challenge_id, challenge_signature } =
+        await this.requestAndSignChallenge(supernodeURL);
+      const payload = {
+        purchase_burn_txid: purchaseBurnTxid,
+        challenge,
+        challenge_id,
+        challenge_signature,
+      };
+      logActionWithPayload(
+        "retrieving",
+        "final credit pack registration txid",
+        payload
+      );
+
+      const response = await axios.post(
+        `${supernodeURL}/get_final_credit_pack_registration_txid_from_credit_purchase_burn_txid`,
+        payload,
+        { timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000 }
+      );
+
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const finalTxid = response.data.final_credit_pack_registration_txid;
+      logger.info(
+        `Received final credit pack registration txid for purchase burn txid ${purchaseBurnTxid}: ${finalTxid}`
+      );
+      return finalTxid;
+    } catch (error) {
+      logger.error(
+        `Error retrieving final credit pack registration txid for purchase burn txid ${purchaseBurnTxid}: ${error.message}`
+      );
+      throw error;
+    }
+  }
+
   async makeInferenceAPIUsageRequest(supernodeURL, requestData) {
     try {
       const { error, value: validatedRequest } =
@@ -1323,6 +1439,12 @@ class PastelInferenceClient {
       const modelMenu = response.data;
       const desiredParameters = JSON.parse(modelParametersJSON);
 
+      // Create a mapping of desired parameter names to actual parameter names
+      const parameterMapping = {
+        max_tokens: "number_of_tokens_to_generate",
+        num_completions: "number_of_completions_to_generate",
+      };
+
       for (const model of modelMenu.models) {
         if (
           model.model_name === modelCanonicalString &&
@@ -1336,9 +1458,10 @@ class PastelInferenceClient {
             desiredParameters
           )) {
             let paramFound = false;
+            const actualParam = parameterMapping[desiredParam] || desiredParam;
 
             for (const param of model.model_parameters) {
-              if (param.name === desiredParam) {
+              if (param.name === actualParam) {
                 if ("type" in param) {
                   if (param.type === "int" && Number.isInteger(desiredValue)) {
                     paramFound = true;

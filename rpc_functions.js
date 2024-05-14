@@ -965,6 +965,22 @@ async function getWalletInfo() {
   }
 }
 
+async function getNewAddress() {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.getnewaddress();
+    logger.info("Got new Pastel address");
+    return result;
+  } catch (error) {
+    logger.error(`Error getting new address: ${safeStringify(error)}`);
+    throw error;
+  }
+}
+
 async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
   try {
     const { rpchost, rpcport, rpcuser, rpcpassword } = getLocalRPCSettings();
@@ -1172,6 +1188,7 @@ module.exports = {
   createAndRegisterPastelID,
   getBalance,
   getWalletInfo,
+  getNewAddress,
   listAddressAmounts,
   getPastelTicket,
   listPastelIDTickets,

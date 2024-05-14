@@ -14,10 +14,9 @@
             "request": "launch",
             "name": "Debug with Nodemon",
             "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/nodemon",
+            "console": "integratedTerminal",
             "program": "${workspaceFolder}/server.js",
             "restart": true,
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen",
             "skipFiles": [
                 "<node_internals>/**"
             ]
@@ -26,8 +25,8 @@
             "type": "node",
             "request": "launch",
             "name": "Debug with Node",
-            "program": "${workspaceFolder}/server.js",
             "console": "integratedTerminal",
+            "program": "${workspaceFolder}/server.js",
             "skipFiles": [
                 "<node_internals>/**"
             ]

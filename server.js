@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const WebSocket = require("ws");
+const os = require("os");
 const path = require("path");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 
@@ -9,6 +10,7 @@ const {
   sendMessageAndCheckForNewIncomingMessages,
   handleCreditPackTicketEndToEnd,
   getCreditPackTicketInfoEndToEnd,
+  getMyValidCreditPackTicketsEndToEnd,
   handleInferenceRequestEndToEnd,
 } = require("./end_to_end_functions");
 const {
@@ -28,9 +30,10 @@ const {
   listAddressAmounts,
   getBalance,
   getWalletInfo,
+  getNewAddress,
   checkForPastelIDAndCreateIfNeeded,
 } = require("./rpc_functions");
-const { logger } = require("./logger");
+const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
   prettyJSON,
   getClosestSupernodeToPastelIDURL,
@@ -48,33 +51,62 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const port = process.env.CLIENT_PORT || 3100;
-// Create a WebSocket server and add detailed logging
+
 const webSocketPort = process.env.CLIENT_WEBSOCKET_PORT || 3101;
-logger.info(`Creating a WebSocket server on port ${webSocketPort}`);
-const wss = new WebSocket.Server({ port: webSocketPort });
-logger.info(`WebSocket server created on port ${webSocketPort}`);
+
+const wss = new WebSocket.Server({ port: webSocketPort }, () => {
+  console.log(`WebSocket server started on port ${webSocketPort}`);
+});
+
+function getServerIpAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return "localhost";
+}
+
+app.get("/ws-url", (req, res) => {
+  const ipAddress = getServerIpAddress();
+  const wsUrl = `ws://${ipAddress}:${webSocketPort}`;
+  res.json({ wsUrl });
+});
+
 wss.on("connection", (ws) => {
   logger.info(`Client connected: ${ws}`);
-  // Setup transport for logger upon client connection
-  logger.setWebSocketTransport(ws);
-  // Log any messages received from the client
+
+  // Send the buffered log entries to the newly connected client
+  logBuffer.forEach((logEntry) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(logEntry);
+    }
+  });
+
+  // Stream new log entries to the client
+  const logListener = (logEntry) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(logEntry);
+    }
+  };
+  logEmitter.on("newLog", logListener);
+
   ws.on("message", (message) => {
     logger.info(`Received message from client: ${message}`);
   });
-  // Log and handle client disconnections
+
   ws.on("close", (code, reason) => {
     logger.info(`Client disconnected; code: ${code}, reason: ${reason}`);
-    // When the client disconnects, remove the WebSocket transport
-    logger.removeWebSocketTransport();
+    logEmitter.removeListener("newLog", logListener);
   });
-  // Log errors on the WebSocket
+
   ws.on("error", (error) => {
     logger.error(`WebSocket error: ${error.message}`);
+    logEmitter.removeListener("newLog", logListener);
   });
-});
-// Handle server-wide errors
-wss.on("error", (error) => {
-  logger.error(`WebSocket server error: ${error.message}`);
 });
 
 (async () => {
@@ -179,7 +211,7 @@ wss.on("error", (error) => {
       }
     });
 
-    app.post("/create-ticket", async (req, res) => {
+    app.post("/create-credit-pack-ticket", async (req, res) => {
       const burnAddress = await configureRPCAndSetBurnAddress();
       const {
         numCredits,
@@ -205,6 +237,15 @@ wss.on("error", (error) => {
       const { txid } = req.params;
       try {
         const result = await getCreditPackTicketInfoEndToEnd(txid);
+        res.json({ success: true, result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.get("/get-my-valid-credit-packs", async (req, res) => {
+      try {
+        const result = await getMyValidCreditPackTicketsEndToEnd();
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -366,6 +407,15 @@ wss.on("error", (error) => {
     app.get("/get-wallet-info", async (req, res) => {
       try {
         const result = await getWalletInfo();
+        res.json({ success: true, result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.get("/get-new-address", async (req, res) => {
+      try {
+        const result = await getNewAddress();
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
