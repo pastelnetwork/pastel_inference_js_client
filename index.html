@@ -102,6 +102,15 @@
         background-color: #ffffff;
         color: #000000;
       }
+      [data-theme="dark"] .table .bg-gray-200 {
+        background-color: #333333;
+        color: #ffffff; /* This needs to be adjusted */
+      }
+
+      [data-theme="dark"] .table .bg-gray-200.selected-row {
+        color: #000000; /* Adjust this color to be dark for legibility */
+      }
+
       .table-responsive {
         overflow-x: auto;
       }
@@ -110,6 +119,33 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      .prompt.success.xs {
+        display: inline-block;
+        flex-grow: 1; /* Allow it to take up the remaining space */
+        max-width: calc(
+          100% - 2rem
+        ); /* Leave some padding for better readability */
+        word-wrap: break-word; /* Ensure the text wraps correctly */
+        height: 260px; /* Set a fixed height */
+        overflow-y: auto; /* Add a scrollbar if the content exceeds the height */
+        padding: 0.5rem; /* Add padding for better readability */
+        border: 1px solid #ccc; /* Optional: Add a border for better visibility */
+        border-radius: 0.5rem; /* Optional: Add rounded corners */
+      }
+      .prompt.success.xs .content {
+        overflow-wrap: break-word;
+      }
+      #refreshButton .loader {
+        width: 100%;
+        height: 100%;
+        background: rgba(
+          255,
+          255,
+          255,
+          0.8
+        ); /* Optional: to add a slight background to the loader */
+        z-index: 10;
       }
     </style>
   </head>
@@ -140,23 +176,23 @@
           Switch to a Different PastelID
         </button>
         <div id="pastelIDDropdownContainer" class="mt-4 hidden">
-          <label class="block text-bw-700 font-bold mb-2">
-            Select Existing PastelID to Use:
-          </label>
+          <label class="block text-bw-700 font-bold mb-2"
+            >Select Existing PastelID to Use:</label
+          >
           <select id="pastelIDDropdown" class="select w-full">
             <!-- Options will be dynamically populated -->
           </select>
         </div>
         <div class="mt-4">
-          <label class="block text-bw-700 font-bold mb-2">
-            Your Currently Selected PastelID:
-          </label>
+          <label class="block text-bw-700 font-bold mb-2"
+            >Your Currently Selected PastelID:</label
+          >
           <span id="userPastelID" class="text-bw-700">Loading...</span>
         </div>
         <div class="mt-4">
-          <label class="block text-bw-700 font-bold mb-2">
-            Wallet Balance (PSL):
-          </label>
+          <label class="block text-bw-700 font-bold mb-2"
+            >Wallet Balance (PSL):</label
+          >
           <span id="walletBalance" class="text-bw-700">
             Loading...
             <script>
@@ -196,9 +232,9 @@
       <h2 class="text-2xl text-bw-800">Create New Credit Pack Ticket</h2>
       <form id="createTicketForm" class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-bw-700 font-bold mb-2" for="numCredits">
-            Number of Credits
-          </label>
+          <label class="block text-bw-700 font-bold mb-2" for="numCredits"
+            >Number of Credits</label
+          >
           <input
             class="input w-full"
             id="numCredits"
@@ -207,26 +243,11 @@
             value="1500"
             data-raw-value="1500"
           />
-          <span id="numCreditsFormatted" class="text-bw-700"></span>
         </div>
         <div>
-          <label
-            class="block text-bw-700 font-bold mb-2"
-            for="creditUsageTrackingPSLAddress"
+          <label class="block text-bw-700 font-bold mb-2" for="maxTotalPrice"
+            >Maximum Total Price (PSL)</label
           >
-            Credit Usage Tracking PSL Address
-          </label>
-          <input
-            class="input w-full"
-            id="creditUsageTrackingPSLAddress"
-            type="text"
-            placeholder="Loading address..."
-          />
-        </div>
-        <div>
-          <label class="block text-bw-700 font-bold mb-2" for="maxTotalPrice">
-            Maximum Total Price (PSL)
-          </label>
           <input
             class="input w-full"
             id="maxTotalPrice"
@@ -235,15 +256,13 @@
             value="150000"
             data-raw-value="150000"
           />
-          <span id="maxTotalPriceFormatted" class="text-bw-700"></span>
         </div>
         <div>
           <label
             class="block text-bw-700 font-bold mb-2"
             for="maxPerCreditPrice"
+            >Maximum Per Credit Price (PSL)</label
           >
-            Maximum Per Credit Price (PSL)
-          </label>
           <input
             class="input w-full"
             id="maxPerCreditPrice"
@@ -252,15 +271,45 @@
             value="100.0"
             data-raw-value="100.0"
           />
-          <span id="maxPerCreditPriceFormatted" class="text-bw-700"></span>
         </div>
+
         <div class="col-span-full flex justify-between">
-          <button class="btn success outline" type="submit">
-            Create Ticket
-          </button>
-          <button class="btn outline bw" type="button" id="clearTicketForm">
-            Clear Demo Input
-          </button>
+          <div class="flex gap-4 items-center" style="width: 100%">
+            <button
+              class="btn success outline"
+              type="submit"
+              id="createCreditPackButton"
+            >
+              Create Credit Pack
+            </button>
+            <div id="loaderContainer"></div>
+            <!-- Add this div for the loader -->
+            <div class="prompt success xs" id="createTicketStatusContainer">
+              <label class="text-bw-800 font-bold mb-4" for="createTicketStatus"
+                >Current Status:</label
+              >
+              <div class="content p-2" id="createTicketStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="newCreditPackTicketDetailsContainer" style="display: none">
+          <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
+          <div class="relative text-bw-700 table-responsive">
+            <table class="table bordered bw">
+              <thead>
+                <tr>
+                  <th>Registration TXID</th>
+                  <th>SHA3-256 Hash of Credit Pack Purchase Request Fields</th>
+                  <th>Responding Supernode PastelID</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody id="newCreditPackTicketDetails">
+                <!-- New ticket details will be dynamically populated here -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </form>
     </div>
@@ -270,8 +319,8 @@
     >
       <h2 class="text-2xl text-bw-800">Select Existing Credit Pack Ticket</h2>
       <div class="relative text-bw-700 table-responsive">
-        <p class="btn solid success is-loading md" id="loadingMessage">
-          Data Loading...
+        <p class="btn solid success is-loading md p-2" id="loadingMessage">
+          Loading...
         </p>
         <table class="table bordered bw">
           <thead>
@@ -288,8 +337,16 @@
             <!-- Rows will be dynamically populated here -->
           </tbody>
         </table>
-        <button id="refreshButton" class="btn success outline p-4">
+        <button
+          id="refreshButton"
+          class="btn success outline p-4 mt-4 relative"
+        >
           Manually Refresh Credit Pack Tickets
+          <span
+            class="loader hidden absolute inset-0 flex items-center justify-center"
+          >
+            <div class="is-loading"></div>
+          </span>
         </button>
       </div>
     </div>
@@ -300,9 +357,9 @@
       <h2 class="text-2xl text-bw-800">Create New Inference Request</h2>
       <form id="inferenceRequestForm" class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-bw-700 font-bold mb-2" for="inferenceType">
-            Inference Type
-          </label>
+          <label class="block text-bw-700 font-bold mb-2" for="inferenceType"
+            >Inference Type</label
+          >
           <div class="relative text-bw-700">
             <select id="inferenceType" class="select w-full">
               <option value="">Select an inference type</option>
@@ -312,35 +369,35 @@
           </div>
         </div>
         <div>
-          <label class="block text-bw-700 font-bold mb-2" for="model">
-            Model/Service
-          </label>
+          <label class="block text-bw-700 font-bold mb-2" for="model"
+            >Model/Service</label
+          >
           <div class="relative text-bw-700">
             <select id="model" class="select w-full">
               <option value="">Select a model/service</option>
-              <option value="claude3-opus" selected>Claude3-Opus</option>
-              <option value="gpt-3">GPT-3</option>
+              <option value="groq-llama3-70b-8192" selected></option>
+              <option value="claude3-opus">Claude3-Opus</option>
             </select>
           </div>
         </div>
         <div id="textCompletionSettings" class="col-span-full">
           <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="prompt">
-              Prompt
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="prompt"
+              >Prompt</label
+            >
             <textarea
               class="input w-full"
               id="prompt"
               rows="5"
               placeholder="Enter your prompt"
             >
-How do you measure the speed of an earthquake?</textarea
+Write me a Shakespeare-style sonnet about Pastel Network and how it's really decentralized and powerful. </textarea
             >
           </div>
           <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="maxTokens">
-              Max Tokens
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="maxTokens"
+              >Max Tokens</label
+            >
             <input
               class="input w-full"
               id="maxTokens"
@@ -352,12 +409,9 @@ How do you measure the speed of an earthquake?</textarea
             <span id="maxTokensFormatted" class="text-bw-700"></span>
           </div>
           <div>
-            <label
-              class="block text-bw-700 font-bold mb-2"
-              for="numCompletions"
+            <label class="block text-bw-700 font-bold mb-2" for="numCompletions"
+              >Number of Completions</label
             >
-              Number of Completions
-            </label>
             <input
               class="input w-full"
               id="numCompletions"
@@ -375,9 +429,9 @@ How do you measure the speed of an earthquake?</textarea
           style="display: none"
         >
           <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="imagePrompt">
-              Image Prompt
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="imagePrompt"
+              >Image Prompt</label
+            >
             <textarea
               class="input w-full"
               id="imagePrompt"
@@ -388,9 +442,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
             >
           </div>
           <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="stylePreset">
-              Style Preset
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="stylePreset"
+              >Style Preset</label
+            >
             <div class="relative text-bw-700">
               <select id="stylePreset" class="select w-full">
                 <option value="">Select a style preset</option>
@@ -402,9 +456,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
             </div>
           </div>
           <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="outputFormat">
-              Output Format
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="outputFormat"
+              >Output Format</label
+            >
             <div class="relative text-bw-700">
               <select id="outputFormat" class="select w-full">
                 <option value="">Select an output format</option>
@@ -415,9 +469,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
             </div>
           </div>
           <div>
-            <label class="block text-bw-700 font-bold mb-2" for="aspectRatio">
-              Aspect Ratio
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="aspectRatio"
+              >Aspect Ratio</label
+            >
             <div class="relative text-bw-700">
               <select id="aspectRatio" class="select w-full">
                 <option value="">Select an aspect ratio</option>
@@ -430,9 +484,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
           </div>
         </div>
         <div class="mb-4">
-          <label class="block text-bw-700 font-bold mb-2" for="maxCost">
-            Maximum Cost (Credits)
-          </label>
+          <label class="block text-bw-700 font-bold mb-2" for="maxCost"
+            >Maximum Cost (Credits)</label
+          >
           <input
             class="input w-full"
             id="maxCost"
@@ -443,16 +497,41 @@ A picture of a clown holding a sign that says PASTEL</textarea
           />
           <span id="maxCostFormatted" class="text-bw-700"></span>
         </div>
+
         <div class="col-span-full flex justify-between">
-          <button class="btn success outline" type="submit">
-            Create Inference Request
-          </button>
-          <button class="btn outline bw" type="button" id="clearInferenceForm">
-            Clear Demo Input
-          </button>
+          <div class="flex gap-4 items-center" style="width: 100%">
+            <button class="btn success outline" type="submit">
+              Create Inference Request
+            </button>
+            <div class="prompt success xs" id="currentStatusContainer">
+              <label class="text-bw-800 font-bold mb-4" for="currentStatus"
+                >Current Status:</label
+              >
+              <div class="content p-2" id="currentStatus"></div>
+            </div>
+          </div>
         </div>
+
         <div id="inferenceRequestResult"></div>
       </form>
+    </div>
+
+    <div
+      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+    >
+      <h2 class="text-2xl text-bw-800">View Previous Inference Requests</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div
+          id="previousRequestsList"
+          class="bg-gray-100 p-4 rounded-lg overflow-y-auto"
+          style="max-height: 300px"
+        >
+          <!-- List of previous inference requests will be dynamically populated here -->
+        </div>
+        <div id="requestPreview" class="bg-gray-50 p-4 rounded-lg">
+          <!-- Preview of selected inference request will be shown here -->
+        </div>
+      </div>
     </div>
 
     <div
@@ -464,9 +543,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
         </h2>
         <form id="sendMessageForm" class="grid grid-cols-1 gap-4">
           <div>
-            <label class="block text-bw-700 font-bold mb-2" for="toPastelID">
-              Recipient Pastel ID
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="toPastelID"
+              >Recipient Pastel ID</label
+            >
             <input
               class="input w-full"
               id="toPastelID"
@@ -476,9 +555,9 @@ A picture of a clown holding a sign that says PASTEL</textarea
             />
           </div>
           <div>
-            <label class="block text-bw-700 font-bold mb-2" for="messageBody">
-              Message Body
-            </label>
+            <label class="block text-bw-700 font-bold mb-2" for="messageBody"
+              >Message Body</label
+            >
             <textarea
               class="input w-full"
               id="messageBody"
@@ -491,9 +570,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           <div class="flex justify-between">
             <button class="btn success outline" type="submit">
               Send Message
-            </button>
-            <button class="btn outline bw" type="button" id="clearMessageForm">
-              Clear Demo Input
             </button>
           </div>
         </form>
@@ -524,7 +600,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           placeholder="Enter private key"
         />
         <button id="importPrivKeyButton" class="btn success outline mt-2">
-          Import
+          Import Private Key
         </button>
       </div>
       <div class="mb-4">
@@ -543,9 +619,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           accept=".dat"
         />
         <button id="importWalletButton" class="btn success outline mt-2">
-          Import
+          Import Wallet
         </button>
       </div>
+
+      <label
+        class="block text-bw-700 font-bold mb-2"
+        for="listAddressAmountsButton"
+        >Misc Functions:</label
+      >
+
       <div class="mb-4">
         <button id="listAddressAmountsButton" class="btn success outline">
           List Address Amounts
@@ -570,6 +653,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
     <button onclick="toggleTerminal()" class="btn success outline">
       Toggle Terminal
     </button>
+
+    <h2 class="text-2xl">Terminal</h2>
+
     <div id="terminal" class="bg-gray-900 text-white p-4 rounded-xl"></div>
 
     <div class="bg-bw-800 text-bw-50 py-6">
@@ -591,6 +677,23 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         return number.toLocaleString();
       }
 
+      function parseAndFormatNumber(value) {
+        const number = parseFloat(value.replace(/,/g, ""));
+        return isNaN(number) ? value : formatNumberWithCommas(number);
+      }
+
+      function handleInputChange(event) {
+        const inputElement = event.target;
+        const rawValue = inputElement.value.replace(/,/g, "");
+        inputElement.setAttribute("data-raw-value", rawValue);
+      }
+
+      function handleInputBlur(event) {
+        const inputElement = event.target;
+        const formattedValue = parseAndFormatNumber(inputElement.value);
+        inputElement.value = formattedValue;
+      }
+
       function parseAndFormat(value) {
         try {
           if (typeof value === "string") {
@@ -609,9 +712,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       function prettyJSON(data) {
-        if (data instanceof Sequelize.Model) {
-          data = data.get({ plain: true }); // Convert Sequelize models to plain objects
-        }
         if (data instanceof Map) {
           data = Object.fromEntries(data); // Convert Map to object
         }
@@ -857,27 +957,150 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         }
       }
 
+      function logCreateTicketStatusMessage(message, container) {
+        container.innerHTML = ""; // Clear previous log messages
+        const logElement = document.createElement("div");
+        logElement.textContent = message;
+        container.appendChild(logElement);
+        container.scrollTop = container.scrollHeight; // Scroll to bottom
+      }
+
       async function createNewCreditPackTicket(
         numCredits,
-        creditUsageTrackingPSLAddress,
         maxTotalPrice,
         maxPerCreditPrice
       ) {
+        const statusContainer = document.getElementById(
+          "createTicketStatusContainer"
+        );
+        const statusContent = document.getElementById("createTicketStatus");
+        const loaderContainer = document.getElementById("loaderContainer"); // Get the loader container
+
+        if (!statusContainer || !statusContent || !loaderContainer) {
+          console.error(
+            "Status container, status content, or loader container element not found."
+          );
+          return;
+        }
+
+        statusContent.innerHTML = ""; // Clear previous logs
+        loaderContainer.innerHTML = ""; // Clear previous loader if any
+
+        let creditPackLoader = document.createElement("div");
+        creditPackLoader.className = "btn is-loading";
+        creditPackLoader.innerText = "Loading...";
+        loaderContainer.appendChild(creditPackLoader); // Append to loader container
+
+        const newTicketDetailsContainer = document.getElementById(
+          "newCreditPackTicketDetailsContainer"
+        );
+        const newTicketDetails = document.getElementById(
+          "newCreditPackTicketDetails"
+        );
+
+        if (!newTicketDetailsContainer || !newTicketDetails) {
+          console.error(
+            "New ticket details container or new ticket details element not found."
+          );
+          return;
+        }
+
+        displayCreateTicketLoggerMessages = true;
+
         try {
-          const response = await axios.post("/create-credit-pack-ticket", {
-            numCredits,
-            creditUsageTrackingPSLAddress,
-            maxTotalPrice,
-            maxPerCreditPrice,
+          logCreateTicketStatusMessage(
+            "Starting the creation of a new credit pack ticket...",
+            statusContent
+          );
+
+          const desiredNumberOfCredits = numCredits;
+          const amountOfPSLForTrackingTransactions = 10.0;
+          const creditPriceCushionPercentage = 0.15;
+
+          const estimatedTotalCostInPSLForCreditPackResponse = await axios.post(
+            "/estimate-credit-pack-cost",
+            {
+              desiredNumberOfCredits,
+              creditPriceCushionPercentage,
+            }
+          );
+
+          const estimatedTotalCostInPSLForCreditPack =
+            estimatedTotalCostInPSLForCreditPackResponse.data.result;
+
+          if (estimatedTotalCostInPSLForCreditPack === undefined) {
+            throw new Error(
+              "Failed to estimate total cost for the credit pack"
+            );
+          }
+
+          const amountToFundCreditTrackingAddress = Math.round(
+            amountOfPSLForTrackingTransactions +
+              estimatedTotalCostInPSLForCreditPack
+          );
+
+          const response = await axios.post("/create-and-fund-new-address", {
+            amount: amountToFundCreditTrackingAddress,
           });
 
-          if (response.data.success) {
-            const result = response.data.result;
-            console.log(
-              `Successfully created new credit pack ticket: ${prettyJSON(
-                result
-              )}`
+          if (!response.data.success) {
+            throw new Error(
+              "Failed to create and fund new credit tracking address"
             );
+          }
+
+          const creditUsageTrackingPSLAddress =
+            response.data.result.newCreditTrackingAddress;
+
+          logCreateTicketStatusMessage(
+            "Credit tracking address created and funded successfully.",
+            statusContent
+          );
+
+          const ticketResponse = await axios.post(
+            "/create-credit-pack-ticket",
+            {
+              numCredits,
+              creditUsageTrackingPSLAddress,
+              maxTotalPrice,
+              maxPerCreditPrice,
+            }
+          );
+
+          if (ticketResponse.data.success) {
+            logCreateTicketStatusMessage(
+              "Credit pack ticket created successfully.",
+              statusContent
+            );
+            const result = ticketResponse.data.result;
+            const formattedResult = prettyJSON(result);
+            logCreateTicketStatusMessage(
+              `Result: ${formattedResult}`,
+              statusContent
+            );
+
+            newTicketDetails.innerHTML = `
+              <tr>
+                <td >
+                  <a href="${getTxidURL(
+                    creditUsageTrackingPSLAddress,
+                    result.pastel_api_credit_pack_ticket_registration_txid
+                  )}" target="_blank">
+                    ${result.pastel_api_credit_pack_ticket_registration_txid}
+                  </a>
+                </td>
+                <td class="truncate">${
+                  result.sha3_256_hash_of_credit_pack_purchase_request_fields
+                }</td>
+                <td class="truncate">${
+                  result.responding_supernode_pastelid
+                }</td>
+                <td>${result.credit_pack_confirmation_outcome_string}</td>
+              </tr>
+            `;
+
+            newTicketDetailsContainer.style.display = "block";
+
             return result;
           } else {
             throw new Error("Failed to create new credit pack ticket");
@@ -886,33 +1109,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           console.error(
             `Error creating new credit pack ticket: ${error.message}`
           );
+          logCreateTicketStatusMessage(
+            "Failed to create credit pack ticket. Please try again.",
+            statusContent
+          );
           throw error;
+        } finally {
+          creditPackLoader.remove();
+          displayCreateTicketLoggerMessages = false;
         }
       }
-
-      // Handle create ticket form submission
-      const createTicketForm = document.getElementById("createTicketForm");
-      createTicketForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const numCredits = parseInt(
-          document.querySelector("#numCredits").dataset.rawValue
-        );
-        const creditUsageTrackingPSLAddress = document.getElementById(
-          "creditUsageTrackingPSLAddress"
-        ).value;
-        const maxTotalPrice = parseFloat(
-          document.querySelector("#maxTotalPrice").dataset.rawValue
-        );
-        const maxPerCreditPrice = parseFloat(
-          document.querySelector("#maxPerCreditPrice").dataset.rawValue
-        );
-        await createNewCreditPackTicket(
-          numCredits,
-          creditUsageTrackingPSLAddress,
-          maxTotalPrice,
-          maxPerCreditPrice
-        );
-      });
 
       // Handle inference request stuff:
       let modelMenu = null;
@@ -958,9 +1164,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             modelSelect.appendChild(option);
           });
 
-          // If the default model was not found and set, set the first model as default
           if (!defaultModelSet && filteredModels.length > 0) {
-            modelSelect.options[1].selected = true; // Select the first model in the list
+            modelSelect.options[1].selected = true;
           }
         }
       }
@@ -1050,9 +1255,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             document
               .querySelectorAll("#creditPackTicketTableBody tr")
               .forEach((row) => {
-                row.classList.remove("bg-gray-200");
+                row.classList.remove("bg-gray-200", "selected-row");
               });
-            button.parentElement.parentElement.classList.add("bg-gray-200");
+            button.parentElement.parentElement.classList.add(
+              "bg-gray-200",
+              "selected-row"
+            );
           });
         });
       }
@@ -1061,18 +1269,84 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         handleCreditPackSelection();
       });
 
-      document.addEventListener("DOMContentLoaded", async () => {
-        try {
-          const response = await axios.get("/get-new-address");
-          const newAddress = response.data.result;
-          document.getElementById("creditUsageTrackingPSLAddress").value =
-            newAddress;
-        } catch (error) {
-          console.error("Error fetching new address:", error);
-          document.getElementById("creditUsageTrackingPSLAddress").placeholder =
-            "Failed to load address";
+      let displayInferenceRequestLoggerMessages = false;
+      let displayCreateTicketLoggerMessages = false;
+
+      function logStatusMessage(message) {
+        const currentStatus = document.getElementById("currentStatus");
+        currentStatus.textContent = `${prettyJSON(message)}`;
+      }
+
+      function saveInferenceRequestToLocalStorage(requestData) {
+        let requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        requests.push(requestData);
+        localStorage.setItem("inferenceRequests", JSON.stringify(requests));
+        updatePreviousRequestsList();
+      }
+
+      function updatePreviousRequestsList() {
+        const requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        const listContainer = document.getElementById("previousRequestsList");
+        listContainer.innerHTML = "";
+
+        if (requests.length === 0) {
+          const noRequestsMessage = document.createElement("p");
+          noRequestsMessage.className = "text-gray-500";
+          noRequestsMessage.textContent =
+            "No saved inference requests to display. Create new ones and they will display here when they finish successfully.";
+          listContainer.appendChild(noRequestsMessage);
+        } else {
+          requests.forEach((request, index) => {
+            const listItem = document.createElement("div");
+            listItem.className = "mb-2 p-2 bg-white rounded-lg cursor-pointer";
+            listItem.textContent = `${request.prompt.substring(0, 40)}...`;
+            listItem.addEventListener("click", () =>
+              displayRequestPreview(index)
+            );
+            listContainer.appendChild(listItem);
+          });
         }
-      });
+      }
+
+      function displayRequestPreview(index) {
+        const requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        const request = requests[index];
+        const previewContainer = document.getElementById("requestPreview");
+
+        let combinedResults = "";
+        request.inferenceResultsDecoded.forEach((result, i) => {
+          combinedResults += `<h4>Completion ${i + 1} of ${
+            request.inferenceResultsDecoded.length
+          }</h4>`;
+          combinedResults += `<github-md>${result}</github-md>`;
+          if (i < request.inferenceResultsDecoded.length - 1) {
+            combinedResults += "<hr>";
+          }
+        });
+
+        previewContainer.innerHTML = `
+          <div class="mb-4">
+            <h3 class="font-bold">Inference Result:</h3>
+            ${combinedResults}
+          </div>
+          <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+          <div class="table-responsive">
+            <table class="table">
+              <tr><th>Input Prompt to LLM</th><td>${request.prompt}</td></tr>
+              <tr><th>Proposed Cost (Credits)</th><td>${request.maxCost}</td></tr>
+              <tr><th>Model</th><td>${request.selectedModel}</td></tr>
+            </table>
+          </div>
+        `;
+
+        renderMarkdown();
+      }
+
+      // Call updatePreviousRequestsList on page load
+      document.addEventListener("DOMContentLoaded", updatePreviousRequestsList);
 
       async function createNewInferenceRequest(
         selectedCreditPackTicketId,
@@ -1086,13 +1360,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const resultContainer = document.getElementById(
           "inferenceRequestResult"
         );
-        resultContainer.innerHTML = ""; // Clear previous results
+        resultContainer.innerHTML = "";
         const loader = document.createElement("div");
         loader.className = "btn is-loading";
         loader.innerText = "Loading...";
         resultContainer.appendChild(loader);
 
+        displayInferenceRequestLoggerMessages = true;
+
         try {
+          logStatusMessage("Creating new inference request...");
           const response = await axios.post("/create-inference-request", {
             selectedCreditPackTicketId,
             selectedInferenceType,
@@ -1104,14 +1381,63 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           });
 
           if (response.data.success) {
-            const resultText = document.createElement("pre");
-            resultText.innerText = JSON.stringify(
-              response.data.result,
-              null,
-              2
+            logStatusMessage("Inference request created successfully.");
+            const inferenceResultDict =
+              response.data.result.inferenceResultDict;
+            const inferenceResultsDecoded = JSON.parse(
+              inferenceResultDict.inference_result_decoded
             );
-            resultContainer.innerHTML = "";
-            resultContainer.appendChild(resultText);
+            const inputPromptToLLM = inferenceResultDict.input_prompt_to_llm;
+            const {
+              proposed_cost_of_request_in_inference_credits,
+              remaining_credits_in_pack_after_request_processed,
+              responding_supernode_pastelid,
+            } = inferenceResultDict.usage_request_response;
+
+            let combinedResults = "";
+            if (inferenceResultsDecoded.length > 1) {
+              inferenceResultsDecoded.forEach((result, index) => {
+                combinedResults += `<h4>Completion ${index + 1} of ${
+                  inferenceResultsDecoded.length
+                }</h4>`;
+                combinedResults += `<github-md>${result}</github-md>`;
+                if (index < inferenceResultsDecoded.length - 1) {
+                  combinedResults += "<hr>";
+                }
+              });
+            } else {
+              combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+            }
+
+            resultContainer.innerHTML = `
+              <div class="mb-4">
+                <h3 class="font-bold">Inference Result:</h3>
+                ${combinedResults}
+              </div>
+              <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+              <div class="table-responsive">
+                <table class="table">
+                  <tr><th>Input Prompt to LLM</th><td>${inputPromptToLLM}</td></tr>
+                  <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+                  <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+                  <tr><th>Supernode PastelID</th><td>${responding_supernode_pastelid}</td></tr>
+                </table>
+              </div>
+            `;
+
+            // Save inference request and results to localStorage
+            saveInferenceRequestToLocalStorage({
+              selectedCreditPackTicketId,
+              selectedInferenceType,
+              selectedModel,
+              prompt,
+              maxTokens,
+              numCompletions,
+              maxCost,
+              inferenceResultsDecoded,
+            });
+
+            renderMarkdown();
           } else {
             throw new Error("Failed to create inference request");
           }
@@ -1121,89 +1447,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           );
           resultContainer.innerHTML =
             "Failed to create inference request. Please try again.";
+          logStatusMessage("Failed to create inference request.");
+        } finally {
+          loader.remove();
+          displayInferenceRequestLoggerMessages = false;
         }
       }
-
-      document
-        .getElementById("inferenceRequestForm")
-        .addEventListener("submit", async (event) => {
-          event.preventDefault();
-          saveInferenceRequestSettings();
-          const selectedCreditPackTicket = document.querySelector(
-            'input[name="creditPackTicket"]:checked'
-          );
-          if (!selectedCreditPackTicket) {
-            alert("Please select a credit pack ticket.");
-            return;
-          }
-          const selectedRow = selectedCreditPackTicket.closest("tr");
-          const selectedCreditPackTicketId = selectedRow
-            .querySelector("td:last-child a")
-            .textContent.trim();
-          const selectedInferenceType =
-            document.getElementById("inferenceType").value;
-          const selectedModel = document.getElementById("model").value;
-          const prompt = document.getElementById("prompt").value;
-          const maxTokens = parseInt(
-            document.querySelector("#maxTokens").dataset.rawValue
-          );
-          const numCompletions = parseInt(
-            document.querySelector("#numCompletions").dataset.rawValue
-          );
-          const maxCost = parseFloat(
-            document.querySelector("#maxCost").dataset.rawValue
-          );
-
-          await createNewInferenceRequest(
-            selectedCreditPackTicketId,
-            selectedInferenceType,
-            selectedModel,
-            prompt,
-            maxTokens,
-            numCompletions,
-            maxCost
-          );
-        });
-
-      // Handle clear ticket form button click
-      const clearTicketFormButton = document.getElementById("clearTicketForm");
-      clearTicketFormButton.addEventListener("click", () => {
-        document.getElementById("numCredits").value = "";
-        document.getElementById("creditUsageTrackingPSLAddress").value = "";
-        document.getElementById("maxTotalPrice").value = "";
-        document.getElementById("maxPerCreditPrice").value = "";
-      });
-
-      // Handle clear inference form button click
-      const clearInferenceFormButton =
-        document.getElementById("clearInferenceForm");
-      clearInferenceFormButton.addEventListener("click", () => {
-        document.getElementById("creditPackTicketSelect").selectedIndex = 0;
-        document.getElementById("inferenceType").selectedIndex = 0;
-        document.getElementById("model").selectedIndex = 0;
-        document.getElementById("prompt").value = "";
-        document.getElementById("maxTokens").value = "";
-        document.getElementById("numCompletions").value = "";
-        document.getElementById("maxCost").value = "";
-      });
-
-      // Handle send message form submission
-      const sendMessageForm = document.getElementById("sendMessageForm");
-      sendMessageForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const toPastelID = document.getElementById("toPastelID").value;
-        const messageBody = document.getElementById("messageBody").value;
-        await sendMessage(toPastelID, messageBody);
-        await fetchReceivedMessages();
-      });
-
-      // Handle clear message form button click
-      const clearMessageFormButton =
-        document.getElementById("clearMessageForm");
-      clearMessageFormButton.addEventListener("click", () => {
-        document.getElementById("toPastelID").value = "";
-        document.getElementById("messageBody").value = "";
-      });
 
       // Function to fetch and display received messages
       async function fetchReceivedMessages() {
@@ -1403,11 +1652,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       const term = new Terminal();
       term.open(document.getElementById("terminal"));
       term.terminalOptions = {
-        fontSize: 9,
+        fontSize: 7,
         enableBold: true,
         cols: 150,
         rows: 25,
       };
+
       function resizeTerminal() {
         const terminalElement = document.getElementById("terminal");
         const cols = Math.floor(terminalElement.clientWidth / 10); // Approximate character width
@@ -1425,6 +1675,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       resizeTerminal();
       window.addEventListener("resize", resizeTerminal);
 
+      function displayStatusMessage(message) {
+        const currentStatus = document.getElementById("currentStatus");
+        currentStatus.textContent = message;
+      }
+
       fetch("/ws-url")
         .then((response) => response.json())
         .then((data) => {
@@ -1437,11 +1692,24 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           socket.onmessage = (event) => {
             console.log("Received:", event.data);
             const logMessage = JSON.parse(event.data);
-            const formattedMessage = JSON.stringify(logMessage, null, 2);
+            const formattedMessage = prettyJSON(logMessage);
             term.writeln(
               `[${logMessage.timestamp}] [${logMessage.level}] ${logMessage.message}`
             );
             term.write(formattedMessage);
+
+            if (displayInferenceRequestLoggerMessages) {
+              logStatusMessage(logMessage.message);
+            }
+
+            if (displayCreateTicketLoggerMessages) {
+              const statusContainer = document.getElementById(
+                "createTicketStatusContainer"
+              );
+              const statusContent =
+                document.getElementById("createTicketStatus");
+              logCreateTicketStatusMessage(logMessage.message, statusContent);
+            }
           };
 
           socket.onclose = () => {
@@ -1482,19 +1750,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       function toggleDarkMode() {
         var currentTheme = document.documentElement.getAttribute("data-theme");
-        var targetTheme = "light";
-
-        const toggle = document.querySelector("#theme-toggle");
-        if (currentTheme === "light") {
-          targetTheme = "dark";
-        }
-        console.debug("toggleDarkMode", targetTheme);
+        var targetTheme = currentTheme === "light" ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", targetTheme);
         localStorage.setItem("theme", targetTheme);
-        toggle.setAttribute(
-          "data-content",
-          targetTheme === "dark" ? "🌙" : "☀"
-        );
+        document
+          .querySelector("#theme-toggle")
+          .setAttribute("data-content", targetTheme === "dark" ? "🌙" : "☀");
       }
 
       // Set the initial state of the switch toggle
@@ -1508,66 +1769,147 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       // Format the values and display them using template literals
-      function formatAndDisplay(inputElement, formattedSpan) {
+      function formatAndDisplay(inputElement) {
         const value = inputElement.value.replace(/,/g, "");
         const number = parseFloat(value);
         if (!isNaN(number)) {
           inputElement.setAttribute("data-raw-value", number);
-          formattedSpan.textContent = `${number.toLocaleString()}`;
           inputElement.value = number.toLocaleString();
         }
       }
 
-      const numCreditsInput = document.getElementById("numCredits");
-      const numCreditsFormattedSpan = document.getElementById(
-        "numCreditsFormatted"
-      );
-      numCreditsInput.addEventListener("input", () =>
-        formatAndDisplay(numCreditsInput, numCreditsFormattedSpan)
-      );
+      document.addEventListener("DOMContentLoaded", () => {
+        const createTicketForm = document.getElementById("createTicketForm");
 
-      const maxTotalPriceInput = document.getElementById("maxTotalPrice");
-      const maxTotalPriceFormattedSpan = document.getElementById(
-        "maxTotalPriceFormatted"
-      );
-      maxTotalPriceInput.addEventListener("input", () =>
-        formatAndDisplay(maxTotalPriceInput, maxTotalPriceFormattedSpan)
-      );
+        createTicketForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const numCredits = parseInt(
+            document.querySelector("#numCredits").dataset.rawValue
+          );
+          const maxTotalPrice = parseFloat(
+            document.querySelector("#maxTotalPrice").dataset.rawValue
+          );
+          const maxPerCreditPrice = parseFloat(
+            document.querySelector("#maxPerCreditPrice").dataset.rawValue
+          );
 
-      const maxPerCreditPriceInput =
-        document.getElementById("maxPerCreditPrice");
-      const maxPerCreditPriceFormattedSpan = document.getElementById(
-        "maxPerCreditPriceFormatted"
-      );
-      maxPerCreditPriceInput.addEventListener("input", () =>
-        formatAndDisplay(maxPerCreditPriceInput, maxPerCreditPriceFormattedSpan)
-      );
+          const statusContainer = document.getElementById(
+            "createTicketStatusContainer"
+          );
+          const statusContent = document.getElementById("createTicketStatus");
+          statusContent.innerHTML = ""; // Clear previous logs
 
-      const maxTokensInput = document.getElementById("maxTokens");
-      const maxTokensFormattedSpan =
-        document.getElementById("maxTokensFormatted");
-      maxTokensInput.addEventListener("input", () =>
-        formatAndDisplay(maxTokensInput, maxTokensFormattedSpan)
-      );
+          logCreateTicketStatusMessage(
+            "Initializing ticket creation...",
+            statusContent
+          );
 
-      const numCompletionsInput = document.getElementById("numCompletions");
-      const numCompletionsFormattedSpan = document.getElementById(
-        "numCompletionsFormatted"
-      );
-      numCompletionsInput.addEventListener("input", () =>
-        formatAndDisplay(numCompletionsInput, numCompletionsFormattedSpan)
-      );
+          await createNewCreditPackTicket(
+            numCredits,
+            maxTotalPrice,
+            maxPerCreditPrice
+          );
+        });
 
-      const maxCostInput = document.getElementById("maxCost");
-      const maxCostFormattedSpan = document.getElementById("maxCostFormatted");
-      maxCostInput.addEventListener("input", () =>
-        formatAndDisplay(maxCostInput, maxCostFormattedSpan)
-      );
+        document
+          .getElementById("inferenceRequestForm")
+          .addEventListener("submit", async (event) => {
+            event.preventDefault();
+            saveInferenceRequestSettings();
+            const selectedCreditPackTicket = document.querySelector(
+              'input[name="creditPackTicket"]:checked'
+            );
+            if (!selectedCreditPackTicket) {
+              alert("Please select a credit pack ticket.");
+              return;
+            }
+            const selectedRow = selectedCreditPackTicket.closest("tr");
+            const selectedCreditPackTicketId = selectedRow
+              .querySelector("td:last-child a")
+              .textContent.trim();
+            const selectedInferenceType =
+              document.getElementById("inferenceType").value;
+            const selectedModel = document.getElementById("model").value;
+            const prompt = document.getElementById("prompt").value;
+            const maxTokens = parseInt(
+              document.querySelector("#maxTokens").dataset.rawValue
+            );
+            const numCompletions = parseInt(
+              document.querySelector("#numCompletions").dataset.rawValue
+            );
+            const maxCost = parseFloat(
+              document.querySelector("#maxCost").dataset.rawValue
+            );
 
-      // Add event listener for the refresh button
-      document
-        .getElementById("refreshButton")
-        .addEventListener("click", () => getMyValidCreditPacks(true));
+            await createNewInferenceRequest(
+              selectedCreditPackTicketId,
+              selectedInferenceType,
+              selectedModel,
+              prompt,
+              maxTokens,
+              numCompletions,
+              maxCost
+            );
+          });
+
+        // Handle send message form submission
+        const sendMessageForm = document.getElementById("sendMessageForm");
+        sendMessageForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const toPastelID = document.getElementById("toPastelID").value;
+          const messageBody = document.getElementById("messageBody").value;
+          await sendMessage(toPastelID, messageBody);
+          await fetchReceivedMessages();
+        });
+
+        // Additional event listeners and initializations
+        const numCreditsInput = document.getElementById("numCredits");
+        numCreditsInput.addEventListener("input", handleInputChange);
+        numCreditsInput.addEventListener("blur", handleInputBlur);
+
+        const maxTotalPriceInput = document.getElementById("maxTotalPrice");
+        maxTotalPriceInput.addEventListener("input", handleInputChange);
+        maxTotalPriceInput.addEventListener("blur", handleInputBlur);
+
+        const maxPerCreditPriceInput =
+          document.getElementById("maxPerCreditPrice");
+        maxPerCreditPriceInput.addEventListener("input", handleInputChange);
+        maxPerCreditPriceInput.addEventListener("blur", handleInputBlur);
+
+        const maxTokensInput = document.getElementById("maxTokens");
+        const maxTokensFormattedSpan =
+          document.getElementById("maxTokensFormatted");
+        maxTokensInput.addEventListener("input", () =>
+          formatAndDisplay(maxTokensInput, maxTokensFormattedSpan)
+        );
+
+        const numCompletionsInput = document.getElementById("numCompletions");
+        const numCompletionsFormattedSpan = document.getElementById(
+          "numCompletionsFormatted"
+        );
+        numCompletionsInput.addEventListener("input", () =>
+          formatAndDisplay(numCompletionsInput, numCompletionsFormattedSpan)
+        );
+
+        const maxCostInput = document.getElementById("maxCost");
+        const maxCostFormattedSpan =
+          document.getElementById("maxCostFormatted");
+        maxCostInput.addEventListener("input", () =>
+          formatAndDisplay(maxCostInput, maxCostFormattedSpan)
+        );
+
+        // Add event listener for the refresh button
+        document
+          .getElementById("refreshButton")
+          .addEventListener("click", async () => {
+            const refreshButton = document.getElementById("refreshButton");
+            const loader = refreshButton.querySelector(".loader");
+            loader.classList.remove("hidden");
+            await getMyValidCreditPacks(true);
+            loader.classList.add("hidden");
+          });
+      });
     </script>
+    <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
   </body>
 </html>

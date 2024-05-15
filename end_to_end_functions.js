@@ -55,7 +55,7 @@ async function checkForNewIncomingMessages() {
       MY_LOCAL_PASTELID,
       MY_PASTELID_PASSPHRASE
     );
-    const { validMasternodeListFullDF, _ } = await checkSupernodeList();
+    const { validMasternodeListFullDF } = await checkSupernodeList();
 
     logger.info("Retrieving incoming user messages...");
     logger.info(`My local pastelid: ${inferenceClient.pastelID}`);
@@ -72,7 +72,12 @@ async function checkForNewIncomingMessages() {
     );
 
     const messageRetrievalTasks = closestSupernodesToLocal.map(({ url }) =>
-      inferenceClient.getUserMessages(url)
+      inferenceClient.getUserMessages(url).catch((error) => {
+        logger.warn(
+          `Failed to retrieve messages from supernode ${url}: ${error.message}`
+        );
+        return []; // Return an empty array on error
+      })
     );
     const messageLists = await Promise.all(messageRetrievalTasks);
 
@@ -547,6 +552,27 @@ async function getMyValidCreditPackTicketsEndToEnd() {
   }
 }
 
+async function estimateCreditPackCostEndToEnd(
+  desiredNumberOfCredits,
+  creditPriceCushionPercentage
+) {
+  try {
+    const inferenceClient = new PastelInferenceClient(
+      MY_LOCAL_PASTELID,
+      MY_PASTELID_PASSPHRASE
+    );
+    const estimatedTotalCostOfTicket =
+      await inferenceClient.internalEstimateOfCreditPackTicketCostInPSL(
+        desiredNumberOfCredits,
+        creditPriceCushionPercentage
+      );
+    return estimatedTotalCostOfTicket;
+  } catch (error) {
+    logger.error(`Error in estimateCreditPackCostEndToEnd: ${error.message}`);
+    throw error;
+  }
+}
+
 async function handleInferenceRequestEndToEnd(
   creditPackTicketPastelTxid,
   inputPromptToLLM,
@@ -743,7 +769,7 @@ async function handleInferenceRequestEndToEnd(
                 inferenceResultDecoded;
             }
 
-            const useAuditFeature = true;
+            const useAuditFeature = false;
             let auditResults;
             let validationResults;
 
@@ -814,4 +840,5 @@ module.exports = {
   getCreditPackTicketInfoEndToEnd,
   getMyValidCreditPackTicketsEndToEnd,
   handleInferenceRequestEndToEnd,
+  estimateCreditPackCostEndToEnd,
 };

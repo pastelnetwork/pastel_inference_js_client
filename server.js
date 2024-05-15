@@ -12,6 +12,7 @@ const {
   getCreditPackTicketInfoEndToEnd,
   getMyValidCreditPackTicketsEndToEnd,
   handleInferenceRequestEndToEnd,
+  estimateCreditPackCostEndToEnd,
 } = require("./end_to_end_functions");
 const {
   getLocalRPCSettings,
@@ -185,6 +186,19 @@ wss.on("connection", (ws) => {
         res.json({ success: true, modelMenu });
       } catch (error) {
         logger.error(`Error in getInferenceModelMenu: ${safeStringify(error)}`);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.post("/estimate-credit-pack-cost", async (req, res) => {
+      const { desiredNumberOfCredits, creditPriceCushionPercentage } = req.body;
+      try {
+        const result = await estimateCreditPackCostEndToEnd(
+          desiredNumberOfCredits,
+          creditPriceCushionPercentage
+        );
+        res.json({ success: true, result });
+      } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -413,9 +427,10 @@ wss.on("connection", (ws) => {
       }
     });
 
-    app.get("/get-new-address", async (req, res) => {
+    app.post("/create-and-fund-new-address", async (req, res) => {
       try {
-        const result = await getNewAddress();
+        const { amount } = req.body;
+        const result = await createAndFundNewPSLCreditTrackingAddress(amount);
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
