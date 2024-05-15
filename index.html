@@ -106,11 +106,9 @@
         background-color: #333333;
         color: #ffffff; /* This needs to be adjusted */
       }
-
       [data-theme="dark"] .table .bg-gray-200.selected-row {
         color: #000000; /* Adjust this color to be dark for legibility */
       }
-
       .table-responsive {
         overflow-x: auto;
       }
@@ -136,16 +134,17 @@
       .prompt.success.xs .content {
         overflow-wrap: break-word;
       }
-      #refreshButton .loader {
-        width: 100%;
-        height: 100%;
-        background: rgba(
-          255,
-          255,
-          255,
-          0.8
-        ); /* Optional: to add a slight background to the loader */
-        z-index: 10;
+      .flex {
+        display: flex;
+      }
+      .items-center {
+        align-items: center;
+      }
+      .gap-4 {
+        gap: 1rem; /* Adjust gap as needed */
+      }
+      .hidden {
+        display: none;
       }
     </style>
   </head>
@@ -295,7 +294,7 @@
 
         <div id="newCreditPackTicketDetailsContainer" style="display: none">
           <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
-          <div class="relative text-bw-700 table-responsive">
+          <div class="table-responsive">
             <table class="table bordered bw">
               <thead>
                 <tr>
@@ -319,9 +318,6 @@
     >
       <h2 class="text-2xl text-bw-800">Select Existing Credit Pack Ticket</h2>
       <div class="relative text-bw-700 table-responsive">
-        <p class="btn solid success is-loading md p-2" id="loadingMessage">
-          Loading...
-        </p>
         <table class="table bordered bw">
           <thead>
             <tr>
@@ -337,17 +333,19 @@
             <!-- Rows will be dynamically populated here -->
           </tbody>
         </table>
-        <button
-          id="refreshButton"
-          class="btn success outline p-4 mt-4 relative"
-        >
-          Manually Refresh Credit Pack Tickets
-          <span
-            class="loader hidden absolute inset-0 flex items-center justify-center"
-          >
-            <div class="is-loading"></div>
-          </span>
-        </button>
+        <div class="flex items-center gap-4 mt-4">
+          <button id="refreshButton" class="btn success outline p-4 relative">
+            Manually Refresh Credit Pack Tickets
+            <span
+              class="loader hidden absolute inset-0 flex items-center justify-center"
+            >
+              <div class="is-loading"></div>
+            </span>
+          </button>
+          <div class="btn is-loading hidden" id="loadingMessage">
+            Loading...
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1081,7 +1079,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
             newTicketDetails.innerHTML = `
               <tr>
-                <td >
+                <td class="truncate">
                   <a href="${getTxidURL(
                     creditUsageTrackingPSLAddress,
                     result.pastel_api_credit_pack_ticket_registration_txid
@@ -1095,7 +1093,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 <td class="truncate">${
                   result.responding_supernode_pastelid
                 }</td>
-                <td>${result.credit_pack_confirmation_outcome_string}</td>
+                <td class="truncate">${
+                  result.credit_pack_confirmation_outcome_string
+                }</td>
               </tr>
             `;
 
@@ -1904,9 +1904,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           .addEventListener("click", async () => {
             const refreshButton = document.getElementById("refreshButton");
             const loader = refreshButton.querySelector(".loader");
+            const loadingMessage = document.getElementById("loadingMessage");
+
             loader.classList.remove("hidden");
+            loadingMessage.classList.remove("hidden");
+
             await getMyValidCreditPacks(true);
+
             loader.classList.add("hidden");
+            loadingMessage.classList.add("hidden");
           });
       });
     </script>
