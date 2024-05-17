@@ -146,6 +146,38 @@
       .hidden {
         display: none;
       }
+      #previousRequestsList {
+        background-color: #f9f9f9;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      #requestPreview {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+      }
+      .delete-btn {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        border-radius: 50%;
+        transition: box-shadow 0.3s;
+      }
+      .delete-btn:hover {
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      }
+      #exportRequestsButton {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: auto;
+      }
     </style>
   </head>
   <body class="flex flex-col gap-6 px-20 transition-all duration-300 bg-bw-50">
@@ -515,20 +547,28 @@ A picture of a clown holding a sign that says PASTEL</textarea
     </div>
 
     <div
-      class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
+      class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 has-border rounded-xl bg-white shadow-md"
     >
-      <h2 class="text-2xl text-bw-800">View Previous Inference Requests</h2>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="lg:col-span-1 flex flex-col">
+        <h2 class="text-2xl mb-4 text-bw-800">
+          View Previous Inference Requests
+        </h2>
         <div
           id="previousRequestsList"
-          class="bg-gray-100 p-4 rounded-lg overflow-y-auto"
+          class="bg-gray-100 p-4 rounded-lg overflow-y-auto flex-grow"
           style="max-height: 300px"
         >
           <!-- List of previous inference requests will be dynamically populated here -->
         </div>
-        <div id="requestPreview" class="bg-gray-50 p-4 rounded-lg">
-          <!-- Preview of selected inference request will be shown here -->
-        </div>
+        <button
+          id="exportRequestsButton"
+          class="btn success outline mt-4 flex items-center self-start"
+        >
+          💾 Export all Saved Inference Requests
+        </button>
+      </div>
+      <div id="requestPreview" class="lg:col-span-2 bg-gray-50 p-4 rounded-lg">
+        <!-- Preview of selected inference request will be shown here -->
       </div>
     </div>
 
@@ -1284,7 +1324,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         localStorage.setItem("inferenceRequests", JSON.stringify(requests));
         updatePreviousRequestsList();
       }
-
       function updatePreviousRequestsList() {
         const requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
@@ -1300,8 +1339,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         } else {
           requests.forEach((request, index) => {
             const listItem = document.createElement("div");
-            listItem.className = "mb-2 p-2 bg-white rounded-lg cursor-pointer";
-            listItem.textContent = `${request.prompt.substring(0, 40)}...`;
+            listItem.className =
+              "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
+            listItem.innerHTML = `<span>${request.prompt.substring(
+              0,
+              40
+            )}...</span>
+              <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
             listItem.addEventListener("click", () =>
               displayRequestPreview(index)
             );
@@ -1309,6 +1353,58 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           });
         }
       }
+
+      function deleteRequest(index) {
+        let requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        requests.splice(index, 1);
+        localStorage.setItem("inferenceRequests", JSON.stringify(requests));
+        updatePreviousRequestsList();
+      }
+
+      function exportRequests() {
+        const requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        if (requests.length === 0) {
+          alert("No saved inference requests to export.");
+          return;
+        }
+
+        let markdownContent = "# Saved Inference Requests\n\n";
+        requests.forEach((request, index) => {
+          markdownContent += `## Inference Request ${index + 1}\n`;
+          markdownContent += `**Prompt**: ${request.prompt}\n\n`;
+          markdownContent += `**Inference Results**:\n\n`;
+          request.inferenceResultsDecoded.forEach((result, i) => {
+            markdownContent += `### Completion ${i + 1}\n`;
+            markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
+          });
+          markdownContent += `**Model**: ${request.selectedModel}\n`;
+          markdownContent += `**Proposed Cost (Credits)**: ${request.maxCost}\n`;
+          markdownContent += `**Misc. Inference Parameters and Statistics**:\n`;
+          markdownContent += `| Parameter | Value |\n`;
+          markdownContent += `| --- | --- |\n`;
+          markdownContent += `| Input Prompt to LLM | ${request.prompt} |\n`;
+          markdownContent += `| Proposed Cost (Credits) | ${request.maxCost} |\n`;
+          markdownContent += `| Model | ${request.selectedModel} |\n`;
+          markdownContent += `\n\n`;
+        });
+
+        const blob = new Blob([markdownContent], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "inference_requests.md";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      document
+        .getElementById("exportRequestsButton")
+        .addEventListener("click", exportRequests);
+
+      updatePreviousRequestsList();
 
       function displayRequestPreview(index) {
         const requests =
@@ -1395,18 +1491,30 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             } = inferenceResultDict.usage_request_response;
 
             let combinedResults = "";
-            if (inferenceResultsDecoded.length > 1) {
-              inferenceResultsDecoded.forEach((result, index) => {
-                combinedResults += `<h4>Completion ${index + 1} of ${
-                  inferenceResultsDecoded.length
-                }</h4>`;
-                combinedResults += `<github-md>${result}</github-md>`;
-                if (index < inferenceResultsDecoded.length - 1) {
-                  combinedResults += "<hr>";
+            try {
+              if (Array.isArray(inferenceResultsDecoded)) {
+                if (inferenceResultsDecoded.length > 1) {
+                  inferenceResultsDecoded.forEach((result, index) => {
+                    combinedResults += `<h4>Completion ${index + 1} of ${
+                      inferenceResultsDecoded.length
+                    }</h4>`;
+                    combinedResults += `<github-md>${result}</github-md>`;
+                    if (index < inferenceResultsDecoded.length - 1) {
+                      combinedResults += "<hr>";
+                    }
+                  });
+                } else if (inferenceResultsDecoded.length === 1) {
+                  combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+                } else {
+                  combinedResults = "<p>No results found.</p>";
                 }
-              });
-            } else {
-              combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+              } else {
+                combinedResults = `<p>${inferenceResultsDecoded}</p>`;
+              }
+            } catch (error) {
+              console.error("Error processing inference results:", error);
+              combinedResults =
+                "<p>Failed to render inference results. Please try again.</p>";
             }
 
             resultContainer.innerHTML = `
