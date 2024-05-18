@@ -572,10 +572,9 @@ async function estimateCreditPackCostEndToEnd(
     throw error;
   }
 }
-
 async function handleInferenceRequestEndToEnd(
   creditPackTicketPastelTxid,
-  inputPromptToLLM,
+  modelInputDataJSON,
   requestedModelCanonicalString,
   modelInferenceTypeString,
   modelParameters,
@@ -598,23 +597,27 @@ async function handleInferenceRequestEndToEnd(
     );
     const supernodeURL = closestSupportingSupernodeURL;
     const supernodePastelID = closestSupportingSupernodePastelID;
+
     if (!supernodeURL) {
       logger.error(
         `Error! No supporting Supernode found for the desired model: ${requestedModelCanonicalString} with inference type: ${modelInferenceTypeString}`
       );
       return null;
     }
-    const inputPromptToLLMBase64Encoded =
-      Buffer.from(inputPromptToLLM).toString("base64");
+
+    const modelInputDataJSONBase64Encoded = Buffer.from(
+      JSON.stringify(modelInputDataJSON)
+    ).toString("base64");
     const modelParametersJSONBase64Encoded =
       Buffer.from(modelParametersJSON).toString("base64");
+
     const inferenceRequestData = InferenceAPIUsageRequest.build({
       requesting_pastelid: MY_LOCAL_PASTELID,
       credit_pack_ticket_pastel_txid: creditPackTicketPastelTxid,
       requested_model_canonical_string: requestedModelCanonicalString,
       model_inference_type_string: modelInferenceTypeString,
       model_parameters_json_b64: modelParametersJSONBase64Encoded,
-      model_input_data_json_b64: inputPromptToLLMBase64Encoded,
+      model_input_data_json_b64: modelInputDataJSONBase64Encoded,
       inference_request_utc_iso_string: new Date().toISOString(),
       inference_request_pastel_block_height:
         await getCurrentPastelBlockHeight(),
@@ -623,6 +626,7 @@ async function handleInferenceRequestEndToEnd(
       sha3_256_hash_of_inference_request_fields: "",
       requesting_pastelid_signature_on_request_hash: "",
     });
+
     const sha3256HashOfInferenceRequestFields =
       await computeSHA3256HashOfSQLModelResponseFields(inferenceRequestData);
     inferenceRequestData.sha3_256_hash_of_inference_request_fields =
@@ -635,11 +639,13 @@ async function handleInferenceRequestEndToEnd(
       );
     inferenceRequestData.requesting_pastelid_signature_on_request_hash =
       requestingPastelIDSignatureOnRequestHash;
+
     const usageRequestResponse =
       await inferenceClient.makeInferenceAPIUsageRequest(
         supernodeURL,
         inferenceRequestData
       );
+
     const validationErrors = await validateCreditPackTicketMessageData(
       usageRequestResponse
     );
@@ -652,6 +658,7 @@ async function handleInferenceRequestEndToEnd(
         );
       }
     }
+
     const usageRequestResponseDict = usageRequestResponse.toJSON();
     const inferenceRequestID = usageRequestResponseDict.inference_request_id;
     const inferenceResponseID = usageRequestResponseDict.inference_response_id;
@@ -667,6 +674,7 @@ async function handleInferenceRequestEndToEnd(
     const trackingAddressBalance = await checkPSLAddressBalanceAlternative(
       creditUsageTrackingPSLAddress
     );
+
     if (trackingAddressBalance < creditUsageTrackingAmountInPSL) {
       logger.error(
         `Insufficient balance in tracking address: ${creditUsageTrackingPSLAddress}; amount needed: ${creditUsageTrackingAmountInPSL}; current balance: ${trackingAddressBalance}; shortfall: ${
@@ -675,6 +683,7 @@ async function handleInferenceRequestEndToEnd(
       );
       return null;
     }
+
     if (proposedCostInCredits <= maximumInferenceCostInCredits) {
       const trackingTransactionTxid =
         await sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferenceRequest(
@@ -683,6 +692,7 @@ async function handleInferenceRequestEndToEnd(
           creditUsageTrackingAmountInPSL,
           burnAddress
         );
+
       const txidLooksValid = /^[0-9a-fA-F]{64}$/.test(trackingTransactionTxid);
 
       if (txidLooksValid) {
@@ -697,6 +707,7 @@ async function handleInferenceRequestEndToEnd(
             supernodeURL,
             confirmationData
           );
+
         logger.info(
           `Sent inference confirmation: ${prettyJSON(confirmationResult)}`
         );
@@ -714,6 +725,7 @@ async function handleInferenceRequestEndToEnd(
               cnt + 1
             }/${maxTriesToGetConfirmation}); Checking with Supernode URL: ${supernodeURL}`
           );
+
           await new Promise((resolve) =>
             setTimeout(resolve, waitTimeInSeconds * 1000)
           );
@@ -748,7 +760,7 @@ async function handleInferenceRequestEndToEnd(
               supernode_url: supernodeURL,
               request_data: inferenceRequestData.toJSON(),
               usage_request_response: usageRequestResponseDict,
-              input_prompt_to_llm: inputPromptToLLM,
+              model_input_data_json: modelInputDataJSON,
               output_results: outputResultsDict,
             };
 

@@ -416,7 +416,6 @@
             </select>
           </div>
         </div>
-        <div id="modelParametersContainer" class="col-span-full"></div>
 
         <div id="textCompletionSettings" class="col-span-full">
           <div class="mb-4">
@@ -433,6 +432,7 @@ Write me a Shakespeare-style sonnet about Pastel Network and how it's really dec
             >
           </div>
         </div>
+        <div id="modelParametersContainer" class="col-span-full"></div>
 
         <div
           id="imageGenerationSettings"
@@ -534,7 +534,19 @@ A picture of a clown holding a sign that says PASTEL</textarea
           class="col-span-full"
           style="display: none"
         >
-          <!-- Content for embedding document settings -->
+          <div class="mb-4">
+            <label
+              class="block text-bw-700 font-bold mb-2"
+              for="embeddingDocumentFile"
+              >Document to Embed</label
+            >
+            <input
+              type="file"
+              class="input w-full"
+              id="embeddingDocumentFile"
+              accept=".pdf,.doc,.docx,.txt"
+            />
+          </div>
         </div>
 
         <div
@@ -542,7 +554,19 @@ A picture of a clown holding a sign that says PASTEL</textarea
           class="col-span-full"
           style="display: none"
         >
-          <!-- Content for embedding audio settings -->
+          <div class="mb-4">
+            <label
+              class="block text-bw-700 font-bold mb-2"
+              for="embeddingAudioFile"
+              >Audio to Embed</label
+            >
+            <input
+              type="file"
+              class="input w-full"
+              id="embeddingAudioFile"
+              accept="audio/*"
+            />
+          </div>
         </div>
 
         <div class="mb-4">
@@ -1311,7 +1335,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           generateModelParameterFields(selectedModel);
         }
       }
-
       function generateModelParameterFields(selectedModel) {
         const modelParametersContainer = document.getElementById(
           "modelParametersContainer"
@@ -1343,8 +1366,29 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             param.type === "float" || param.type === "int" ? "number" : "text";
           input.placeholder = `Enter ${param.description.toLowerCase()}`;
           input.value = param.default;
-          fieldContainer.appendChild(input);
 
+          // Set min, max, and step attributes based on parameter name
+          if (param.name === "number_of_tokens_to_generate") {
+            input.min = "1";
+            input.max = "5000";
+            input.step = "1";
+          } else if (param.name === "temperature") {
+            input.min = "0";
+            input.max = "1";
+            input.step = "0.01";
+          } else if (param.name === "number_of_completions_to_generate") {
+            input.min = "1";
+            input.max = "10";
+            input.step = "1";
+          } else if (
+            param.name === "grammar_file_string" ||
+            param.name === "query_string" ||
+            param.name === "corpus_identifier_string"
+          ) {
+            input.type = "text"; // Ensure it's a text input
+          }
+
+          fieldContainer.appendChild(input);
           modelParametersContainer.appendChild(fieldContainer);
         });
       }
@@ -1447,17 +1491,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const selectedInferenceType = inferenceTypeSelect.value;
         textCompletionSettings.style.display = "none";
         imageGenerationSettings.style.display = "none";
-        if (document.getElementById("embeddingSettings"))
-          document.getElementById("embeddingSettings").style.display = "none";
-        if (document.getElementById("tokenLevelEmbeddingSettings"))
-          document.getElementById("tokenLevelEmbeddingSettings").style.display =
-            "none";
-        if (document.getElementById("embeddingDocumentSettings"))
-          document.getElementById("embeddingDocumentSettings").style.display =
-            "none";
-        if (document.getElementById("embeddingAudioSettings"))
-          document.getElementById("embeddingAudioSettings").style.display =
-            "none";
+        document.getElementById("embeddingSettings").style.display = "none";
+        document.getElementById("tokenLevelEmbeddingSettings").style.display =
+          "none";
+        document.getElementById("embeddingDocumentSettings").style.display =
+          "none";
+        document.getElementById("embeddingAudioSettings").style.display =
+          "none";
+
         if (selectedInferenceType === "text_completion") {
           textCompletionSettings.style.display = "block";
         } else if (selectedInferenceType === "image_generation") {
@@ -1652,15 +1693,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       // Call updatePreviousRequestsList on page load
       document.addEventListener("DOMContentLoaded", updatePreviousRequestsList);
-
       async function createNewInferenceRequest(
         selectedCreditPackTicketId,
         selectedInferenceType,
-        selectedModel,
-        prompt,
-        maxTokens,
-        numCompletions,
-        maxCost
+        selectedModelCanonicalName,
+        maxCost,
+        modelParametersJSONBase64Encoded,
+        modelInputDataJSONBase64Encoded
       ) {
         const resultContainer = document.getElementById(
           "inferenceRequestResult"
@@ -1677,22 +1716,28 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         try {
           logStatusMessage("Creating new inference request...");
 
-          // Conditionally set the prompt based on the selected inference type
-          if (selectedInferenceType === "embedding") {
-            prompt = document.getElementById("embeddingText").value;
-          } else if (selectedInferenceType === "token_level_embedding") {
-            prompt = document.getElementById("tokenLevelEmbeddingText").value;
+          // Ensure modelInputDataJSONBase64Encoded is not empty
+          if (!modelInputDataJSONBase64Encoded) {
+            throw new Error(
+              "Model input data is required and cannot be empty."
+            );
           }
 
-          const response = await axios.post("/create-inference-request", {
+          const requestPayload = {
+            model_inference_type_string: selectedInferenceType,
+            model_parameters_json_b64: modelParametersJSONBase64Encoded,
+            model_input_data_json_b64: modelInputDataJSONBase64Encoded,
             selectedCreditPackTicketId,
-            selectedInferenceType,
-            selectedModel,
-            prompt,
-            maxTokens,
-            numCompletions,
             maxCost,
-          });
+            model_canonical_name: selectedModelCanonicalName, // Include model canonical name
+          };
+
+          console.log("Request Payload:", requestPayload);
+
+          const response = await axios.post(
+            "/create-inference-request",
+            requestPayload
+          );
 
           if (response.data.success) {
             logStatusMessage("Inference request created successfully.");
@@ -1701,7 +1746,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const inferenceResultsDecoded = JSON.parse(
               inferenceResultDict.inference_result_decoded
             );
-            const inputPromptToLLM = inferenceResultDict.input_prompt_to_llm;
+            const modelInputDataJSON =
+              inferenceResultDict.model_input_data_json;
             const {
               proposed_cost_of_request_in_inference_credits,
               remaining_credits_in_pack_after_request_processed,
@@ -1762,7 +1808,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
         <div class="table-responsive">
           <table class="table">
-            <tr><th>Input Prompt to LLM</th><td>${inputPromptToLLM}</td></tr>
+            <tr><th>Input Prompt to LLM</th><td>${modelInputDataJSON}</td></tr>
             <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
             <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
             <tr><th>Supernode PastelID</th><td>${responding_supernode_pastelid}</td></tr>
@@ -1774,10 +1820,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
               selectedInferenceType,
-              selectedModel,
-              prompt,
-              maxTokens,
-              numCompletions,
+              selectedModelCanonicalName, // Store model canonical name
+              inputFields: JSON.parse(atob(modelInputDataJSONBase64Encoded)),
+              parameterFields: JSON.parse(
+                atob(modelParametersJSONBase64Encoded)
+              ),
               maxCost,
               inferenceResultsDecoded,
               elapsedTimeInSeconds,
@@ -2222,9 +2269,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           inputElement.value = number.toLocaleString();
         }
       }
+
       document.addEventListener("DOMContentLoaded", () => {
         const createTicketForm = document.getElementById("createTicketForm");
-
         createTicketForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           const numCredits = parseInt(
@@ -2247,7 +2294,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             "Initializing ticket creation...",
             statusContent
           );
-
           await createNewCreditPackTicket(
             numCredits,
             maxTotalPrice,
@@ -2260,6 +2306,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           .addEventListener("submit", async (event) => {
             event.preventDefault();
             saveInferenceRequestSettings();
+
             const selectedCreditPackTicket = document.querySelector(
               'input[name="creditPackTicket"]:checked'
             );
@@ -2271,55 +2318,122 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const selectedCreditPackTicketId = selectedRow
               .querySelector("td:last-child a")
               .textContent.trim();
+
             const selectedInferenceType =
               document.getElementById("inferenceType").value;
-            const selectedModel = document.getElementById("model").value;
-            const prompt = document.getElementById("prompt").value;
-            const maxTokens = parseInt(
-              document.getElementById("number_of_tokens_to_generate").dataset
-                .rawValue
-            );
-            const numCompletions = parseInt(
-              document.getElementById("number_of_completions_to_generate")
-                .dataset.rawValue
-            );
+            const selectedModelCanonicalName =
+              document.getElementById("model").value; // Model canonical name
             const maxCost = parseFloat(
               document.querySelector("#maxCost").dataset.rawValue
             );
 
+            const encodeToBase64 = (str) => {
+              const encoder = new TextEncoder();
+              const bytes = encoder.encode(str);
+              return btoa(String.fromCharCode(...bytes));
+            };
+
+            const encodeFileToBase64 = (file) => {
+              return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(btoa(reader.result));
+                reader.onerror = reject;
+                reader.readAsBinaryString(file);
+              });
+            };
+
+            // Collecting all form data except the input prompt
+            const formData = new FormData(event.target);
+            const modelParameters = {};
+            formData.forEach((value, key) => {
+              if (
+                key !== "prompt" &&
+                key !== "imagePrompt" &&
+                key !== "embeddingText" &&
+                key !== "tokenLevelEmbeddingText" &&
+                key !== "embeddingDocumentFile" &&
+                key !== "embeddingAudioFile"
+              ) {
+                modelParameters[key] = value;
+              }
+            });
+
+            const modelParametersJSON = JSON.stringify(modelParameters);
+            const modelParametersJSONBase64Encoded =
+              encodeToBase64(modelParametersJSON);
+
+            // Use the correct key for the prompt
+            let inputPromptKey;
+            if (selectedInferenceType === "text_completion") {
+              inputPromptKey = "prompt";
+            } else if (selectedInferenceType === "image_generation") {
+              inputPromptKey = "imagePrompt";
+            } else if (selectedInferenceType === "embedding") {
+              inputPromptKey = "embeddingText";
+            } else if (selectedInferenceType === "token_level_embedding") {
+              inputPromptKey = "tokenLevelEmbeddingText";
+            } else if (selectedInferenceType === "embedding_document") {
+              inputPromptKey = "embeddingDocumentFile";
+            } else if (selectedInferenceType === "embedding_audio") {
+              inputPromptKey = "embeddingAudioFile";
+            } else {
+              inputPromptKey = "prompt"; // Default key, if applicable
+            }
+
+            // Handle input prompt or file
+            let modelInputDataJSONBase64Encoded;
+            if (
+              selectedInferenceType === "embedding_document" ||
+              selectedInferenceType === "embedding_audio"
+            ) {
+              const inputFile =
+                document.getElementById(inputPromptKey).files[0];
+              if (!inputFile) {
+                alert("Model input data cannot be empty.");
+                return;
+              }
+              modelInputDataJSONBase64Encoded = await encodeFileToBase64(
+                inputFile
+              );
+            } else {
+              const inputPromptValue =
+                document.getElementById(inputPromptKey).value;
+              modelInputDataJSONBase64Encoded = encodeToBase64(
+                JSON.stringify({ [inputPromptKey]: inputPromptValue })
+              );
+            }
+
+            // Ensure that the encoded input is not empty
+            if (!modelInputDataJSONBase64Encoded) {
+              alert("Model input data cannot be empty.");
+              return;
+            }
+
             await createNewInferenceRequest(
               selectedCreditPackTicketId,
               selectedInferenceType,
-              selectedModel,
-              prompt,
-              maxTokens,
-              numCompletions,
-              maxCost
+              selectedModelCanonicalName, // Pass the canonical name
+              maxCost,
+              modelParametersJSONBase64Encoded,
+              modelInputDataJSONBase64Encoded
             );
           });
 
-        const numberOfTokensInput = document.getElementById(
-          "number_of_tokens_to_generate"
+        // Attach debounced input and blur event listeners to all relevant input elements
+        const inferenceRequestForm = document.getElementById(
+          "inferenceRequestForm"
         );
-        const numberOfCompletionsInput = document.getElementById(
-          "number_of_completions_to_generate"
+        const inputElements = inferenceRequestForm.querySelectorAll(
+          "input, textarea, select"
         );
 
-        if (numberOfTokensInput) {
-          numberOfTokensInput.addEventListener(
+        inputElements.forEach((inputElement) => {
+          inputElement.addEventListener(
             "input",
             debounce(handleInputChange, 300)
           );
-          numberOfTokensInput.addEventListener("blur", handleInputBlur);
-        }
-
-        if (numberOfCompletionsInput) {
-          numberOfCompletionsInput.addEventListener(
-            "input",
-            debounce(handleInputChange, 300)
-          );
-          numberOfCompletionsInput.addEventListener("blur", handleInputBlur);
-        }
+          inputElement.addEventListener("blur", handleInputBlur);
+        });
 
         const maxCostInput = document.getElementById("maxCost");
         const maxCostFormattedSpan =

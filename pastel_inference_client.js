@@ -1439,11 +1439,7 @@ class PastelInferenceClient {
       const modelMenu = response.data;
       const desiredParameters = JSON.parse(modelParametersJSON);
 
-      // Create a mapping of desired parameter names to actual parameter names
-      const parameterMapping = {
-        max_tokens: "number_of_tokens_to_generate",
-        num_completions: "number_of_completions_to_generate",
-      };
+      console.log("Desired Parameters:", desiredParameters);
 
       for (const model of modelMenu.models) {
         if (
@@ -1458,16 +1454,23 @@ class PastelInferenceClient {
             desiredParameters
           )) {
             let paramFound = false;
-            const actualParam = parameterMapping[desiredParam] || desiredParam;
 
             for (const param of model.model_parameters) {
-              if (param.name === actualParam) {
+              if (
+                param.name === desiredParam &&
+                param.inference_types_parameter_applies_to.includes(
+                  modelInferenceTypeString
+                )
+              ) {
                 if ("type" in param) {
-                  if (param.type === "int" && Number.isInteger(desiredValue)) {
+                  if (
+                    param.type === "int" &&
+                    Number.isInteger(Number(desiredValue))
+                  ) {
                     paramFound = true;
                   } else if (
                     param.type === "float" &&
-                    typeof desiredValue === "number"
+                    !isNaN(parseFloat(desiredValue))
                   ) {
                     paramFound = true;
                   } else if (

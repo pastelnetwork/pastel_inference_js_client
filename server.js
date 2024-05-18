@@ -268,35 +268,49 @@ wss.on("connection", (ws) => {
 
     app.post("/create-inference-request", async (req, res) => {
       const {
-        selectedCreditPackTicketId,
-        selectedInferenceType,
-        selectedModel,
-        prompt,
-        maxTokens,
-        numCompletions,
-        maxCost,
+        model_inference_type_string: modelInferenceTypeString,
+        model_parameters_json_b64,
+        model_input_data_json_b64,
+        selectedCreditPackTicketId: creditPackTicketPastelTxid,
+        maxCost: maximumInferenceCostInCredits,
+        model_canonical_name: requestedModelCanonicalString,
       } = req.body;
+
       try {
         const burnAddress = await configureRPCAndSetBurnAddress();
-        const modelParameters = {};
+        const modelParameters = JSON.parse(
+          Buffer.from(model_parameters_json_b64, "base64").toString()
+        );
+        const modelInputDataJSON = JSON.parse(
+          Buffer.from(model_input_data_json_b64, "base64").toString()
+        );
 
-        if (selectedInferenceType === "text_completion") {
-          modelParameters.max_tokens = maxTokens;
-          modelParameters.num_completions = numCompletions;
-        }
+        console.log("Request Parameters:");
+        console.log("Model Inference Type:", modelInferenceTypeString);
+        console.log("Model Canonical Name:", requestedModelCanonicalString);
+        console.log("Credit Pack Ticket ID:", creditPackTicketPastelTxid);
+        console.log(
+          "Maximum Inference Cost in Credits:",
+          maximumInferenceCostInCredits
+        );
+        console.log("Model Parameters (Base64):", model_parameters_json_b64);
+        console.log("Model Input Data (Base64):", model_input_data_json_b64);
+        console.log("Parsed Model Parameters:", modelParameters);
+        console.log("Parsed Model Input Data:", modelInputDataJSON);
 
         const result = await handleInferenceRequestEndToEnd(
-          selectedCreditPackTicketId,
-          prompt,
-          selectedModel,
-          selectedInferenceType,
+          creditPackTicketPastelTxid,
+          modelInputDataJSON,
+          requestedModelCanonicalString,
+          modelInferenceTypeString,
           modelParameters,
-          maxCost,
+          maximumInferenceCostInCredits,
           burnAddress
         );
 
         res.json({ success: true, result });
       } catch (error) {
+        console.error("Error in create-inference-request:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
