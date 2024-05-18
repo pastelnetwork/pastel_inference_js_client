@@ -125,7 +125,7 @@
           100% - 2rem
         ); /* Leave some padding for better readability */
         word-wrap: break-word; /* Ensure the text wraps correctly */
-        height: 260px; /* Set a fixed height */
+        height: 280px; /* Set a fixed height */
         overflow-y: auto; /* Add a scrollbar if the content exceeds the height */
         padding: 0.5rem; /* Add padding for better readability */
         border: 1px solid #ccc; /* Optional: Add a border for better visibility */
@@ -395,6 +395,10 @@
               <option value="">Select an inference type</option>
               <option value="text_completion" selected>Text Completion</option>
               <option value="image_generation">Image Generation</option>
+              <option value="embedding">Embedding</option>
+              <option value="token_level_embedding">
+                Token Level Embedding
+              </option>
             </select>
           </div>
         </div>
@@ -513,6 +517,18 @@ A picture of a clown holding a sign that says PASTEL</textarea
             </div>
           </div>
         </div>
+
+        <div id="embeddingSettings" class="col-span-full" style="display: none">
+          <!-- Add embedding specific settings here -->
+        </div>
+        <div
+          id="tokenLevelEmbeddingSettings"
+          class="col-span-full"
+          style="display: none"
+        >
+          <!-- Add token level embedding specific settings here -->
+        </div>
+
         <div class="mb-4">
           <label class="block text-bw-700 font-bold mb-2" for="maxCost"
             >Maximum Cost (Credits)</label
@@ -660,12 +676,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           Import Wallet
         </button>
       </div>
-
       <label
         class="block text-bw-700 font-bold mb-2"
         for="listAddressAmountsButton"
-        >Misc Functions:</label
       >
+        Misc Functions:
+      </label>
 
       <div class="mb-4">
         <button id="listAddressAmountsButton" class="btn success outline">
@@ -673,19 +689,68 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           <span
             class="tooltip"
             data-tooltip="List the amounts associated with each address in your wallet."
-            >&#9432;</span
           >
+            &#9432;
+          </span>
         </button>
+
+        <div
+          id="addressAmountsContainer"
+          class="mt-4"
+          style="display: none; position: relative"
+        >
+          <h2 class="text-2xl text-bw-800">Address Amounts:</h2>
+          <button
+            id="copyAddressAmountsButton"
+            class="btn success outline"
+            style="
+              position: absolute;
+              top: -1.5rem;
+              right: 0.5rem;
+              display: none;
+            "
+          >
+            📋
+          </button>
+          <div class="table-responsive">
+            <table id="addressAmountsTable" class="table bordered bw"></table>
+          </div>
+        </div>
       </div>
-      <div>
+
+      <div class="mb-4">
         <button id="getWalletInfoButton" class="btn success outline">
           Get Wallet Info
           <span
             class="tooltip"
             data-tooltip="Retrieve information about your wallet."
-            >&#9432;</span
           >
+            &#9432;
+          </span>
         </button>
+
+        <div
+          id="walletInfoContainer"
+          class="mt-4"
+          style="display: none; position: relative"
+        >
+          <h2 class="text-2xl text-bw-800">Wallet Info:</h2>
+          <button
+            id="copyWalletInfoButton"
+            class="btn success outline"
+            style="
+              position: absolute;
+              top: -1.5rem;
+              right: 0.5rem;
+              display: none;
+            "
+          >
+            📋
+          </button>
+          <div class="table-responsive">
+            <table id="walletInfoTable" class="table bordered bw"></table>
+          </div>
+        </div>
       </div>
     </div>
     <button onclick="toggleTerminal()" class="btn success outline">
@@ -695,6 +760,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
     <h2 class="text-2xl">Terminal</h2>
 
     <div id="terminal" class="bg-gray-900 text-white p-4 rounded-xl"></div>
+    <div class="flex justify-between items-center">
+      <button id="exportTerminalButton" class="btn success outline">
+        Export Terminal Session Text
+      </button>
+    </div>
 
     <div class="bg-bw-800 text-bw-50 py-6">
       <div class="container mx-auto px-4">
@@ -710,6 +780,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       const STORAGE_KEY = "validCreditPackTickets";
       const STORAGE_TIMESTAMP_KEY = "creditPackTicketsTimestamp";
       const REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+          const context = this;
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+      }
 
       function formatNumberWithCommas(number) {
         return number.toLocaleString();
@@ -772,6 +851,42 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           return parseAndFormat(data); // Handle strings separately
         }
         return data; // Return data as is for other types
+      }
+
+      function formatAndHighlightMessage(message) {
+        const parts = message.split(/(\{[\s\S]*?\})/);
+        return parts
+          .map((part) => {
+            try {
+              if (part.startsWith("{") && part.endsWith("}")) {
+                const parsed = JSON.parse(part);
+                const formatted = prettyJSON(parsed);
+                return `<pre><code class="json">${
+                  hljs.highlight("json", formatted).value
+                }</code></pre>`;
+              }
+            } catch (e) {
+              // If parsing fails, fall through to return the part as plain text
+            }
+            return `<span>${part}</span>`;
+          })
+          .join("");
+      }
+
+      function logCreateTicketStatusMessage(message, container) {
+        container.innerHTML = ""; // Clear previous log messages
+        const logElement = document.createElement("div");
+        logElement.style.fontFamily = "Montserrat, sans-serif";
+        logElement.innerHTML = formatAndHighlightMessage(message);
+        container.appendChild(logElement);
+        container.scrollTop = container.scrollHeight; // Scroll to bottom
+      }
+
+      function logStatusMessage(message) {
+        const currentStatus = document.getElementById("currentStatus");
+        currentStatus.style.fontFamily = "Montserrat, sans-serif";
+        currentStatus.style.whiteSpace = "pre-wrap"; // Ensure wrapping
+        currentStatus.innerHTML = formatAndHighlightMessage(message);
       }
 
       function logActionWithPayload(action, payloadName, jsonPayload) {
@@ -993,14 +1108,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         } finally {
           loadingMessage.style.display = "none";
         }
-      }
-
-      function logCreateTicketStatusMessage(message, container) {
-        container.innerHTML = ""; // Clear previous log messages
-        const logElement = document.createElement("div");
-        logElement.textContent = message;
-        container.appendChild(logElement);
-        container.scrollTop = container.scrollHeight; // Scroll to bottom
       }
 
       async function createNewCreditPackTicket(
@@ -1275,12 +1382,19 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       inferenceTypeSelect.addEventListener("change", () => {
         const selectedInferenceType = inferenceTypeSelect.value;
+        textCompletionSettings.style.display = "none";
+        imageGenerationSettings.style.display = "none";
+        embeddingSettings.style.display = "none"; // Assuming embeddingSettings element exists
+        tokenLevelEmbeddingSettings.style.display = "none"; // Assuming tokenLevelEmbeddingSettings element exists
+
         if (selectedInferenceType === "text_completion") {
           textCompletionSettings.style.display = "block";
-          imageGenerationSettings.style.display = "none";
         } else if (selectedInferenceType === "image_generation") {
-          textCompletionSettings.style.display = "none";
           imageGenerationSettings.style.display = "block";
+        } else if (selectedInferenceType === "embedding") {
+          embeddingSettings.style.display = "block"; // Handle display for embedding
+        } else if (selectedInferenceType === "token_level_embedding") {
+          tokenLevelEmbeddingSettings.style.display = "block"; // Handle display for token level embedding
         }
         populateModelDropdown();
         loadInferenceRequestSettings();
@@ -1311,11 +1425,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       let displayInferenceRequestLoggerMessages = false;
       let displayCreateTicketLoggerMessages = false;
-
-      function logStatusMessage(message) {
-        const currentStatus = document.getElementById("currentStatus");
-        currentStatus.textContent = `${prettyJSON(message)}`;
-      }
 
       function saveInferenceRequestToLocalStorage(requestData) {
         let requests =
@@ -1463,6 +1572,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         resultContainer.appendChild(loader);
 
         displayInferenceRequestLoggerMessages = true;
+        const startTime = new Date(); // Capture the start time
 
         try {
           logStatusMessage("Creating new inference request...");
@@ -1489,6 +1599,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               remaining_credits_in_pack_after_request_processed,
               responding_supernode_pastelid,
             } = inferenceResultDict.usage_request_response;
+
+            const endTime = new Date(); // Capture the end time
+            const elapsedTimeInSeconds = Math.floor(
+              (endTime - startTime) / 1000
+            ); // Calculate elapsed time in seconds
 
             let combinedResults = "";
             try {
@@ -1518,20 +1633,21 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             }
 
             resultContainer.innerHTML = `
-              <div class="mb-4">
-                <h3 class="font-bold">Inference Result:</h3>
-                ${combinedResults}
-              </div>
-              <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-              <div class="table-responsive">
-                <table class="table">
-                  <tr><th>Input Prompt to LLM</th><td>${inputPromptToLLM}</td></tr>
-                  <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                  <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-                  <tr><th>Supernode PastelID</th><td>${responding_supernode_pastelid}</td></tr>
-                </table>
-              </div>
-            `;
+        <div class="mb-4">
+          <h3 class="font-bold">Inference Result:</h3>
+          ${combinedResults}
+        </div>
+        <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+        <div class="table-responsive">
+          <table class="table">
+            <tr><th>Input Prompt to LLM</th><td>${inputPromptToLLM}</td></tr>
+            <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+            <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+            <tr><th>Supernode PastelID</th><td>${responding_supernode_pastelid}</td></tr>
+            <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+          </table>
+        </div>
+      `;
 
             // Save inference request and results to localStorage
             saveInferenceRequestToLocalStorage({
@@ -1543,6 +1659,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               numCompletions,
               maxCost,
               inferenceResultsDecoded,
+              elapsedTimeInSeconds, // Save the elapsed time
             });
 
             renderMarkdown();
@@ -1736,7 +1853,38 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const response = await axios.get("/list-address-amounts");
             const addressAmounts = response.data.result;
             console.log("Address amounts:", addressAmounts);
-            // Display the address amounts in the UI as needed
+
+            // Populate the table
+            const addressAmountsTable = document.getElementById(
+              "addressAmountsTable"
+            );
+            addressAmountsTable.innerHTML =
+              "<thead><tr><th>Address</th><th>Amount</th></tr></thead><tbody></tbody>";
+            const tbody = addressAmountsTable.querySelector("tbody");
+            for (const [address, amount] of Object.entries(addressAmounts)) {
+              const row = document.createElement("tr");
+              row.innerHTML = `<td>${address}</td><td>${amount}</td>`;
+              tbody.appendChild(row);
+            }
+
+            // Show the container and the copy button
+            const addressAmountsContainer = document.getElementById(
+              "addressAmountsContainer"
+            );
+            addressAmountsContainer.style.display = "block";
+            document.getElementById("copyAddressAmountsButton").style.display =
+              "inline-block";
+
+            // Add clipboard functionality
+            document
+              .getElementById("copyAddressAmountsButton")
+              .addEventListener("click", () => {
+                const csvData = Object.entries(addressAmounts)
+                  .map(([address, amount]) => `${address},${amount}`)
+                  .join("\n");
+                navigator.clipboard.writeText(csvData);
+                alert("Address amounts copied to clipboard as CSV!");
+              });
           } catch (error) {
             console.error("Error retrieving address amounts:", error);
           }
@@ -1750,20 +1898,49 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const response = await axios.get("/get-wallet-info");
             const walletInfo = response.data.result;
             console.log("Wallet info:", walletInfo);
-            // Display the wallet info in the UI as needed
+
+            // Populate the table
+            const walletInfoTable = document.getElementById("walletInfoTable");
+            walletInfoTable.innerHTML =
+              "<thead><tr><th>Key</th><th>Value</th></thead><tbody></tbody>";
+            const tbody = walletInfoTable.querySelector("tbody");
+            for (const [key, value] of Object.entries(walletInfo)) {
+              const row = document.createElement("tr");
+              row.innerHTML = `<td>${key}</td><td>${value}</td>`;
+              tbody.appendChild(row);
+            }
+
+            // Show the container and the copy button
+            const walletInfoContainer = document.getElementById(
+              "walletInfoContainer"
+            );
+            walletInfoContainer.style.display = "block";
+            document.getElementById("copyWalletInfoButton").style.display =
+              "inline-block";
+
+            // Add clipboard functionality
+            document
+              .getElementById("copyWalletInfoButton")
+              .addEventListener("click", () => {
+                const csvData = Object.entries(walletInfo)
+                  .map(([key, value]) => `${key},${value}`)
+                  .join("\n");
+                navigator.clipboard.writeText(csvData);
+                alert("Wallet info copied to clipboard as CSV!");
+              });
           } catch (error) {
             console.error("Error retrieving wallet info:", error);
           }
         });
 
       // Create a terminal and load the fit addon
-      const term = new Terminal();
+      const term = new Terminal({ cols: 175, rows: 24 });
       term.open(document.getElementById("terminal"));
       term.terminalOptions = {
-        fontSize: 7,
+        fontSize: 6,
         enableBold: true,
-        cols: 150,
-        rows: 25,
+        cols: 175,
+        rows: 24,
       };
 
       function resizeTerminal() {
@@ -1788,6 +1965,48 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         currentStatus.textContent = message;
       }
 
+      function cleanAndFormatMessage(message) {
+        if (typeof message === "object") {
+          // If the message is a JSON object, stringify and format it
+          return JSON.stringify(message, null, 2);
+        } else if (typeof message === "string") {
+          // Remove excess whitespace from strings
+          return message.replace(/\s+/g, " ").trim();
+        }
+        return message;
+      }
+
+      function logMessageToTerminal(term, logMessage) {
+        const cleanMessage = cleanAndFormatMessage(logMessage.message);
+        const parts = cleanMessage.split(/(\{[\s\S]*?\})/);
+        const formattedParts = parts
+          .map((part) => {
+            try {
+              if (part.startsWith("{") && part.endsWith("}")) {
+                const parsed = JSON.parse(part);
+                const formatted = prettyJSON(parsed);
+                const colored = formatted
+                  .replace(/({|})/g, "\x1b[1;32m$1\x1b[0m") // Light green for braces
+                  .replace(/"([^"]+)"(?=:)/g, '\x1b[1;34m"$1"\x1b[0m') // Pale blue for keys
+                  .replace(/: ("[^"]+")/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for string values
+                  .replace(/: (\d+)/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for numeric values
+                  .replace(/: (true|false|null)/g, ": \x1b[1;33m$1\x1b[0m"); // Pale yellow for boolean and null values
+                return `\n${colored}\n`;
+              }
+            } catch (e) {
+              // If parsing fails, fall through to return the part as plain text
+            }
+            return part;
+          })
+          .join("");
+
+        const timestamp = new Date(logMessage.timestamp).toISOString();
+        const logLevel = logMessage.level;
+        const messageLines =
+          `[${timestamp}] [${logLevel}] ${formattedParts}`.split("\n");
+        messageLines.forEach((line) => term.writeln(line));
+      }
+
       fetch("/ws-url")
         .then((response) => response.json())
         .then((data) => {
@@ -1798,13 +2017,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           };
 
           socket.onmessage = (event) => {
-            console.log("Received:", event.data);
             const logMessage = JSON.parse(event.data);
-            const formattedMessage = prettyJSON(logMessage);
-            term.writeln(
-              `[${logMessage.timestamp}] [${logMessage.level}] ${logMessage.message}`
-            );
-            term.write(formattedMessage);
+            logMessageToTerminal(term, logMessage);
 
             if (displayInferenceRequestLoggerMessages) {
               logStatusMessage(logMessage.message);
@@ -1972,38 +2186,63 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
         // Additional event listeners and initializations
         const numCreditsInput = document.getElementById("numCredits");
-        numCreditsInput.addEventListener("input", handleInputChange);
+        numCreditsInput.addEventListener(
+          "input",
+          debounce(handleInputChange, 300)
+        );
         numCreditsInput.addEventListener("blur", handleInputBlur);
 
         const maxTotalPriceInput = document.getElementById("maxTotalPrice");
-        maxTotalPriceInput.addEventListener("input", handleInputChange);
+        maxTotalPriceInput.addEventListener(
+          "input",
+          debounce(handleInputChange, 300)
+        );
         maxTotalPriceInput.addEventListener("blur", handleInputBlur);
 
         const maxPerCreditPriceInput =
           document.getElementById("maxPerCreditPrice");
-        maxPerCreditPriceInput.addEventListener("input", handleInputChange);
+        maxPerCreditPriceInput.addEventListener(
+          "input",
+          debounce(handleInputChange, 300)
+        );
         maxPerCreditPriceInput.addEventListener("blur", handleInputBlur);
 
         const maxTokensInput = document.getElementById("maxTokens");
         const maxTokensFormattedSpan =
           document.getElementById("maxTokensFormatted");
-        maxTokensInput.addEventListener("input", () =>
-          formatAndDisplay(maxTokensInput, maxTokensFormattedSpan)
+        maxTokensInput.addEventListener(
+          "input",
+          debounce(
+            () => formatAndDisplay(maxTokensInput, maxTokensFormattedSpan),
+            300
+          )
         );
 
         const numCompletionsInput = document.getElementById("numCompletions");
         const numCompletionsFormattedSpan = document.getElementById(
           "numCompletionsFormatted"
         );
-        numCompletionsInput.addEventListener("input", () =>
-          formatAndDisplay(numCompletionsInput, numCompletionsFormattedSpan)
+        numCompletionsInput.addEventListener(
+          "input",
+          debounce(
+            () =>
+              formatAndDisplay(
+                numCompletionsInput,
+                numCompletionsFormattedSpan
+              ),
+            300
+          )
         );
 
         const maxCostInput = document.getElementById("maxCost");
         const maxCostFormattedSpan =
           document.getElementById("maxCostFormatted");
-        maxCostInput.addEventListener("input", () =>
-          formatAndDisplay(maxCostInput, maxCostFormattedSpan)
+        maxCostInput.addEventListener(
+          "input",
+          debounce(
+            () => formatAndDisplay(maxCostInput, maxCostFormattedSpan),
+            300
+          )
         );
 
         // Add event listener for the refresh button
@@ -2022,6 +2261,32 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             loader.classList.add("hidden");
             loadingMessage.classList.add("hidden");
           });
+      });
+
+      document
+        .getElementById("exportTerminalButton")
+        .addEventListener("click", () => {
+          let termText = "";
+          for (let i = 0; i < term.buffer.active.length; i++) {
+            const line = term.buffer.active.getLine(i);
+            if (line) {
+              termText += line.translateToString(false) + "\n";
+            }
+          }
+          const blob = new Blob([termText], { type: "text/plain" });
+          const link = document.createElement("a");
+          const currentDate = new Date().toISOString();
+          const fileName = `Pastel_Inference_Client_Terminal_Session_Log__${currentDate}.txt`;
+          link.href = URL.createObjectURL(blob);
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        hljs.highlightAll();
+        handleCreditPackSelection();
       });
     </script>
     <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
