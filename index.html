@@ -393,12 +393,14 @@
           <div class="relative text-bw-700">
             <select id="inferenceType" class="select w-full">
               <option value="">Select an inference type</option>
-              <option value="text_completion" selected>Text Completion</option>
+              <option value="text_completion">Text Completion</option>
               <option value="image_generation">Image Generation</option>
               <option value="embedding">Embedding</option>
               <option value="token_level_embedding">
                 Token Level Embedding
               </option>
+              <option value="embedding_document">Embedding Document</option>
+              <option value="embedding_audio">Embedding Audio</option>
             </select>
           </div>
         </div>
@@ -414,6 +416,8 @@
             </select>
           </div>
         </div>
+        <div id="modelParametersContainer" class="col-span-full"></div>
+
         <div id="textCompletionSettings" class="col-span-full">
           <div class="mb-4">
             <label class="block text-bw-700 font-bold mb-2" for="prompt"
@@ -550,6 +554,22 @@ A picture of a clown holding a sign that says PASTEL</textarea
               placeholder="Enter text to embed"
             ></textarea>
           </div>
+        </div>
+
+        <div
+          id="embeddingDocumentSettings"
+          class="col-span-full"
+          style="display: none"
+        >
+          <!-- Content for embedding document settings -->
+        </div>
+
+        <div
+          id="embeddingAudioSettings"
+          class="col-span-full"
+          style="display: none"
+        >
+          <!-- Content for embedding audio settings -->
         </div>
 
         <div class="mb-4">
@@ -1308,6 +1328,54 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         }
       }
 
+      function handleModelChange() {
+        const selectedModelName = document.getElementById("model").value;
+        const selectedModel = modelMenu.models.find(
+          (model) => model.model_name === selectedModelName
+        );
+
+        if (selectedModel) {
+          generateModelParameterFields(selectedModel);
+        }
+      }
+
+      function generateModelParameterFields(selectedModel) {
+        const modelParametersContainer = document.getElementById(
+          "modelParametersContainer"
+        );
+        modelParametersContainer.innerHTML = "";
+        const selectedInferenceType = inferenceTypeSelect.value;
+        const applicableParameters = selectedModel.model_parameters.filter(
+          (param) =>
+            param.inference_types_parameter_applies_to.includes(
+              selectedInferenceType
+            )
+        );
+
+        applicableParameters.forEach((param) => {
+          const fieldContainer = document.createElement("div");
+          fieldContainer.className = "mb-4";
+
+          const label = document.createElement("label");
+          label.className = "block text-bw-700 font-bold mb-2";
+          label.htmlFor = param.name;
+          label.textContent = param.description;
+          fieldContainer.appendChild(label);
+
+          const input = document.createElement("input");
+          input.className = "input w-full";
+          input.id = param.name;
+          input.name = param.name;
+          input.type =
+            param.type === "float" || param.type === "int" ? "number" : "text";
+          input.placeholder = `Enter ${param.description.toLowerCase()}`;
+          input.value = param.default;
+          fieldContainer.appendChild(input);
+
+          modelParametersContainer.appendChild(fieldContainer);
+        });
+      }
+
       function populateModelDropdown() {
         const selectedInferenceType = inferenceTypeSelect.value;
         const modelSelect = document.getElementById("model");
@@ -1323,22 +1391,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               )
           );
 
-          let defaultModelSet = false;
           filteredModels.forEach((model) => {
             const option = document.createElement("option");
             option.value = model.model_name;
             option.textContent = model.model_name;
-
-            if (model.model_name === "groq-llama3-70b-8192") {
-              option.selected = true;
-              defaultModelSet = true;
-            }
-
             modelSelect.appendChild(option);
           });
 
-          if (!defaultModelSet && filteredModels.length > 0) {
+          if (filteredModels.length > 0) {
             modelSelect.options[1].selected = true;
+            generateModelParameterFields(filteredModels[0]);
           }
         }
       }
@@ -1418,22 +1480,40 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const selectedInferenceType = inferenceTypeSelect.value;
         textCompletionSettings.style.display = "none";
         imageGenerationSettings.style.display = "none";
-        embeddingSettings.style.display = "none";
-        tokenLevelEmbeddingSettings.style.display = "none"; // Assuming tokenLevelEmbeddingSettings element exists
-
+        if (document.getElementById("embeddingSettings"))
+          document.getElementById("embeddingSettings").style.display = "none";
+        if (document.getElementById("tokenLevelEmbeddingSettings"))
+          document.getElementById("tokenLevelEmbeddingSettings").style.display =
+            "none";
+        if (document.getElementById("embeddingDocumentSettings"))
+          document.getElementById("embeddingDocumentSettings").style.display =
+            "none";
+        if (document.getElementById("embeddingAudioSettings"))
+          document.getElementById("embeddingAudioSettings").style.display =
+            "none";
         if (selectedInferenceType === "text_completion") {
           textCompletionSettings.style.display = "block";
         } else if (selectedInferenceType === "image_generation") {
           imageGenerationSettings.style.display = "block";
         } else if (selectedInferenceType === "embedding") {
-          embeddingSettings.style.display = "block";
+          document.getElementById("embeddingSettings").style.display = "block";
+        } else if (selectedInferenceType === "embedding_document") {
+          document.getElementById("embeddingDocumentSettings").style.display =
+            "block";
+        } else if (selectedInferenceType === "embedding_audio") {
+          document.getElementById("embeddingAudioSettings").style.display =
+            "block";
         } else if (selectedInferenceType === "token_level_embedding") {
-          tokenLevelEmbeddingSettings.style.display = "block";
+          document.getElementById("tokenLevelEmbeddingSettings").style.display =
+            "block";
         }
-
         populateModelDropdown();
         loadInferenceRequestSettings();
       });
+
+      document
+        .getElementById("model")
+        .addEventListener("change", handleModelChange);
 
       function handleCreditPackSelection() {
         const radioButtons = document.querySelectorAll(
