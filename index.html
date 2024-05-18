@@ -432,35 +432,8 @@
 Write me a Shakespeare-style sonnet about Pastel Network and how it's really decentralized and powerful. </textarea
             >
           </div>
-          <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="maxTokens"
-              >Max Tokens</label
-            >
-            <input
-              class="input w-full"
-              id="maxTokens"
-              type="text"
-              placeholder="Enter maximum tokens"
-              value="2000"
-              data-raw-value="2000"
-            />
-            <span id="maxTokensFormatted" class="text-bw-700"></span>
-          </div>
-          <div>
-            <label class="block text-bw-700 font-bold mb-2" for="numCompletions"
-              >Number of Completions</label
-            >
-            <input
-              class="input w-full"
-              id="numCompletions"
-              type="text"
-              placeholder="Enter number of completions"
-              value="1"
-              data-raw-value="1"
-            />
-            <span id="numCompletionsFormatted" class="text-bw-700"></span>
-          </div>
         </div>
+
         <div
           id="imageGenerationSettings"
           class="col-span-full"
@@ -1420,9 +1393,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           const settings = JSON.parse(storedSettings);
           document.getElementById("model").value = settings.model || "";
           document.getElementById("prompt").value = settings.prompt || "";
-          document.getElementById("maxTokens").value = settings.maxTokens || "";
-          document.getElementById("numCompletions").value =
-            settings.numCompletions || "";
           document.getElementById("maxCost").value = settings.maxCost || "";
           document.getElementById("imagePrompt").value =
             settings.imagePrompt || "";
@@ -1445,9 +1415,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const settings = {
           model: document.getElementById("model").value,
           prompt: document.getElementById("prompt").value,
-          maxTokens: document.querySelector("#maxTokens").dataset.rawValue,
-          numCompletions:
-            document.querySelector("#numCompletions").dataset.rawValue,
           maxCost: document.querySelector("#maxCost").dataset.rawValue,
           imagePrompt: document.getElementById("imagePrompt").value,
           stylePreset: document.getElementById("stylePreset").value,
@@ -2255,7 +2222,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           inputElement.value = number.toLocaleString();
         }
       }
-
       document.addEventListener("DOMContentLoaded", () => {
         const createTicketForm = document.getElementById("createTicketForm");
 
@@ -2310,10 +2276,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const selectedModel = document.getElementById("model").value;
             const prompt = document.getElementById("prompt").value;
             const maxTokens = parseInt(
-              document.querySelector("#maxTokens").dataset.rawValue
+              document.getElementById("number_of_tokens_to_generate").dataset
+                .rawValue
             );
             const numCompletions = parseInt(
-              document.querySelector("#numCompletions").dataset.rawValue
+              document.getElementById("number_of_completions_to_generate")
+                .dataset.rawValue
             );
             const maxCost = parseFloat(
               document.querySelector("#maxCost").dataset.rawValue
@@ -2330,65 +2298,28 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             );
           });
 
-        // Handle send message form submission
-        const sendMessageForm = document.getElementById("sendMessageForm");
-        sendMessageForm.addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const toPastelID = document.getElementById("toPastelID").value;
-          const messageBody = document.getElementById("messageBody").value;
-          await sendMessage(toPastelID, messageBody);
-          await fetchReceivedMessages();
-        });
-
-        // Additional event listeners and initializations
-        const numCreditsInput = document.getElementById("numCredits");
-        numCreditsInput.addEventListener(
-          "input",
-          debounce(handleInputChange, 300)
+        const numberOfTokensInput = document.getElementById(
+          "number_of_tokens_to_generate"
         );
-        numCreditsInput.addEventListener("blur", handleInputBlur);
-
-        const maxTotalPriceInput = document.getElementById("maxTotalPrice");
-        maxTotalPriceInput.addEventListener(
-          "input",
-          debounce(handleInputChange, 300)
-        );
-        maxTotalPriceInput.addEventListener("blur", handleInputBlur);
-
-        const maxPerCreditPriceInput =
-          document.getElementById("maxPerCreditPrice");
-        maxPerCreditPriceInput.addEventListener(
-          "input",
-          debounce(handleInputChange, 300)
-        );
-        maxPerCreditPriceInput.addEventListener("blur", handleInputBlur);
-
-        const maxTokensInput = document.getElementById("maxTokens");
-        const maxTokensFormattedSpan =
-          document.getElementById("maxTokensFormatted");
-        maxTokensInput.addEventListener(
-          "input",
-          debounce(
-            () => formatAndDisplay(maxTokensInput, maxTokensFormattedSpan),
-            300
-          )
+        const numberOfCompletionsInput = document.getElementById(
+          "number_of_completions_to_generate"
         );
 
-        const numCompletionsInput = document.getElementById("numCompletions");
-        const numCompletionsFormattedSpan = document.getElementById(
-          "numCompletionsFormatted"
-        );
-        numCompletionsInput.addEventListener(
-          "input",
-          debounce(
-            () =>
-              formatAndDisplay(
-                numCompletionsInput,
-                numCompletionsFormattedSpan
-              ),
-            300
-          )
-        );
+        if (numberOfTokensInput) {
+          numberOfTokensInput.addEventListener(
+            "input",
+            debounce(handleInputChange, 300)
+          );
+          numberOfTokensInput.addEventListener("blur", handleInputBlur);
+        }
+
+        if (numberOfCompletionsInput) {
+          numberOfCompletionsInput.addEventListener(
+            "input",
+            debounce(handleInputChange, 300)
+          );
+          numberOfCompletionsInput.addEventListener("blur", handleInputBlur);
+        }
 
         const maxCostInput = document.getElementById("maxCost");
         const maxCostFormattedSpan =
