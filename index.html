@@ -125,7 +125,7 @@
           100% - 2rem
         ); /* Leave some padding for better readability */
         word-wrap: break-word; /* Ensure the text wraps correctly */
-        height: 280px; /* Set a fixed height */
+        height: 333px; /* Set a fixed height */
         overflow-y: auto; /* Add a scrollbar if the content exceeds the height */
         padding: 0.5rem; /* Add padding for better readability */
         border: 1px solid #ccc; /* Optional: Add a border for better visibility */
@@ -791,6 +791,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             <table id="walletInfoTable" class="table bordered bw"></table>
           </div>
         </div>
+      </div>
+
+      <div class="mb-4">
+        <button id="clearLocalStorageButton" class="btn success outline">
+          Clear Inference Client Local Storage
+          <span
+            class="tooltip"
+            data-tooltip="Clear all local storage data for this page."
+          >
+            &#9432;
+          </span>
+        </button>
       </div>
     </div>
     <button onclick="toggleTerminal()" class="btn success outline">
@@ -1580,11 +1592,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const listItem = document.createElement("div");
             listItem.className =
               "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
-            listItem.innerHTML = `<span>${inferenceTypeIcon} ${request.prompt.substring(
-              0,
-              40
-            )}...</span>
+            const promptPreview = request.prompt
+              ? request.prompt.substring(0, 40)
+              : "No prompt available";
+            listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
               <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
+
             listItem.addEventListener("click", () =>
               displayRequestPreview(index)
             );
@@ -1614,6 +1627,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           markdownContent += `## Inference Request ${index + 1}\n`;
           markdownContent += `**Prompt**: ${request.prompt}\n\n`;
           markdownContent += `**Inference Results**:\n\n`;
+
           request.inferenceResultsDecoded.forEach((result, i) => {
             markdownContent += `### Completion ${i + 1}\n`;
             markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
@@ -1653,12 +1667,24 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
         let combinedResults = "";
         if (request.selectedInferenceType === "text_completion") {
-          request.inferenceResultsDecoded.forEach((result, i) => {
+          const results = Array.isArray(request.inferenceResultsDecoded)
+            ? request.inferenceResultsDecoded
+            : [request.inferenceResultsDecoded];
+          results.forEach((result, i) => {
+            let parsedResult = result;
+            try {
+              const parsedJSON = JSON.parse(result);
+              if (parsedJSON.text) {
+                parsedResult = parsedJSON.text;
+              }
+            } catch (e) {
+              console.error("Error parsing JSON result:", e);
+            }
             combinedResults += `<h4>Completion ${i + 1} of ${
-              request.inferenceResultsDecoded.length
+              results.length
             }</h4>`;
-            combinedResults += `<github-md>${result}</github-md>`;
-            if (i < request.inferenceResultsDecoded.length - 1) {
+            combinedResults += `<github-md>${parsedResult}</github-md>`;
+            if (i < results.length - 1) {
               combinedResults += "<hr>";
             }
           });
@@ -1751,7 +1777,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const {
               proposed_cost_of_request_in_inference_credits,
               remaining_credits_in_pack_after_request_processed,
-              responding_supernode_pastelid,
             } = inferenceResultDict.usage_request_response;
 
             const endTime = new Date();
@@ -1774,7 +1799,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                       }
                     });
                   } else if (inferenceResultsDecoded.length === 1) {
-                    combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+                    let parsedResult = inferenceResultsDecoded[0];
+                    try {
+                      const parsedJSON = JSON.parse(inferenceResultsDecoded[0]);
+                      if (parsedJSON.text) {
+                        parsedResult = parsedJSON.text;
+                      }
+                    } catch (e) {
+                      console.error("Error parsing JSON result:", e);
+                    }
+                    combinedResults = `<github-md>${parsedResult}</github-md>`;
                   } else {
                     combinedResults = "<p>No results found.</p>";
                   }
@@ -1811,7 +1845,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             <tr><th>Input Prompt to LLM</th><td>${modelInputDataJSON}</td></tr>
             <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
             <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-            <tr><th>Supernode PastelID</th><td>${responding_supernode_pastelid}</td></tr>
             <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
           </table>
         </div>
@@ -1826,7 +1859,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 atob(modelParametersJSONBase64Encoded)
               ),
               maxCost,
-              inferenceResultsDecoded,
+              inferenceResultsDecoded: Array.isArray(inferenceResultsDecoded)
+                ? inferenceResultsDecoded
+                : [inferenceResultsDecoded],
+              prompt: document.getElementById("prompt").value, // Ensure prompt is stored
               elapsedTimeInSeconds,
             });
 
@@ -2033,7 +2069,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const tbody = addressAmountsTable.querySelector("tbody");
             for (const [address, amount] of Object.entries(addressAmounts)) {
               const row = document.createElement("tr");
-              row.innerHTML = `<td>${address}</td><td>${amount}</td>`;
+              row.innerHTML = `<td>${address}</td><td>${parseAndFormatNumber(
+                amount
+              )}</td>`;
               tbody.appendChild(row);
             }
 
@@ -2050,7 +2088,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               .getElementById("copyAddressAmountsButton")
               .addEventListener("click", () => {
                 const csvData = Object.entries(addressAmounts)
-                  .map(([address, amount]) => `${address},${amount}`)
+                  .map(
+                    ([address, amount]) =>
+                      `${address},${amount.toString().replace(/,/g, "")}`
+                  )
                   .join("\n");
                 navigator.clipboard.writeText(csvData);
                 alert("Address amounts copied to clipboard as CSV!");
@@ -2074,9 +2115,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             walletInfoTable.innerHTML =
               "<thead><tr><th>Key</th><th>Value</th></thead><tbody></tbody>";
             const tbody = walletInfoTable.querySelector("tbody");
+            const balanceFields = [
+              "balance",
+              "unconfirmed_balance",
+              "immature_balance",
+            ]; // Add the balance fields you want to format
+
             for (const [key, value] of Object.entries(walletInfo)) {
+              const formattedValue = balanceFields.includes(key)
+                ? parseAndFormatNumber(value)
+                : value;
               const row = document.createElement("tr");
-              row.innerHTML = `<td>${key}</td><td>${value}</td>`;
+              row.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
               tbody.appendChild(row);
             }
 
@@ -2093,13 +2143,30 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               .getElementById("copyWalletInfoButton")
               .addEventListener("click", () => {
                 const csvData = Object.entries(walletInfo)
-                  .map(([key, value]) => `${key},${value}`)
+                  .map(
+                    ([key, value]) =>
+                      `${key},${value.toString().replace(/,/g, "")}`
+                  )
                   .join("\n");
                 navigator.clipboard.writeText(csvData);
                 alert("Wallet info copied to clipboard as CSV!");
               });
           } catch (error) {
             console.error("Error retrieving wallet info:", error);
+          }
+        });
+
+      document
+        .getElementById("clearLocalStorageButton")
+        .addEventListener("click", () => {
+          if (
+            confirm(
+              "Are you sure you want to clear all local storage data for this page?"
+            )
+          ) {
+            localStorage.clear();
+            alert("Local storage cleared. The page will now reload.");
+            location.reload();
           }
         });
 
@@ -2488,6 +2555,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       document.addEventListener("DOMContentLoaded", () => {
         hljs.highlightAll();
         handleCreditPackSelection();
+        document.getElementById("inferenceType").value = "text_completion"; // Set default to Text Completion
+        document
+          .getElementById("inferenceType")
+          .dispatchEvent(new Event("change")); // Trigger change event
       });
     </script>
     <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
