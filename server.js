@@ -278,15 +278,23 @@ wss.on("connection", (ws) => {
       } = req.body;
       try {
         const burnAddress = await configureRPCAndSetBurnAddress();
+        const modelParameters = {};
+
+        if (selectedInferenceType === "text_completion") {
+          modelParameters.max_tokens = maxTokens;
+          modelParameters.num_completions = numCompletions;
+        }
+
         const result = await handleInferenceRequestEndToEnd(
           selectedCreditPackTicketId,
           prompt,
           selectedModel,
           selectedInferenceType,
-          { max_tokens: maxTokens, num_completions: numCompletions },
+          modelParameters,
           maxCost,
           burnAddress
         );
+
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });

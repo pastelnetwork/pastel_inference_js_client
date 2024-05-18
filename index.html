@@ -519,14 +519,37 @@ A picture of a clown holding a sign that says PASTEL</textarea
         </div>
 
         <div id="embeddingSettings" class="col-span-full" style="display: none">
-          <!-- Add embedding specific settings here -->
+          <div class="mb-4">
+            <label class="block text-bw-700 font-bold mb-2" for="embeddingText"
+              >Text to Embed</label
+            >
+            <textarea
+              class="input w-full"
+              id="embeddingText"
+              rows="5"
+              placeholder="Enter text to embed"
+            ></textarea>
+          </div>
         </div>
+
         <div
           id="tokenLevelEmbeddingSettings"
           class="col-span-full"
           style="display: none"
         >
-          <!-- Add token level embedding specific settings here -->
+          <div class="mb-4">
+            <label
+              class="block text-bw-700 font-bold mb-2"
+              for="tokenLevelEmbeddingText"
+              >Text to Embed</label
+            >
+            <textarea
+              class="input w-full"
+              id="tokenLevelEmbeddingText"
+              rows="5"
+              placeholder="Enter text to embed"
+            ></textarea>
+          </div>
         </div>
 
         <div class="mb-4">
@@ -862,7 +885,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 const parsed = JSON.parse(part);
                 const formatted = prettyJSON(parsed);
                 return `<pre><code class="json">${
-                  hljs.highlight("json", formatted).value
+                  hljs.highlight(formatted, {
+                    language: "json",
+                    ignoreIllegals: true,
+                  }).value
                 }</code></pre>`;
               }
             } catch (e) {
@@ -1344,6 +1370,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             settings.outputFormat || "";
           document.getElementById("aspectRatio").value =
             settings.aspectRatio || "";
+          document.getElementById("embeddingText").value =
+            settings.embeddingText || "";
+          document.getElementById("tokenLevelEmbeddingText").value =
+            settings.tokenLevelEmbeddingText || "";
         }
       }
 
@@ -1361,6 +1391,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           stylePreset: document.getElementById("stylePreset").value,
           outputFormat: document.getElementById("outputFormat").value,
           aspectRatio: document.getElementById("aspectRatio").value,
+          embeddingText: document.getElementById("embeddingText").value,
+          tokenLevelEmbeddingText: document.getElementById(
+            "tokenLevelEmbeddingText"
+          ).value,
         };
         localStorage.setItem(
           `inferenceRequestSettings_${selectedInferenceType}`,
@@ -1384,7 +1418,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const selectedInferenceType = inferenceTypeSelect.value;
         textCompletionSettings.style.display = "none";
         imageGenerationSettings.style.display = "none";
-        embeddingSettings.style.display = "none"; // Assuming embeddingSettings element exists
+        embeddingSettings.style.display = "none";
         tokenLevelEmbeddingSettings.style.display = "none"; // Assuming tokenLevelEmbeddingSettings element exists
 
         if (selectedInferenceType === "text_completion") {
@@ -1392,10 +1426,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         } else if (selectedInferenceType === "image_generation") {
           imageGenerationSettings.style.display = "block";
         } else if (selectedInferenceType === "embedding") {
-          embeddingSettings.style.display = "block"; // Handle display for embedding
+          embeddingSettings.style.display = "block";
         } else if (selectedInferenceType === "token_level_embedding") {
-          tokenLevelEmbeddingSettings.style.display = "block"; // Handle display for token level embedding
+          tokenLevelEmbeddingSettings.style.display = "block";
         }
+
         populateModelDropdown();
         loadInferenceRequestSettings();
       });
@@ -1433,6 +1468,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         localStorage.setItem("inferenceRequests", JSON.stringify(requests));
         updatePreviousRequestsList();
       }
+
       function updatePreviousRequestsList() {
         const requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
@@ -1447,10 +1483,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           listContainer.appendChild(noRequestsMessage);
         } else {
           requests.forEach((request, index) => {
+            const inferenceTypeIcon =
+              request.selectedInferenceType === "text_completion"
+                ? "🖹"
+                : request.selectedInferenceType === "image_generation"
+                ? "🖼️"
+                : "🔢";
             const listItem = document.createElement("div");
             listItem.className =
               "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
-            listItem.innerHTML = `<span>${request.prompt.substring(
+            listItem.innerHTML = `<span>${inferenceTypeIcon} ${request.prompt.substring(
               0,
               40
             )}...</span>
@@ -1522,15 +1564,24 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         const previewContainer = document.getElementById("requestPreview");
 
         let combinedResults = "";
-        request.inferenceResultsDecoded.forEach((result, i) => {
-          combinedResults += `<h4>Completion ${i + 1} of ${
-            request.inferenceResultsDecoded.length
-          }</h4>`;
-          combinedResults += `<github-md>${result}</github-md>`;
-          if (i < request.inferenceResultsDecoded.length - 1) {
-            combinedResults += "<hr>";
-          }
-        });
+        if (request.selectedInferenceType === "text_completion") {
+          request.inferenceResultsDecoded.forEach((result, i) => {
+            combinedResults += `<h4>Completion ${i + 1} of ${
+              request.inferenceResultsDecoded.length
+            }</h4>`;
+            combinedResults += `<github-md>${result}</github-md>`;
+            if (i < request.inferenceResultsDecoded.length - 1) {
+              combinedResults += "<hr>";
+            }
+          });
+        } else if (request.selectedInferenceType === "image_generation") {
+          combinedResults = `<img src="${request.inferenceResultsDecoded[0]}" alt="Generated Image">`;
+        } else {
+          combinedResults = `<pre><code class="json">${
+            hljs.highlight("json", prettyJSON(request.inferenceResultsDecoded))
+              .value
+          }</code></pre>`;
+        }
 
         previewContainer.innerHTML = `
           <div class="mb-4">
@@ -1547,7 +1598,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           </div>
         `;
 
-        renderMarkdown();
+        if (request.selectedInferenceType === "text_completion") {
+          renderMarkdown();
+        }
       }
 
       // Call updatePreviousRequestsList on page load
@@ -1572,10 +1625,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         resultContainer.appendChild(loader);
 
         displayInferenceRequestLoggerMessages = true;
-        const startTime = new Date(); // Capture the start time
+        const startTime = new Date();
 
         try {
           logStatusMessage("Creating new inference request...");
+
+          // Conditionally set the prompt based on the selected inference type
+          if (selectedInferenceType === "embedding") {
+            prompt = document.getElementById("embeddingText").value;
+          } else if (selectedInferenceType === "token_level_embedding") {
+            prompt = document.getElementById("tokenLevelEmbeddingText").value;
+          }
+
           const response = await axios.post("/create-inference-request", {
             selectedCreditPackTicketId,
             selectedInferenceType,
@@ -1600,31 +1661,45 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               responding_supernode_pastelid,
             } = inferenceResultDict.usage_request_response;
 
-            const endTime = new Date(); // Capture the end time
+            const endTime = new Date();
             const elapsedTimeInSeconds = Math.floor(
               (endTime - startTime) / 1000
-            ); // Calculate elapsed time in seconds
+            );
 
             let combinedResults = "";
             try {
-              if (Array.isArray(inferenceResultsDecoded)) {
-                if (inferenceResultsDecoded.length > 1) {
-                  inferenceResultsDecoded.forEach((result, index) => {
-                    combinedResults += `<h4>Completion ${index + 1} of ${
-                      inferenceResultsDecoded.length
-                    }</h4>`;
-                    combinedResults += `<github-md>${result}</github-md>`;
-                    if (index < inferenceResultsDecoded.length - 1) {
-                      combinedResults += "<hr>";
-                    }
-                  });
-                } else if (inferenceResultsDecoded.length === 1) {
-                  combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+              if (selectedInferenceType === "text_completion") {
+                if (Array.isArray(inferenceResultsDecoded)) {
+                  if (inferenceResultsDecoded.length > 1) {
+                    inferenceResultsDecoded.forEach((result, index) => {
+                      combinedResults += `<h4>Completion ${index + 1} of ${
+                        inferenceResultsDecoded.length
+                      }</h4>`;
+                      combinedResults += `<github-md>${result}</github-md>`;
+                      if (index < inferenceResultsDecoded.length - 1) {
+                        combinedResults += "<hr>";
+                      }
+                    });
+                  } else if (inferenceResultsDecoded.length === 1) {
+                    combinedResults = `<github-md>${inferenceResultsDecoded[0]}</github-md>`;
+                  } else {
+                    combinedResults = "<p>No results found.</p>";
+                  }
                 } else {
-                  combinedResults = "<p>No results found.</p>";
+                  combinedResults = `<p>${inferenceResultsDecoded}</p>`;
                 }
+              } else if (
+                selectedInferenceType === "embedding" ||
+                selectedInferenceType === "token_level_embedding"
+              ) {
+                combinedResults = `<pre><code class="json">${
+                  hljs.highlight(prettyJSON(inferenceResultsDecoded), {
+                    language: "json",
+                    ignoreIllegals: true,
+                  }).value
+                }</code></pre>`;
               } else {
-                combinedResults = `<p>${inferenceResultsDecoded}</p>`;
+                combinedResults = `<img src="${inferenceResultsDecoded[0]}" alt="Generated Image">`;
               }
             } catch (error) {
               console.error("Error processing inference results:", error);
@@ -1649,7 +1724,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         </div>
       `;
 
-            // Save inference request and results to localStorage
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
               selectedInferenceType,
@@ -1659,10 +1733,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               numCompletions,
               maxCost,
               inferenceResultsDecoded,
-              elapsedTimeInSeconds, // Save the elapsed time
+              elapsedTimeInSeconds,
             });
 
-            renderMarkdown();
+            if (selectedInferenceType === "text_completion") {
+              renderMarkdown();
+            }
           } else {
             throw new Error("Failed to create inference request");
           }
