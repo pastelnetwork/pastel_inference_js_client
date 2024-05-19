@@ -905,6 +905,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         return data; // Return data as is for other types
       }
 
+      function sanitizeJSON(jsonString) {
+        return jsonString.replace(/[^\x20-\x7E]+/g, ""); // Remove non-printable ASCII characters
+      }
+
+      function fallbackParseResult(result) {
+        // If the result starts with {"text": ", strip it and the ending }
+        if (result.startsWith(' {"text": "')) {
+          result = result.slice(10); // Remove the prefix {"text": "
+          const endIndex = result.indexOf('"}');
+          if (endIndex !== -1) {
+            result = result.slice(0, endIndex); // Remove the closing }
+          }
+        }
+
+        // Remove anything including and after "} {"prompt":" from the end of the string
+        const promptPattern = /"} {"prompt":".*$/;
+        result = result.replace(promptPattern, "");
+
+        return result;
+      }
+
       function formatAndHighlightMessage(message) {
         const parts = message.split(/(\{[\s\S]*?\})/);
         return parts
@@ -1280,26 +1301,26 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             );
 
             newTicketDetails.innerHTML = `
-              <tr>
-                <td class="truncate">
-                  <a href="${getTxidURL(
-                    creditUsageTrackingPSLAddress,
-                    result.pastel_api_credit_pack_ticket_registration_txid
-                  )}" target="_blank">
-                    ${result.pastel_api_credit_pack_ticket_registration_txid}
-                  </a>
-                </td>
-                <td class="truncate">${
-                  result.sha3_256_hash_of_credit_pack_purchase_request_fields
-                }</td>
-                <td class="truncate">${
-                  result.responding_supernode_pastelid
-                }</td>
-                <td class="truncate">${
-                  result.credit_pack_confirmation_outcome_string
-                }</td>
-              </tr>
-            `;
+                <tr>
+                  <td class="truncate">
+                    <a href="${getTxidURL(
+                      creditUsageTrackingPSLAddress,
+                      result.pastel_api_credit_pack_ticket_registration_txid
+                    )}" target="_blank">
+                      ${result.pastel_api_credit_pack_ticket_registration_txid}
+                    </a>
+                  </td>
+                  <td class="truncate">${
+                    result.sha3_256_hash_of_credit_pack_purchase_request_fields
+                  }</td>
+                  <td class="truncate">${
+                    result.responding_supernode_pastelid
+                  }</td>
+                  <td class="truncate">${
+                    result.credit_pack_confirmation_outcome_string
+                  }</td>
+                </tr>
+              `;
 
             newTicketDetailsContainer.style.display = "block";
 
@@ -1596,7 +1617,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               ? request.prompt.substring(0, 40)
               : "No prompt available";
             listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
-              <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
+                <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
 
             listItem.addEventListener("click", () =>
               displayRequestPreview(index)
@@ -1632,14 +1653,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             markdownContent += `### Completion ${i + 1}\n`;
             markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
           });
-          markdownContent += `**Model**: ${request.selectedModel}\n`;
-          markdownContent += `**Proposed Cost (Credits)**: ${request.maxCost}\n`;
+          markdownContent += `**Model**: ${request.selectedModelCanonicalName}\n`; // Ensure consistency
+          markdownContent += `**Actual Cost (Credits)**: ${request.actualCreditsUsed}\n`; // Added actual cost
+          markdownContent += `**Remaining Credits**: ${request.remainingCredits}\n`; // Added remaining credits
           markdownContent += `**Misc. Inference Parameters and Statistics**:\n`;
           markdownContent += `| Parameter | Value |\n`;
           markdownContent += `| --- | --- |\n`;
           markdownContent += `| Input Prompt to LLM | ${request.prompt} |\n`;
-          markdownContent += `| Proposed Cost (Credits) | ${request.maxCost} |\n`;
-          markdownContent += `| Model | ${request.selectedModel} |\n`;
+          markdownContent += `| Actual Cost (Credits) | ${request.actualCreditsUsed} |\n`; // Added actual cost
+          markdownContent += `| Remaining Credits | ${request.remainingCredits} |\n`; // Added remaining credits
+          markdownContent += `| Model | ${request.selectedModelCanonicalName} |\n`; // Ensure consistency
+          markdownContent += `| Request Timestamp | ${request.requestTimestamp} |\n`; // Added request timestamp
+          markdownContent += `| Total Time (Seconds) | ${request.elapsedTimeInSeconds} |\n`; // Added total time
           markdownContent += `\n\n`;
         });
 
@@ -1673,12 +1698,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           results.forEach((result, i) => {
             let parsedResult = result;
             try {
-              const parsedJSON = JSON.parse(result);
+              const sanitizedResult = sanitizeJSON(result);
+              const parsedJSON = JSON.parse(sanitizedResult);
               if (parsedJSON.text) {
                 parsedResult = parsedJSON.text;
               }
             } catch (e) {
-              console.error("Error parsing JSON result:", e);
+              parsedResult = fallbackParseResult(result);
             }
             combinedResults += `<h4>Completion ${i + 1} of ${
               results.length
@@ -1698,18 +1724,21 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         }
 
         previewContainer.innerHTML = `
-          <div class="mb-4">
-            <h3 class="font-bold">Inference Result:</h3>
-            ${combinedResults}
-          </div>
-          <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-          <div class="table-responsive">
-            <table class="table">
-              <tr><th>Input Prompt to LLM</th><td>${request.prompt}</td></tr>
-              <tr><th>Proposed Cost (Credits)</th><td>${request.maxCost}</td></tr>
-              <tr><th>Model</th><td>${request.selectedModel}</td></tr>
-            </table>
-          </div>
+            <div class="mb-4">
+                <h3 class="font-bold">Inference Result:</h3>
+                ${combinedResults}
+            </div>
+            <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+            <div class="table-responsive">
+                <table class="table">
+                    <tr><th>Input Prompt to LLM</th><td>${request.prompt}</td></tr>
+                    <tr><th>Actual Cost (Credits)</th><td>${request.actualCreditsUsed}</td></tr>
+                    <tr><th>Remaining Credits</th><td>${request.remainingCredits}</td></tr>
+                    <tr><th>Request Timestamp</th><td>${request.requestTimestamp}</td></tr>
+                    <tr><th>Model</th><td>${request.selectedModelCanonicalName}</td></tr>
+                    <tr><th>Total Time in Seconds to Process Request</th><td>${request.elapsedTimeInSeconds}</td></tr>
+                </table>
+            </div>
         `;
 
         if (request.selectedInferenceType === "text_completion") {
@@ -1801,12 +1830,17 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                   } else if (inferenceResultsDecoded.length === 1) {
                     let parsedResult = inferenceResultsDecoded[0];
                     try {
-                      const parsedJSON = JSON.parse(inferenceResultsDecoded[0]);
+                      const sanitizedResult = sanitizeJSON(
+                        inferenceResultsDecoded[0]
+                      );
+                      const parsedJSON = JSON.parse(sanitizedResult);
                       if (parsedJSON.text) {
                         parsedResult = parsedJSON.text;
                       }
                     } catch (e) {
-                      console.error("Error parsing JSON result:", e);
+                      parsedResult = fallbackParseResult(
+                        inferenceResultsDecoded[0]
+                      );
                     }
                     combinedResults = `<github-md>${parsedResult}</github-md>`;
                   } else {
@@ -1835,25 +1869,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             }
 
             resultContainer.innerHTML = `
-        <div class="mb-4">
-          <h3 class="font-bold">Inference Result:</h3>
-          ${combinedResults}
-        </div>
-        <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-        <div class="table-responsive">
-          <table class="table">
-            <tr><th>Input Prompt to LLM</th><td>${modelInputDataJSON}</td></tr>
-            <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-            <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-            <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
-          </table>
-        </div>
-      `;
+  <div class="mb-4">
+    <h3 class="font-bold">Inference Result:</h3>
+    ${combinedResults}
+  </div>
+  <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+  <div class="table-responsive">
+    <table class="table">
+      <tr><th>Input Prompt to LLM</th><td>${modelInputDataJSON}</td></tr>
+      <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+      <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr> 
+      <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr> 
+      <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
+      <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+    </table>
+  </div>
+`;
 
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
               selectedInferenceType,
-              selectedModelCanonicalName, // Store model canonical name
+              selectedModelCanonicalName,
               inputFields: JSON.parse(atob(modelInputDataJSONBase64Encoded)),
               parameterFields: JSON.parse(
                 atob(modelParametersJSONBase64Encoded)
@@ -1862,8 +1898,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               inferenceResultsDecoded: Array.isArray(inferenceResultsDecoded)
                 ? inferenceResultsDecoded
                 : [inferenceResultsDecoded],
-              prompt: document.getElementById("prompt").value, // Ensure prompt is stored
+              prompt: document.getElementById("prompt").value,
               elapsedTimeInSeconds,
+              actualCreditsUsed: proposed_cost_of_request_in_inference_credits,
+              remainingCredits:
+                remaining_credits_in_pack_after_request_processed,
+              respondingSupernode:
+                inferenceResultDict.responding_supernode_pastelid,
+              requestTimestamp: startTime.toISOString(),
             });
 
             if (selectedInferenceType === "text_completion") {
