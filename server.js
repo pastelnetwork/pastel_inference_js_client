@@ -48,8 +48,8 @@ const MY_LOCAL_PASTELID = process.env.MY_LOCAL_PASTELID;
 const MY_PASTELID_PASSPHRASE = process.env.MY_PASTELID_PASSPHRASE;
 
 const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
+app.use(bodyParser.json({ limit: "50mb" }));
 
 const port = process.env.CLIENT_PORT || 3100;
 
@@ -281,26 +281,22 @@ wss.on("connection", (ws) => {
         const modelParameters = JSON.parse(
           Buffer.from(model_parameters_json_b64, "base64").toString()
         );
-        const modelInputDataJSON = JSON.parse(
-          Buffer.from(model_input_data_json_b64, "base64").toString()
-        );
 
-        console.log("Request Parameters:");
-        console.log("Model Inference Type:", modelInferenceTypeString);
-        console.log("Model Canonical Name:", requestedModelCanonicalString);
-        console.log("Credit Pack Ticket ID:", creditPackTicketPastelTxid);
-        console.log(
-          "Maximum Inference Cost in Credits:",
-          maximumInferenceCostInCredits
-        );
-        console.log("Model Parameters (Base64):", model_parameters_json_b64);
-        console.log("Model Input Data (Base64):", model_input_data_json_b64);
-        console.log("Parsed Model Parameters:", modelParameters);
-        console.log("Parsed Model Input Data:", modelInputDataJSON);
+        let modelInputData;
+        if (
+          modelInferenceTypeString === "embedding_document" ||
+          modelInferenceTypeString === "embedding_audio"
+        ) {
+          modelInputData = Buffer.from(model_input_data_json_b64, "base64");
+        } else {
+          modelInputData = JSON.parse(
+            Buffer.from(model_input_data_json_b64, "base64").toString()
+          );
+        }
 
         const result = await handleInferenceRequestEndToEnd(
           creditPackTicketPastelTxid,
-          modelInputDataJSON,
+          modelInputData,
           requestedModelCanonicalString,
           modelInferenceTypeString,
           modelParameters,

@@ -2510,7 +2510,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const selectedInferenceType =
               document.getElementById("inferenceType").value;
             const selectedModelCanonicalName =
-              document.getElementById("model").value; // Model canonical name
+              document.getElementById("model").value;
             const maxCost = parseFloat(
               document.querySelector("#maxCost").dataset.rawValue
             );
@@ -2530,7 +2530,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               });
             };
 
-            // Collecting all form data except the input prompt
             const formData = new FormData(event.target);
             const modelParameters = {};
             formData.forEach((value, key) => {
@@ -2550,7 +2549,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const modelParametersJSONBase64Encoded =
               encodeToBase64(modelParametersJSON);
 
-            // Use the correct key for the prompt
             let inputPromptKey;
             if (selectedInferenceType === "text_completion") {
               inputPromptKey = "prompt";
@@ -2565,11 +2563,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             } else if (selectedInferenceType === "embedding_audio") {
               inputPromptKey = "embeddingAudioFile";
             } else {
-              inputPromptKey = "prompt"; // Default key, if applicable
+              inputPromptKey = "prompt";
             }
 
-            // Handle input prompt or file
-            let modelInputDataJSONBase64Encoded;
+            let modelInputDataBase64Encoded;
             if (
               selectedInferenceType === "embedding_document" ||
               selectedInferenceType === "embedding_audio"
@@ -2580,19 +2577,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 alert("Model input data cannot be empty.");
                 return;
               }
-              modelInputDataJSONBase64Encoded = await encodeFileToBase64(
-                inputFile
-              );
+              modelInputDataBase64Encoded = await encodeFileToBase64(inputFile);
             } else {
               const inputPromptValue =
                 document.getElementById(inputPromptKey).value;
-              modelInputDataJSONBase64Encoded = encodeToBase64(
+              modelInputDataBase64Encoded = encodeToBase64(
                 JSON.stringify({ [inputPromptKey]: inputPromptValue })
               );
             }
 
-            // Ensure that the encoded input is not empty
-            if (!modelInputDataJSONBase64Encoded) {
+            if (!modelInputDataBase64Encoded) {
               alert("Model input data cannot be empty.");
               return;
             }
@@ -2600,10 +2594,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             await createNewInferenceRequest(
               selectedCreditPackTicketId,
               selectedInferenceType,
-              selectedModelCanonicalName, // Pass the canonical name
+              selectedModelCanonicalName,
               maxCost,
               modelParametersJSONBase64Encoded,
-              modelInputDataJSONBase64Encoded
+              modelInputDataBase64Encoded
             );
           });
 
