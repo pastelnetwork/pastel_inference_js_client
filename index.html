@@ -861,12 +861,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       function handleInputChange(event) {
         const inputElement = event.target;
+        if (inputElement.type === "file") {
+          return;
+        }
         const rawValue = inputElement.value.replace(/,/g, "");
         inputElement.setAttribute("data-raw-value", rawValue);
       }
 
       function handleInputBlur(event) {
         const inputElement = event.target;
+        if (inputElement.type === "file") {
+          return;
+        }
         const formattedValue = parseAndFormatNumber(inputElement.value);
         inputElement.value = formattedValue;
       }
@@ -958,6 +964,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       function logCreateTicketStatusMessage(message, container) {
+        if (message.includes("ECONNREFUSED")) return;
         container.innerHTML = ""; // Clear previous log messages
         const logElement = document.createElement("div");
         logElement.style.fontFamily = "Montserrat, sans-serif";
@@ -967,6 +974,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       function logStatusMessage(message) {
+        if (message.includes("ECONNREFUSED")) return;
         const currentStatus = document.getElementById("currentStatus");
         currentStatus.style.fontFamily = "Montserrat, sans-serif";
         currentStatus.style.whiteSpace = "pre-wrap"; // Ensure wrapping
