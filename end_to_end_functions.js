@@ -543,12 +543,12 @@ async function getMyValidCreditPackTicketsEndToEnd() {
         supernodeURL,
         MY_LOCAL_PASTELID
       );
-    return validCreditPackTickets;
+    return validCreditPackTickets || [];
   } catch (error) {
     logger.error(
       `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`
     );
-    throw error;
+    return [];
   }
 }
 
@@ -620,6 +620,8 @@ async function handleInferenceRequestEndToEnd(
     const modelParametersJSONBase64Encoded =
       Buffer.from(modelParametersJSON).toString("base64");
 
+    const currentBlockHeight = await getCurrentPastelBlockHeight();
+
     const inferenceRequestData = InferenceAPIUsageRequest.build({
       requesting_pastelid: MY_LOCAL_PASTELID,
       credit_pack_ticket_pastel_txid: creditPackTicketPastelTxid,
@@ -628,8 +630,7 @@ async function handleInferenceRequestEndToEnd(
       model_parameters_json_b64: modelParametersJSONBase64Encoded,
       model_input_data_json_b64: modelInputDataJSONBase64Encoded,
       inference_request_utc_iso_string: new Date().toISOString(),
-      inference_request_pastel_block_height:
-        await getCurrentPastelBlockHeight(),
+      inference_request_pastel_block_height: currentBlockHeight,
       status: "initiating",
       inference_request_message_version_string: "1.0",
       sha3_256_hash_of_inference_request_fields: "",

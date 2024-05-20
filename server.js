@@ -1,8 +1,10 @@
 const express = require("express");
+const multer = require("multer");
 const bodyParser = require("body-parser");
 const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
+const fs = require("fs");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 
 const {
@@ -16,6 +18,7 @@ const {
 } = require("./end_to_end_functions");
 const {
   getLocalRPCSettings,
+  getNetworkInfo,
   initializeRPCConnection,
   createAndFundNewPSLCreditTrackingAddress,
   checkSupernodeList,
@@ -33,6 +36,7 @@ const {
   getWalletInfo,
   getNewAddress,
   checkForPastelIDAndCreateIfNeeded,
+  createAndRegisterNewPastelID,
 } = require("./rpc_functions");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -50,6 +54,7 @@ const MY_PASTELID_PASSPHRASE = process.env.MY_PASTELID_PASSPHRASE;
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
+const upload = multer({ dest: "uploads/" });
 
 const port = process.env.CLIENT_PORT || 3100;
 
@@ -114,6 +119,8 @@ wss.on("connection", (ws) => {
   try {
     await initializeRPCConnection();
     const { rpcport } = await getLocalRPCSettings();
+    const { network } = getNetworkInfo(rpcport);
+
     const { validMasternodeListFullDF } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
       MY_LOCAL_PASTELID,
@@ -155,6 +162,17 @@ wss.on("connection", (ws) => {
 
     app.get("/favicon.ico", (req, res) => {
       res.sendFile(path.join(__dirname, "favicon.ico"));
+    });
+
+    app.get("/get-network-info", async (req, res) => {
+      try {
+        res.json({ network }); // Ensure it's an object with a key
+      } catch (error) {
+        console.error("Error getting network info:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to get network info" });
+      }
     });
 
     app.get("/get-best-supernode-url", async (req, res) => {
@@ -260,7 +278,7 @@ wss.on("connection", (ws) => {
     app.get("/get-my-valid-credit-packs", async (req, res) => {
       try {
         const result = await getMyValidCreditPackTicketsEndToEnd();
-        res.json({ success: true, result });
+        res.json({ success: true, result: result || [] });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -460,6 +478,98 @@ wss.on("connection", (ws) => {
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.post(
+      "/import-pastel-id",
+      upload.single("pastelIDFile"),
+      async (req, res) => {
+        try {
+          const { rpcport } = req.query; // Get rpcport from query parameters
+          const { network } = getNetworkInfo(rpcport); // Use getNetworkInfo function to get the network type
+          // Determine the destination folder based on the network
+          let destFolder = "";
+          if (network === "mainnet") {
+            destFolder = path.join(process.env.HOME, ".pastel/pastelkeys");
+          } else if (network === "testnet") {
+            destFolder = path.join(
+              process.env.HOME,
+              ".pastel/testnet/pastelkeys"
+            );
+          } else if (network === "devnet") {
+            destFolder = path.join(
+              process.env.HOME,
+              ".pastel/devnet/pastelkeys"
+            );
+          } else {
+            throw new Error(`Unknown network: ${network}`);
+          }
+          // Ensure the destination folder exists
+          fs.mkdirSync(destFolder, { recursive: true });
+          // Move the uploaded file to the destination folder
+          const sourceFilePath = req.file.path;
+          const destFilePath = path.join(destFolder, req.file.originalname);
+          fs.renameSync(sourceFilePath, destFilePath);
+          res.json({
+            success: true,
+            message: "PastelID imported successfully!",
+          });
+        } catch (error) {
+          console.error("Error importing PastelID:", error);
+          res
+            .status(500)
+            .json({ success: false, message: "Failed to import PastelID." });
+        }
+      }
+    );
+
+    app.post("/create-and-register-pastel-id", async (req, res) => {
+      const { passphraseForNewPastelID } = req.body;
+      try {
+        const result = await createAndRegisterNewPastelID(
+          passphraseForNewPastelID
+        );
+        if (result.success) {
+          res.json({
+            success: true,
+            PastelID: result.PastelID,
+            PastelIDRegistrationTXID: result.PastelIDRegistrationTXID,
+          });
+        } else {
+          res.json({ success: false, message: result.message });
+        }
+      } catch (error) {
+        logger.error(
+          `Error in create-and-register-pastel-id: ${safeStringify(error)}`
+        );
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    app.post("/set-pastel-id-passphrase", async (req, res) => {
+      const { pastelID, passphrase } = req.body;
+      try {
+        const envPath = path.join(__dirname, ".env");
+        const envVars = fs.readFileSync(envPath, "utf8").split("\n");
+        const newEnvVars = envVars.map((line) => {
+          if (line.startsWith("MY_LOCAL_PASTELID=")) {
+            return `MY_LOCAL_PASTELID=${pastelID}`;
+          } else if (line.startsWith("MY_PASTELID_PASSPHRASE=")) {
+            return `MY_PASTELID_PASSPHRASE=${passphrase}`;
+          }
+          return line;
+        });
+        fs.writeFileSync(envPath, newEnvVars.join("\n"));
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error setting PastelID and passphrase:", error);
+        res
+          .status(500)
+          .json({
+            success: false,
+            message: "Failed to set PastelID and passphrase",
+          });
       }
     });
 

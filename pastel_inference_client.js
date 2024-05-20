@@ -185,9 +185,11 @@ class PastelInferenceClient {
 
   async getValidCreditPackTicketsForPastelID(supernodeURL) {
     try {
+      if (!this.pastelID) {
+        return [];
+      }
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
-
       const payload = {
         pastelid: this.pastelID,
         challenge,
@@ -1438,8 +1440,6 @@ class PastelInferenceClient {
 
       const modelMenu = response.data;
       const desiredParameters = JSON.parse(modelParametersJSON);
-
-      console.log("Desired Parameters:", desiredParameters);
 
       for (const model of modelMenu.models) {
         if (

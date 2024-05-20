@@ -186,6 +186,13 @@
         gap: 0.5rem;
         margin-top: auto;
       }
+      .align-middle {
+        vertical-align: middle;
+      }
+      .new-ticket-table {
+        width: auto; /* Change to auto to fit content */
+        table-layout: auto; /* Use auto layout to fit column content */
+      }
     </style>
   </head>
   <body class="flex flex-col gap-6 px-20 transition-all duration-300 bg-bw-50">
@@ -193,7 +200,10 @@
       class="flex gap-6 items-center sticky top-0 p-4 bg-bw-50 z-10 ground-glass shadow-md"
       id="title"
     >
-      <h1 class="text-4xl font-bold text-bw-600">Pastel Inference Client</h1>
+      <h1 class="text-4xl font-bold text-bw-600">
+        Pastel Inference Client
+        <span id="networkName" class="text-xl font-normal align-middle"></span>
+      </h1>
       <input
         id="theme-toggle"
         class="switch success lg"
@@ -207,6 +217,45 @@
     >
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
       <div class="col-span-full">
+        <div id="noPastelIDContainer" class="hidden">
+          <p class="text-bw-700">
+            No PastelID found. Would you like to create a new one for 1,000 PSL?
+          </p>
+          <form id="createPastelIDForm" class="mt-4">
+            <label
+              class="block text-bw-700 font-bold mb-2"
+              for="newPastelIDPassphrase"
+            >
+              Enter Passphrase (min 6 characters):
+            </label>
+            <input
+              id="newPastelIDPassphrase"
+              class="input w-full"
+              type="password"
+              placeholder="Enter passphrase"
+              minlength="6"
+              required
+            />
+            <button type="submit" class="btn success outline mt-4">
+              Create PastelID
+            </button>
+            <div id="messageContainer" class="my-4"></div>
+            <!-- Container for messages -->
+          </form>
+          <p class="mt-4">
+            Already have an existing PastelID? Import the file here:
+          </p>
+          <input
+            id="importPastelIDFile"
+            class="input w-full"
+            type="file"
+            accept=".dat"
+          />
+          <button id="importPastelIDButton" class="btn success mt-2">
+            Import PastelID
+          </button>
+        </div>
+
         <button
           id="changePastelIDButton"
           class="btn success"
@@ -221,6 +270,32 @@
           <select id="pastelIDDropdown" class="select w-full">
             <!-- Options will be dynamically populated -->
           </select>
+        </div>
+        <div class="mt-4 hidden" id="passphraseContainer">
+          <label
+            class="block text-bw-700 font-bold mb-2"
+            for="pastelIDPassphrase"
+            >Enter Passphrase:</label
+          >
+          <input
+            id="pastelIDPassphrase"
+            class="input w-full"
+            type="password"
+            placeholder="Enter passphrase"
+            minlength="6"
+            required
+          />
+          <div class="mt-2">
+            <input type="checkbox" id="rememberPassphrase" />
+            <label for="rememberPassphrase" class="text-bw-700"
+              >Remember password?</label
+            >
+          </div>
+          <button id="submitPassphraseButton" class="btn success outline mt-4">
+            Submit
+          </button>
+          <div id="messageContainer" class="my-4"></div>
+          <!-- Container for messages -->
         </div>
         <div class="mt-4">
           <label class="block text-bw-700 font-bold mb-2"
@@ -334,8 +409,8 @@
 
         <div id="newCreditPackTicketDetailsContainer" style="display: none">
           <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
-          <div class="table-responsive">
-            <table class="table bordered bw">
+          <div class="table-responsive new-ticket-table">
+            <table class="table bordered bw new-ticket-table">
               <thead>
                 <tr>
                   <th>Registration TXID</th>
@@ -1058,6 +1133,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         return `${baseURL}${txid}`;
       }
 
+      async function listPastelIDTickets() {
+        try {
+          const response = await axios.get("/list-pastel-id-tickets", {
+            params: { filter: "mine" },
+          });
+          return response.data.result;
+        } catch (error) {
+          console.error("Error retrieving Pastel ID tickets:", error);
+          return [];
+        }
+      }
+
       async function checkTrackingAddresses() {
         try {
           const response = await fetch("/list-address-amounts");
@@ -1369,7 +1456,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               `;
 
             newTicketDetailsContainer.style.display = "block";
-
+            document.getElementById("refreshButton").click(); // Simulate click to refresh tickets
             return result;
           } else {
             throw new Error("Failed to create new credit pack ticket");
@@ -1556,6 +1643,218 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           JSON.stringify(settings)
         );
       }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const noPastelIDContainer = document.getElementById(
+          "noPastelIDContainer"
+        );
+        const createPastelIDForm =
+          document.getElementById("createPastelIDForm");
+        const importPastelIDButton = document.getElementById(
+          "importPastelIDButton"
+        );
+        const messageContainer = document.getElementById("messageContainer");
+
+        createPastelIDForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const passphrase = document.getElementById(
+            "newPastelIDPassphrase"
+          ).value;
+          if (passphrase.length < 6) {
+            displayMessage(
+              "Passphrase must be at least 6 characters long.",
+              false
+            );
+            return;
+          }
+          try {
+            displayLoading(true);
+            const response = await axios.post(
+              "/create-and-register-pastel-id",
+              { passphraseForNewPastelID: passphrase }
+            );
+            displayLoading(false);
+            if (response.data.success) {
+              displayMessage(
+                `Successfully created and registered a new PastelID! Your new PastelID is ${response.data.PastelID}`,
+                true
+              );
+              location.reload(); // Refresh the page to update the UI
+            } else {
+              displayMessage(response.data.message, false);
+            }
+          } catch (error) {
+            displayLoading(false);
+            console.error("Error creating PastelID:", error);
+            displayMessage(
+              "Failed to create PastelID. Please try again.",
+              false
+            );
+          }
+        });
+
+        importPastelIDButton.addEventListener("click", async () => {
+          const pastelIDFile =
+            document.getElementById("importPastelIDFile").files[0];
+          if (!pastelIDFile) {
+            displayMessage("Please select a PastelID file to import.", false);
+            return;
+          }
+          const formData = new FormData();
+          formData.append("pastelIDFile", pastelIDFile);
+          try {
+            const { network } = await getNetworkInfo();
+            const response = await axios.post(
+              `/import-pastel-id?network=${network}`,
+              formData
+            );
+            if (response.data.success) {
+              displayMessage("PastelID imported successfully!", true);
+              location.reload(); // Refresh the page to update the UI
+            } else {
+              displayMessage(response.data.message, false);
+            }
+          } catch (error) {
+            console.error("Error importing PastelID:", error);
+            displayMessage(
+              "Failed to import PastelID. Please try again.",
+              false
+            );
+          }
+        });
+
+        function displayLoading(show) {
+          const loader = document.getElementById("loaderContainer");
+          if (show) {
+            loader.innerHTML = '<div class="btn is-loading">Loading...</div>';
+          } else {
+            loader.innerHTML = "";
+          }
+        }
+
+        function displayMessage(message, isSuccess) {
+          messageContainer.innerHTML = `<p class="${
+            isSuccess ? "text-green-600" : "text-red-600"
+          }">${message}</p>`;
+        }
+
+        async function getNetworkInfo() {
+          const response = await axios.get("/get-network-info");
+          return response.data;
+        }
+
+        // Check if there are any PastelIDs on initial load
+        const pastelIDTickets = await listPastelIDTickets();
+        if (pastelIDTickets.length === 0) {
+          document
+            .getElementById("pastelIDDropdownContainer")
+            .classList.add("hidden");
+          noPastelIDContainer.classList.remove("hidden");
+        } else {
+          noPastelIDContainer.classList.add("hidden");
+          document
+            .getElementById("pastelIDDropdownContainer")
+            .classList.remove("hidden");
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const pastelIDDropdown = document.getElementById("pastelIDDropdown");
+        const passphraseContainer = document.getElementById(
+          "passphraseContainer"
+        );
+        const pastelIDPassphrase =
+          document.getElementById("pastelIDPassphrase");
+        const rememberPassphrase =
+          document.getElementById("rememberPassphrase");
+        const submitPassphraseButton = document.getElementById(
+          "submitPassphraseButton"
+        );
+        const refreshButton = document.getElementById("refreshButton");
+
+        pastelIDDropdown.addEventListener("change", () => {
+          const selectedPastelID = pastelIDDropdown.value;
+          if (selectedPastelID) {
+            const storedPassphrase = localStorage.getItem(selectedPastelID);
+            if (storedPassphrase) {
+              pastelIDPassphrase.value = atob(storedPassphrase);
+              passphraseContainer.classList.add("hidden");
+            } else {
+              passphraseContainer.classList.remove("hidden");
+            }
+          } else {
+            passphraseContainer.classList.add("hidden");
+          }
+          refreshCreditPackTickets();
+        });
+
+        submitPassphraseButton.addEventListener("click", async () => {
+          const selectedPastelID = pastelIDDropdown.value;
+          const passphrase = pastelIDPassphrase.value;
+
+          if (rememberPassphrase.checked) {
+            const encryptedPassphrase = btoa(passphrase); // Simple base64 encoding
+            localStorage.setItem(selectedPastelID, encryptedPassphrase);
+          }
+
+          try {
+            const response = await axios.post("/set-pastel-id-passphrase", {
+              pastelID: selectedPastelID,
+              passphrase: passphrase,
+            });
+
+            if (response.data.success) {
+              document.getElementById("messageContainer").innerText =
+                "Successfully set PastelID and passphrase!";
+            } else {
+              document.getElementById("messageContainer").innerText =
+                "Failed to set PastelID and passphrase.";
+            }
+          } catch (error) {
+            console.error("Error setting PastelID and passphrase:", error);
+            document.getElementById("messageContainer").innerText =
+              "Failed to set PastelID and passphrase.";
+          }
+        });
+
+        const pastelIDTickets = await listPastelIDTickets();
+        if (pastelIDTickets.length === 0) {
+          document
+            .getElementById("pastelIDDropdownContainer")
+            .classList.add("hidden");
+          noPastelIDContainer.classList.remove("hidden");
+        } else {
+          noPastelIDContainer.classList.add("hidden");
+          document
+            .getElementById("pastelIDDropdownContainer")
+            .classList.remove("hidden");
+          pastelIDTickets.forEach((ticket) => {
+            const option = document.createElement("option");
+            option.value = ticket.ticket.pastelID;
+            option.textContent = ticket.ticket.pastelID;
+            pastelIDDropdown.appendChild(option);
+          });
+        }
+      });
+
+      async function refreshCreditPackTickets() {
+        const refreshButton = document.getElementById("refreshButton");
+        const loader = refreshButton.querySelector(".loader");
+        const loadingMessage = document.getElementById("loadingMessage");
+
+        loader.classList.remove("hidden");
+        loadingMessage.classList.remove("hidden");
+
+        await getMyValidCreditPacks(true);
+
+        loader.classList.add("hidden");
+        loadingMessage.classList.add("hidden");
+      }
+
+      // Add event listener for the refresh button
+      document
+        .getElementById("refreshButton")
+        .addEventListener("click", refreshCreditPackTickets);
 
       // Fetch the model menu when the page loads
       fetchModelMenu();
@@ -2650,23 +2949,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             300
           )
         );
-
-        // Add event listener for the refresh button
-        document
-          .getElementById("refreshButton")
-          .addEventListener("click", async () => {
-            const refreshButton = document.getElementById("refreshButton");
-            const loader = refreshButton.querySelector(".loader");
-            const loadingMessage = document.getElementById("loadingMessage");
-
-            loader.classList.remove("hidden");
-            loadingMessage.classList.remove("hidden");
-
-            await getMyValidCreditPacks(true);
-
-            loader.classList.add("hidden");
-            loadingMessage.classList.add("hidden");
-          });
       });
 
       document

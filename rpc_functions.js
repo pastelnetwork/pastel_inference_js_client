@@ -514,7 +514,7 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       "sign",
       messageToSign,
       pastelid,
-      passphrase,
+      '"' + passphrase + '"',
       "ed448"
     );
     return responseObj.signature;
@@ -1153,6 +1153,63 @@ async function createAndRegisterPastelID(burnAddress) {
   }
 }
 
+async function createAndRegisterNewPastelID(passphraseForNewPastelID) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return { success: false, message: "RPC connection is not available." };
+    }
+    let addressAmounts = await rpc_connection.listaddressamounts();
+    const registrationFee = 1000;
+    const transactionFee = 0.1;
+    const requiredBalance = registrationFee + transactionFee;
+    let fundingAddress = Object.keys(addressAmounts).find(
+      (addr) => addressAmounts[addr] >= requiredBalance
+    );
+    if (!fundingAddress) {
+      const newAddress = await getNewAddress();
+      return {
+        success: false,
+        message: `Error: You do not have enough PSL in your wallet in a single address to register a new PastelID. Get some PSL (either from mining, buying on an exchange, a faucet, etc.) and then send at least 1,001 PSL of it to the following new PSL address which has been created for you: ${newAddress}`,
+      };
+    }
+    const newPastelIDResult = await rpc_connection.pastelid(
+      "newkey",
+      '"' + passphraseForNewPastelID + '"'
+    );
+    const newPastelID = newPastelIDResult.pastelid;
+    addressAmounts = await rpc_connection.listaddressamounts();
+    fundingAddress = Object.keys(addressAmounts).find(
+      (addr) => addressAmounts[addr] >= registrationFee
+    );
+    if (!fundingAddress) {
+      return {
+        success: false,
+        message:
+          "Error: No address found with enough PSL to register a new PastelID.",
+      };
+    }
+    const registerResult = await rpc_connection.tickets(
+      "register",
+      "id",
+      newPastelID,
+      '"' + passphraseForNewPastelID + '"',
+      fundingAddress
+    );
+    return {
+      success: true,
+      PastelID: newPastelID,
+      PastelIDRegistrationTXID: registerResult.txid,
+    };
+  } catch (error) {
+    logger.error(
+      `Error in createAndRegisterNewPastelID: ${safeStringify(error)}`
+    );
+    return { success: false, message: error.message };
+  }
+}
+
 module.exports = {
   safeStringify,
   getLocalRPCSettings,
@@ -1186,6 +1243,7 @@ module.exports = {
   isPastelIDRegistered,
   promptUserConfirmation,
   createAndRegisterPastelID,
+  createAndRegisterNewPastelID,
   getBalance,
   getWalletInfo,
   getNewAddress,
