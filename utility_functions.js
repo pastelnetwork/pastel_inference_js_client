@@ -129,9 +129,26 @@ function prettyJSON(data) {
   return data; // Return data as is for other types
 }
 
+function abbreviateJSON(jsonString, maxLength) {
+  if (jsonString.length <= maxLength) return jsonString;
+  const abbreviated = jsonString.slice(0, maxLength) + "...";
+  const openBraces =
+    (jsonString.match(/{/g) || []).length -
+    (abbreviated.match(/{/g) || []).length;
+  const openBrackets =
+    (jsonString.match(/\[/g) || []).length -
+    (abbreviated.match(/\[/g) || []).length;
+  return abbreviated + "}".repeat(openBraces) + "]".repeat(openBrackets);
+}
+
 function logActionWithPayload(action, payloadName, jsonPayload) {
+  const maxPayloadLength = 10000;
+  let formattedPayload = prettyJSON(jsonPayload);
+  if (formattedPayload.length > maxPayloadLength) {
+    formattedPayload = abbreviateJSON(formattedPayload, maxPayloadLength);
+  }
   logger.info(
-    `Now ${action} ${payloadName} with payload:\n${prettyJSON(jsonPayload)}`
+    `Now ${action} ${payloadName} with payload:\n${formattedPayload}`
   );
 }
 

@@ -572,9 +572,10 @@ async function estimateCreditPackCostEndToEnd(
     throw error;
   }
 }
+
 async function handleInferenceRequestEndToEnd(
   creditPackTicketPastelTxid,
-  modelInputDataJSON,
+  modelInputData,
   requestedModelCanonicalString,
   modelInferenceTypeString,
   modelParameters,
@@ -605,9 +606,17 @@ async function handleInferenceRequestEndToEnd(
       return null;
     }
 
-    const modelInputDataJSONBase64Encoded = Buffer.from(
-      JSON.stringify(modelInputDataJSON)
-    ).toString("base64");
+    let modelInputDataJSONBase64Encoded;
+    if (
+      modelInferenceTypeString === "embedding_document" ||
+      modelInferenceTypeString === "embedding_audio"
+    ) {
+      modelInputDataJSONBase64Encoded = modelInputData.toString("base64");
+    } else {
+      modelInputDataJSONBase64Encoded = Buffer.from(
+        JSON.stringify(modelInputData)
+      ).toString("base64");
+    }
     const modelParametersJSONBase64Encoded =
       Buffer.from(modelParametersJSON).toString("base64");
 
@@ -760,7 +769,7 @@ async function handleInferenceRequestEndToEnd(
               supernode_url: supernodeURL,
               request_data: inferenceRequestData.toJSON(),
               usage_request_response: usageRequestResponseDict,
-              model_input_data_json: modelInputDataJSON,
+              model_input_data_json: modelInputData, // Changed to modelInputData
               output_results: outputResultsDict,
             };
 

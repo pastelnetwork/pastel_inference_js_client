@@ -275,7 +275,6 @@ wss.on("connection", (ws) => {
         maxCost: maximumInferenceCostInCredits,
         model_canonical_name: requestedModelCanonicalString,
       } = req.body;
-
       try {
         const burnAddress = await configureRPCAndSetBurnAddress();
         const modelParameters = JSON.parse(
@@ -293,7 +292,7 @@ wss.on("connection", (ws) => {
             Buffer.from(model_input_data_json_b64, "base64").toString()
           );
         }
-
+        console.log(`Model Inference Type: ${modelInferenceTypeString}`);
         const result = await handleInferenceRequestEndToEnd(
           creditPackTicketPastelTxid,
           modelInputData,
@@ -303,7 +302,6 @@ wss.on("connection", (ws) => {
           maximumInferenceCostInCredits,
           burnAddress
         );
-
         res.json({ success: true, result });
       } catch (error) {
         console.error("Error in create-inference-request:", error);
