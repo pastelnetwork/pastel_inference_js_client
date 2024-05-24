@@ -10,20 +10,62 @@ const Joi = require("joi");
 const { SupernodeList } = require("./sequelize_data_models");
 const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
+const { execSync } = require("child_process");
+const storage = require("node-persist");
+
 let rpc_connection;
 
-function getLocalRPCSettings(
-  directoryWithPastelConf = path.join(process.env.HOME, ".pastel")
-) {
-  const pastelConfPath = path.join(directoryWithPastelConf, "pastel.conf");
-  const lines = fs.readFileSync(pastelConfPath, "utf-8").split("\n");
+async function getMostRecentFile(files) {
+  return files
+    .map((file) => ({ file, mtime: fs.statSync(file).mtime }))
+    .sort((a, b) => b.mtime - a.mtime)[0]?.file;
+}
 
+function searchFileRecursively(directory, filename) {
+  try {
+    const result = execSync(`find ${directory} -name ${filename}`, {
+      encoding: "utf-8",
+    });
+    return result.trim().split("\n").filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+}
+
+async function getLocalRPCSettings(
+  directoryWithPastelConf = path.join(os.homedir(), ".pastel")
+) {
+  await storage.init();
+  let pastelConfPath =
+    (await storage.getItem("pastelConfPath")) ||
+    path.join(directoryWithPastelConf, "pastel.conf");
+  if (!fs.existsSync(pastelConfPath)) {
+    console.log(
+      `pastel.conf not found in stored path or default directory, scanning the system...`
+    );
+    const searchDirectories = ["/"];
+    if (process.platform === "win32") {
+      searchDirectories.push(process.env.ProgramData);
+    } else if (process.platform === "darwin") {
+      searchDirectories.push("/Users");
+    } else {
+      searchDirectories.push("/home", "/etc");
+    }
+    const foundFiles = searchDirectories.flatMap((dir) =>
+      searchFileRecursively(dir, "pastel.conf")
+    );
+    pastelConfPath = await getMostRecentFile(foundFiles);
+    if (!pastelConfPath) {
+      throw new Error("pastel.conf file not found on the system.");
+    }
+    await storage.setItem("pastelConfPath", pastelConfPath);
+  }
+  const lines = fs.readFileSync(pastelConfPath, "utf-8").split("\n");
   const otherFlags = {};
   let rpchost = "127.0.0.1";
   let rpcport = "19932";
   let rpcuser = "";
   let rpcpassword = "";
-
   for (const line of lines) {
     if (line.startsWith("rpcport")) {
       rpcport = line.split("=")[1]?.trim();
@@ -38,9 +80,7 @@ function getLocalRPCSettings(
       otherFlags[currentFlag?.trim()] = currentValue?.trim();
     }
   }
-
   return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };
-}
 
 class JSONRPCException extends Error {
   constructor(rpcError) {
