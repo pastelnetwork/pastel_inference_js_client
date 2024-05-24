@@ -304,7 +304,7 @@ wss.on("connection", (ws) => {
           modelInferenceTypeString === "embedding_document" ||
           modelInferenceTypeString === "embedding_audio"
         ) {
-          modelInputData = Buffer.from(model_input_data_json_b64, "base64");
+          modelInputData = model_input_data_json_b64;
         } else {
           modelInputData = JSON.parse(
             Buffer.from(model_input_data_json_b64, "base64").toString()
@@ -329,8 +329,8 @@ wss.on("connection", (ws) => {
 
     app.get("/check-supernode-list", async (req, res) => {
       try {
-        const result = await checkSupernodeList();
-        res.json({ success: true, result });
+        const { validMasternodeListFullDF } = await checkSupernodeList();
+        res.json({ success: true, result: { validMasternodeListFullDF } });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -564,12 +564,10 @@ wss.on("connection", (ws) => {
         res.json({ success: true });
       } catch (error) {
         console.error("Error setting PastelID and passphrase:", error);
-        res
-          .status(500)
-          .json({
-            success: false,
-            message: "Failed to set PastelID and passphrase",
-          });
+        res.status(500).json({
+          success: false,
+          message: "Failed to set PastelID and passphrase",
+        });
       }
     });
 

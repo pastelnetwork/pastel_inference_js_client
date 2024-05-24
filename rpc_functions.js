@@ -26,16 +26,16 @@ function getLocalRPCSettings(
 
   for (const line of lines) {
     if (line.startsWith("rpcport")) {
-      rpcport = line.split("=")[1].trim();
+      rpcport = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpcuser")) {
-      rpcuser = line.split("=")[1].trim();
+      rpcuser = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpcpassword")) {
-      rpcpassword = line.split("=")[1].trim();
+      rpcpassword = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpchost")) {
       // Skip rpchost
-    } else if (line.trim() !== "") {
-      const [currentFlag, currentValue] = line.trim().split("=");
-      otherFlags[currentFlag.trim()] = currentValue.trim();
+    } else if (line?.trim() !== "") {
+      const [currentFlag, currentValue] = line?.trim().split("=");
+      otherFlags[currentFlag?.trim()] = currentValue?.trim();
     }
   }
 
@@ -632,7 +632,7 @@ async function checkSupernodeList() {
     ]);
     const masternodeListFullData = Object.entries(masternodeListFull).map(
       ([txidVout, data]) => {
-        const splitData = data.trim().split(/\s+/);
+        const splitData = data?.trim()?.split(/\s+/);
         return {
           txid_vout: txidVout,
           supernode_status: splitData[0],
@@ -663,7 +663,8 @@ async function checkSupernodeList() {
     const validMasternodeListFullDF = masternodeListFullDF.filter(
       (data) =>
         ["ENABLED", "PRE_ENABLED"].includes(data.supernode_status) &&
-        data["ipaddress_port"] !== "154.38.164.75:29933"
+        data["ipaddress_port"] !== "154.38.164.75:29933" &&
+        data.extP2P
     );
     if (validMasternodeListFullDF.length === 0) {
       logger.error("No valid masternodes found.");
@@ -1048,16 +1049,16 @@ function getLocalRPCSettings(
   let rpcpassword = "";
   for (const line of lines) {
     if (line.startsWith("rpcport")) {
-      rpcport = line.split("=")[1].trim();
+      rpcport = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpcuser")) {
-      rpcuser = line.split("=")[1].trim();
+      rpcuser = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpcpassword")) {
-      rpcpassword = line.split("=")[1].trim();
+      rpcpassword = line.split("=")[1]?.trim();
     } else if (line.startsWith("rpchost")) {
       // Skip rpchost
-    } else if (line.trim() !== "") {
-      const [currentFlag, currentValue] = line.trim().split("=");
-      otherFlags[currentFlag.trim()] = currentValue.trim();
+    } else if (line?.trim() !== "") {
+      const [currentFlag, currentValue] = line?.trim().split("=");
+      otherFlags[currentFlag?.trim()] = currentValue?.trim();
     }
   }
   return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };

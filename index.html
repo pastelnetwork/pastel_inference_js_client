@@ -14,6 +14,7 @@
       href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"
     />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700&display=swap"
       rel="stylesheet"
@@ -212,6 +213,7 @@
         onchange="toggleDarkMode()"
       />
     </div>
+
     <div
       class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md"
     >
@@ -258,7 +260,7 @@
 
         <button
           id="changePastelIDButton"
-          class="btn success"
+          class="btn outline success"
           onclick="togglePastelIDDropdown()"
         >
           Switch to a Different PastelID
@@ -479,9 +481,6 @@
               <option value="text_completion">Text Completion</option>
               <option value="image_generation">Image Generation</option>
               <option value="embedding">Embedding</option>
-              <option value="token_level_embedding">
-                Token Level Embedding
-              </option>
               <option value="embedding_document">Embedding Document</option>
               <option value="embedding_audio">Embedding Audio</option>
             </select>
@@ -586,26 +585,6 @@ A picture of a clown holding a sign that says PASTEL</textarea
             <textarea
               class="input w-full"
               id="embeddingText"
-              rows="5"
-              placeholder="Enter text to embed"
-            ></textarea>
-          </div>
-        </div>
-
-        <div
-          id="tokenLevelEmbeddingSettings"
-          class="col-span-full"
-          style="display: none"
-        >
-          <div class="mb-4">
-            <label
-              class="block text-bw-700 font-bold mb-2"
-              for="tokenLevelEmbeddingText"
-              >Text to Embed</label
-            >
-            <textarea
-              class="input w-full"
-              id="tokenLevelEmbeddingText"
               rows="5"
               placeholder="Enter text to embed"
             ></textarea>
@@ -1617,8 +1596,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             settings.aspectRatio || "";
           document.getElementById("embeddingText").value =
             settings.embeddingText || "";
-          document.getElementById("tokenLevelEmbeddingText").value =
-            settings.tokenLevelEmbeddingText || "";
         }
       }
 
@@ -1634,9 +1611,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           outputFormat: document.getElementById("outputFormat").value,
           aspectRatio: document.getElementById("aspectRatio").value,
           embeddingText: document.getElementById("embeddingText").value,
-          tokenLevelEmbeddingText: document.getElementById(
-            "tokenLevelEmbeddingText"
-          ).value,
         };
         localStorage.setItem(
           `inferenceRequestSettings_${selectedInferenceType}`,
@@ -1878,9 +1852,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           "imageGenerationSettings"
         );
         const embeddingSettings = document.getElementById("embeddingSettings");
-        const tokenLevelEmbeddingSettings = document.getElementById(
-          "tokenLevelEmbeddingSettings"
-        );
         const embeddingDocumentSettings = document.getElementById(
           "embeddingDocumentSettings"
         );
@@ -1891,7 +1862,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         textCompletionSettings.style.display = "none";
         imageGenerationSettings.style.display = "none";
         embeddingSettings.style.display = "none";
-        tokenLevelEmbeddingSettings.style.display = "none";
         embeddingDocumentSettings.style.display = "none";
         embeddingAudioSettings.style.display = "none";
 
@@ -1905,8 +1875,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           embeddingDocumentSettings.style.display = "block";
         } else if (selectedInferenceType === "embedding_audio") {
           embeddingAudioSettings.style.display = "block";
-        } else if (selectedInferenceType === "token_level_embedding") {
-          tokenLevelEmbeddingSettings.style.display = "block";
         }
 
         // Update the model dropdown and parameter fields
@@ -1979,7 +1947,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               ? request.prompt.substring(0, 40)
               : "No prompt available";
             listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
-                <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
+                  <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
 
             listItem.addEventListener("click", () =>
               displayRequestPreview(index)
@@ -2045,6 +2013,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         .addEventListener("click", exportRequests);
 
       updatePreviousRequestsList();
+
       function displayRequestPreview(index) {
         const requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
@@ -2090,54 +2059,78 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             )
             .join("");
           combinedResults = `<div style="max-height: 40rem; overflow-y: auto;">${lines}</div>`;
+        } else if (request.selectedInferenceType === "embedding_document") {
+          combinedResults = `
+                <button class="btn success outline" onclick="downloadZip('${
+                  request.inferenceResultsDecoded.zipUrl
+                }')">Download Zip</button>
+                <pre class="json-preview">${getShortPreview(
+                  request.inferenceResultsDecoded.decompressedJson
+                )}</pre>
+            `;
         } else {
           combinedResults = `<img src="${request.inferenceResultsDecoded[0]}" alt="Generated Image">`;
         }
 
         previewContainer.innerHTML = `
-        <div class="mb-4">
-            <h3 class="font-bold">Inference Result:</h3>
-            ${combinedResults}
-        </div>
-        <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-        <div class="table-responsive">
-            <table class="table">
-                <tr><th>${
-                  request.selectedInferenceType === "embedding"
-                    ? "Text to Embed"
-                    : "Input Prompt to LLM"
-                }</th>
-                    <td>${
+            <div class="mb-4">
+                <h3 class="font-bold">Inference Result:</h3>
+                ${combinedResults}
+            </div>
+            <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+            <div class="table-responsive">
+                <table class="table">
+                    <tr><th>${
                       request.selectedInferenceType === "embedding"
-                        ? request.inputFields["embeddingText"]
-                        : request.prompt
+                        ? "Text to Embed"
+                        : "Input Prompt to LLM"
+                    }</th>
+                        <td>${
+                          request.selectedInferenceType === "embedding"
+                            ? request.inputFields["embeddingText"]
+                            : request.prompt
+                        }</td></tr>
+                    <tr><th>Actual Cost (Credits)</th><td>${
+                      request.actualCreditsUsed
                     }</td></tr>
-                <tr><th>Actual Cost (Credits)</th><td>${
-                  request.actualCreditsUsed
-                }</td></tr>
-                <tr><th>Remaining Credits</th><td>${
-                  request.remainingCredits
-                }</td></tr>
-                <tr><th>Request Timestamp</th><td>${
-                  request.requestTimestamp
-                }</td></tr>
-                <tr><th>Model</th><td>${
-                  request.selectedModelCanonicalName
-                }</td></tr>
-                <tr><th>Total Time in Seconds to Process Request</th><td>${
-                  request.elapsedTimeInSeconds
-                }</td></tr>
-            </table>
-        </div>
-    `;
+                    <tr><th>Remaining Credits</th><td>${
+                      request.remainingCredits
+                    }</td></tr>
+                    <tr><th>Request Timestamp</th><td>${
+                      request.requestTimestamp
+                    }</td></tr>
+                    <tr><th>Model</th><td>${
+                      request.selectedModelCanonicalName
+                    }</td></tr>
+                    <tr><th>Total Time in Seconds to Process Request</th><td>${
+                      request.elapsedTimeInSeconds
+                    }</td></tr>
+                </table>
+            </div>
+        `;
 
         if (request.selectedInferenceType === "text_completion") {
           renderMarkdown();
         }
       }
 
+      function getShortPreview(jsonData) {
+        const lines = jsonData.split("\n");
+        return lines.slice(0, 300).join("\n");
+      }
+
+      function downloadZip(zipUrl) {
+        const link = document.createElement("a");
+        link.href = zipUrl;
+        link.download = "inference_result.zip";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
       // Call updatePreviousRequestsList on page load
       document.addEventListener("DOMContentLoaded", updatePreviousRequestsList);
+
       async function createNewInferenceRequest(
         selectedCreditPackTicketId,
         selectedInferenceType,
@@ -2161,7 +2154,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         try {
           logStatusMessage("Creating new inference request...");
 
-          // Ensure modelInputDataJSONBase64Encoded is not empty
           if (!modelInputDataJSONBase64Encoded) {
             throw new Error(
               "Model input data is required and cannot be empty."
@@ -2174,10 +2166,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             model_input_data_json_b64: modelInputDataJSONBase64Encoded,
             selectedCreditPackTicketId,
             maxCost,
-            model_canonical_name: selectedModelCanonicalName, // Include model canonical name
+            model_canonical_name: selectedModelCanonicalName,
           };
-
-          console.log("Request Payload:", requestPayload);
 
           const response = await axios.post(
             "/create-inference-request",
@@ -2204,88 +2194,50 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             );
 
             let combinedResults = "";
-            try {
-              if (selectedInferenceType === "text_completion") {
-                if (Array.isArray(inferenceResultsDecoded)) {
-                  if (inferenceResultsDecoded.length > 1) {
-                    inferenceResultsDecoded.forEach((result, index) => {
-                      combinedResults += `<h4>Completion ${index + 1} of ${
-                        inferenceResultsDecoded.length
-                      }</h4>`;
-                      combinedResults += `<github-md>${result}</github-md>`;
-                      if (index < inferenceResultsDecoded.length - 1) {
-                        combinedResults += "<hr>";
-                      }
-                    });
-                  } else if (inferenceResultsDecoded.length === 1) {
-                    let parsedResult = inferenceResultsDecoded[0];
-                    try {
-                      const sanitizedResult = sanitizeJSON(
-                        inferenceResultsDecoded[0]
-                      );
-                      const parsedJSON = JSON.parse(sanitizedResult);
-                      if (parsedJSON.text) {
-                        parsedResult = parsedJSON.text;
-                      }
-                    } catch (e) {
-                      parsedResult = fallbackParseResult(
-                        inferenceResultsDecoded[0]
-                      );
-                    }
-                    combinedResults = `<github-md>${parsedResult}</github-md>`;
-                  } else {
-                    combinedResults = "<p>No results found.</p>";
-                  }
-                } else {
-                  combinedResults = `<p>${inferenceResultsDecoded}</p>`;
-                }
-              } else if (
-                selectedInferenceType === "embedding" ||
-                selectedInferenceType === "token_level_embedding"
-              ) {
-                combinedResults = `<pre><code class="json">${
-                  hljs.highlight(prettyJSON(inferenceResultsDecoded), {
-                    language: "json",
-                    ignoreIllegals: true,
-                  }).value
-                }</code></pre>`;
-              } else {
-                combinedResults = `<img src="${inferenceResultsDecoded[0]}" alt="Generated Image">`;
-              }
-            } catch (error) {
-              console.error("Error processing inference results:", error);
-              combinedResults =
-                "<p>Failed to render inference results. Please try again.</p>";
+            if (selectedInferenceType === "embedding_document") {
+              const decompressedJson = await decompressJsonFromZip(
+                inferenceResultsDecoded.zipUrl
+              );
+              combinedResults = `
+                    <button class="btn success outline" onclick="downloadZip('${
+                      inferenceResultsDecoded.zipUrl
+                    }')">Download Zip</button>
+                    <pre class="json-preview">${getShortPreview(
+                      decompressedJson
+                    )}</pre>
+                `;
+            } else {
+              // Existing handling for other inference types
             }
 
             resultContainer.innerHTML = `
-            <div class="mb-4">
-                <h3 class="font-bold">Inference Result:</h3>
-                ${combinedResults}
-            </div>
-            <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-            <div class="table-responsive">
-                <table class="table">
-                    <tr><th>${
-                      selectedInferenceType === "embedding"
-                        ? "Text to Embed"
-                        : "Input Prompt to LLM"
-                    }</th>
-                        <td>${
+                <div class="mb-4">
+                    <h3 class="font-bold">Inference Result:</h3>
+                    ${combinedResults}
+                </div>
+                <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr><th>${
                           selectedInferenceType === "embedding"
-                            ? JSON.parse(atob(modelInputDataJSONBase64Encoded))[
-                                "embeddingText"
-                              ]
-                            : modelInputDataJSON
-                        }</td></tr>
-                    <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                    <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                    <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-                    <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
-                    <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
-                </table>
-            </div>
-        `;
+                            ? "Text to Embed"
+                            : "Input Prompt to LLM"
+                        }</th>
+                            <td>${
+                              selectedInferenceType === "embedding"
+                                ? JSON.parse(
+                                    atob(modelInputDataJSONBase64Encoded)
+                                  )["embeddingText"]
+                                : modelInputDataJSON
+                            }</td></tr>
+                        <tr><th>Proposed Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+                        <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+                        <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+                        <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
+                        <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+                    </table>
+                </div>
+            `;
 
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
@@ -2328,6 +2280,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         }
       }
 
+      async function decompressJsonFromZip(zipUrl) {
+        const response = await fetch(zipUrl);
+        const blob = await response.blob();
+        const jsZip = new JSZip();
+        const zip = await jsZip.loadAsync(blob);
+        const fileNames = Object.keys(zip.files);
+        const jsonFile = await zip.files[fileNames[0]].async("text");
+        return jsonFile;
+      }
+
       // Function to fetch and display received messages
       async function fetchReceivedMessages() {
         try {
@@ -2338,6 +2300,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             params: { userPastelID },
           });
           const supernodeURL = response.data.supernodeURL;
+          const closestSupernodeIP = supernodeURL.match(
+            /(?:https?:\/\/)?([^:/]+)/i
+          )[1];
 
           const messagesResponse = await axios.get("/get-received-messages", {
             timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
@@ -2513,7 +2478,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             for (const [address, amount] of Object.entries(addressAmounts)) {
               const row = document.createElement("tr");
               row.innerHTML = `<td>${address}</td><td>${parseAndFormatNumber(
-                amount
+                amount.toString()
               )}</td>`;
               tbody.appendChild(row);
             }
@@ -2543,7 +2508,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             console.error("Error retrieving address amounts:", error);
           }
         });
-
       // Handle get wallet info button click
       document
         .getElementById("getWalletInfoButton")
@@ -2566,7 +2530,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
             for (const [key, value] of Object.entries(walletInfo)) {
               const formattedValue = balanceFields.includes(key)
-                ? parseAndFormatNumber(value)
+                ? parseAndFormatNumber(value.toString())
                 : value;
               const row = document.createElement("tr");
               row.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
@@ -2785,13 +2749,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         createTicketForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           const numCredits = parseInt(
-            document.querySelector("#numCredits").dataset.rawValue
+            document.querySelector("#numCredits").value.replace(/,/g, "")
           );
           const maxTotalPrice = parseFloat(
-            document.querySelector("#maxTotalPrice").dataset.rawValue
+            document.querySelector("#maxTotalPrice").value.replace(/,/g, "")
           );
           const maxPerCreditPrice = parseFloat(
-            document.querySelector("#maxPerCreditPrice").dataset.rawValue
+            document.querySelector("#maxPerCreditPrice").value.replace(/,/g, "")
           );
 
           const statusContainer = document.getElementById(
@@ -2809,6 +2773,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             maxTotalPrice,
             maxPerCreditPrice
           );
+        });
+
+        // Add event listener to format and update raw values on input change
+        const inputs = document.querySelectorAll(
+          "#numCredits, #maxTotalPrice, #maxPerCreditPrice"
+        );
+        inputs.forEach((input) => {
+          input.addEventListener("input", handleInputChange);
+          input.addEventListener("blur", handleInputBlur);
         });
 
         document
@@ -2859,7 +2832,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 key !== "prompt" &&
                 key !== "imagePrompt" &&
                 key !== "embeddingText" &&
-                key !== "tokenLevelEmbeddingText" &&
                 key !== "embeddingDocumentFile" &&
                 key !== "embeddingAudioFile"
               ) {
@@ -2878,8 +2850,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               inputPromptKey = "imagePrompt";
             } else if (selectedInferenceType === "embedding") {
               inputPromptKey = "embeddingText";
-            } else if (selectedInferenceType === "token_level_embedding") {
-              inputPromptKey = "tokenLevelEmbeddingText";
             } else if (selectedInferenceType === "embedding_document") {
               inputPromptKey = "embeddingDocumentFile";
             } else if (selectedInferenceType === "embedding_audio") {
@@ -2921,6 +2891,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               modelParametersJSONBase64Encoded,
               modelInputDataBase64Encoded
             );
+
+            // Refresh the credit pack tickets to reflect the updated balance
+            await getMyValidCreditPacks(true);
           });
 
         // Attach debounced input and blur event listeners to all relevant input elements
