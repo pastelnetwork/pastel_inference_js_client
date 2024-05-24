@@ -1077,33 +1077,6 @@ async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
   }
 }
 
-function getLocalRPCSettings(
-  directoryWithPastelConf = path.join(process.env.HOME, ".pastel")
-) {
-  const pastelConfPath = path.join(directoryWithPastelConf, "pastel.conf");
-  const lines = fs.readFileSync(pastelConfPath, "utf-8").split("\n");
-  const otherFlags = {};
-  let rpchost = "127.0.0.1";
-  let rpcport = "19932";
-  let rpcuser = "";
-  let rpcpassword = "";
-  for (const line of lines) {
-    if (line.startsWith("rpcport")) {
-      rpcport = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpcuser")) {
-      rpcuser = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpcpassword")) {
-      rpcpassword = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpchost")) {
-      // Skip rpchost
-    } else if (line?.trim() !== "") {
-      const [currentFlag, currentValue] = line?.trim().split("=");
-      otherFlags[currentFlag?.trim()] = currentValue?.trim();
-    }
-  }
-  return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };
-}
-
 function getNetworkInfo(rpcport) {
   let network = "";
   let burnAddress = "";
