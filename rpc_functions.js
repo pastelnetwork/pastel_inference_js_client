@@ -2,6 +2,7 @@ require("dotenv").config();
 const http = require("http");
 const https = require("https");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const readline = require("readline");
 const { URL } = require("url");
@@ -81,6 +82,7 @@ async function getLocalRPCSettings(
     }
   }
   return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };
+}
 
 class JSONRPCException extends Error {
   constructor(rpcError) {
