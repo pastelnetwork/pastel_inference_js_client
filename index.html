@@ -1978,12 +1978,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       let displayCreateTicketLoggerMessages = false;
 
       async function saveInferenceRequestToLocalStorage(requestData) {
-        let requests = JSON.parse(localStorage.getItem("inferenceRequests")) || [];
-        if (requestData.selectedInferenceType === "ask_question_about_an_image") {
-          const compressedImage = await compressImage(requestData.inputFields.image);
-          requestData.inputFields.image = compressedImage;
-        } else if (requestData.selectedInferenceType === "embedding_document" || requestData.selectedInferenceType === "embedding_audio") {
-          const fileHash = sha3_256(requestData.inputFields.document || requestData.inputFields.audio);
+        let requests =
+          JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+        if (
+          requestData.selectedInferenceType === "ask_question_about_an_image"
+        ) {
+          try {
+            const imageFile = document.getElementById("imageFile").files[0];
+            const compressedImage = await compressImage(imageFile);
+            requestData.inputFields.image = compressedImage;
+          } catch (error) {
+            console.error("Error compressing image:", error);
+            // Handle the error gracefully, e.g., show an error message to the user
+            // and continue with the original image or take appropriate action
+          }
+        } else if (
+          requestData.selectedInferenceType === "embedding_document" ||
+          requestData.selectedInferenceType === "embedding_audio"
+        ) {
+          const fileHash = sha3_256(
+            requestData.inputFields.document || requestData.inputFields.audio
+          );
           requestData.inputFields.fileHash = fileHash;
           delete requestData.inputFields.document;
           delete requestData.inputFields.audio;
@@ -1993,15 +2008,26 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         updatePreviousRequestsList();
       }
 
-      async function compressImage(base64Image) {
-        const compressedFile = await imageCompression.getFilefromDataUrl(base64Image, {
-          maxSizeMB: 0.03,
-          maxWidthOrHeight: 500,
-          useWebWorker: true,
-          initialQuality: 0.6,
-          fileType: "image/webp"
-        });
-        return imageCompression.getDataUrlFromFile(compressedFile);
+      async function compressImage(imageBlob) {
+        try {
+          const compressedFile = await imageCompression(imageBlob, {
+            maxSizeMB: 0.03,
+            maxWidthOrHeight: 500,
+            useWebWorker: true,
+            initialQuality: 0.6,
+            fileType: "image/webp",
+          });
+          const reader = new FileReader();
+          return new Promise((resolve, reject) => {
+            reader.onloadend = () => {
+              resolve(reader.result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(compressedFile);
+          });
+        } catch (error) {
+          throw error;
+        }
       }
 
       function updatePreviousRequestsList() {
@@ -2030,8 +2056,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const listItem = document.createElement("div");
             listItem.className =
               "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
-            const promptPreview = request.prompt
-              ? request.prompt.substring(0, 40)
+            const previewText =
+              request.selectedInferenceType === "ask_question_about_an_image"
+                ? request.inputFields.question
+                : request.prompt;
+            const promptPreview = previewText
+              ? previewText.substring(0, 40)
               : "No prompt available";
             listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
                         <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
@@ -2063,25 +2093,33 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         let markdownContent = "# Saved Inference Requests\n\n";
         requests.forEach((request, index) => {
           markdownContent += `## Inference Request ${index + 1}\n`;
-          markdownContent += `**Prompt**: ${request.prompt}\n\n`;
+          markdownContent += `**Prompt**: ${
+            request.selectedInferenceType === "ask_question_about_an_image"
+              ? request.inputFields.question
+              : request.prompt
+          }\n\n`;
           markdownContent += `**Inference Results**:\n\n`;
 
           request.inferenceResultsDecoded.forEach((result, i) => {
             markdownContent += `### Completion ${i + 1}\n`;
             markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
           });
-          markdownContent += `**Model**: ${request.selectedModelCanonicalName}\n`; // Ensure consistency
-          markdownContent += `**Actual Cost (Credits)**: ${request.actualCreditsUsed}\n`; // Added actual cost
-          markdownContent += `**Remaining Credits**: ${request.remainingCredits}\n`; // Added remaining credits
+          markdownContent += `**Model**: ${request.selectedModelCanonicalName}\n`;
+          markdownContent += `**Actual Cost (Credits)**: ${request.actualCreditsUsed}\n`;
+          markdownContent += `**Remaining Credits**: ${request.remainingCredits}\n`;
           markdownContent += `**Misc. Inference Parameters and Statistics**:\n`;
           markdownContent += `| Parameter | Value |\n`;
           markdownContent += `| --- | --- |\n`;
-          markdownContent += `| Input Prompt to LLM | ${request.prompt} |\n`;
-          markdownContent += `| Actual Cost (Credits) | ${request.actualCreditsUsed} |\n`; // Added actual cost
-          markdownContent += `| Remaining Credits | ${request.remainingCredits} |\n`; // Added remaining credits
-          markdownContent += `| Model | ${request.selectedModelCanonicalName} |\n`; // Ensure consistency
-          markdownContent += `| Request Timestamp | ${request.requestTimestamp} |\n`; // Added request timestamp
-          markdownContent += `| Total Time (Seconds) | ${request.elapsedTimeInSeconds} |\n`; // Added total time
+          markdownContent += `| Input Prompt to LLM | ${
+            request.selectedInferenceType === "ask_question_about_an_image"
+              ? request.inputFields.question
+              : request.prompt
+          } |\n`;
+          markdownContent += `| Actual Cost (Credits) | ${request.actualCreditsUsed} |\n`;
+          markdownContent += `| Remaining Credits | ${request.remainingCredits} |\n`;
+          markdownContent += `| Model | ${request.selectedModelCanonicalName} |\n`;
+          markdownContent += `| Request Timestamp | ${request.requestTimestamp} |\n`;
+          markdownContent += `| Total Time (Seconds) | ${request.elapsedTimeInSeconds} |\n`;
           markdownContent += `\n\n`;
         });
 
@@ -2131,18 +2169,17 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               combinedResults += "<hr>";
             }
           });
-        } else if (selectedInferenceType === "ask_question_about_an_image") {
-          const compressedImage = localStorage.getItem(
-            request.inputFields.imageKey
-          );
-          combinedResults = `
-          <img src="${compressedImage}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
-          <p>Question: ${request.inputFields.question}</p>
-          <p>Answer: ${request.inferenceResultsDecoded[0]}</p>
-        `;
         } else if (
-          selectedInferenceType === "embedding_document" ||
-          selectedInferenceType === "embedding_audio"
+          request.selectedInferenceType === "ask_question_about_an_image"
+        ) {
+          combinedResults = `
+            <img src="${request.inputFields.image}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
+            <p>Question: ${request.inputFields.question}</p>
+            <p>Answer: ${request.inferenceResultsDecoded[0]}</p>
+          `;
+        } else if (
+          request.selectedInferenceType === "embedding_document" ||
+          request.selectedInferenceType === "embedding_audio"
         ) {
           combinedResults = `
                     <p>File SHA3-256 Hash: ${request.inputFields.fileHash}</p>

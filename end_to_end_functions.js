@@ -606,17 +606,10 @@ async function handleInferenceRequestEndToEnd(
       return null;
     }
 
-    let modelInputDataJSONBase64Encoded;
-    if (
-      modelInferenceTypeString === "embedding_document" ||
-      modelInferenceTypeString === "embedding_audio"
-    ) {
-      modelInputDataJSONBase64Encoded = modelInputData.toString("base64");
-    } else {
-      modelInputDataJSONBase64Encoded = Buffer.from(
-        JSON.stringify(modelInputData)
-      ).toString("base64");
-    }
+    const modelInputDataJSONBase64Encoded = Buffer.from(
+      JSON.stringify(modelInputData)
+    ).toString("base64");
+
     const modelParametersJSONBase64Encoded =
       Buffer.from(modelParametersJSON).toString("base64");
 
