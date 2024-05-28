@@ -298,18 +298,9 @@ wss.on("connection", (ws) => {
         const modelParameters = JSON.parse(
           Buffer.from(model_parameters_json_b64, "base64").toString()
         );
-
-        let modelInputData;
-        if (
-          modelInferenceTypeString === "embedding_document" ||
-          modelInferenceTypeString === "embedding_audio"
-        ) {
-          modelInputData = model_input_data_json_b64;
-        } else {
-          modelInputData = JSON.parse(
-            Buffer.from(model_input_data_json_b64, "base64").toString()
-          );
-        }
+        const modelInputData = JSON.parse(
+          Buffer.from(model_input_data_json_b64, "base64").toString()
+        );
         console.log(`Model Inference Type: ${modelInferenceTypeString}`);
         const result = await handleInferenceRequestEndToEnd(
           creditPackTicketPastelTxid,

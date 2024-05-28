@@ -722,12 +722,12 @@ async function handleInferenceRequestEndToEnd(
           `Sent inference confirmation: ${prettyJSON(confirmationResult)}`
         );
 
-        const maxTriesToGetConfirmation = 10;
-        let initialWaitTimeInSeconds = 10;
+        const maxTriesToGetConfirmation = 60;
+        let initialWaitTimeInSeconds = 3;
         let waitTimeInSeconds = initialWaitTimeInSeconds;
 
         for (let cnt = 0; cnt < maxTriesToGetConfirmation; cnt++) {
-          waitTimeInSeconds = waitTimeInSeconds * 1.2 ** cnt;
+          waitTimeInSeconds = waitTimeInSeconds * 1.04 ** cnt;
           logger.info(
             `Waiting for the inference results for ${Math.round(
               waitTimeInSeconds
