@@ -484,7 +484,7 @@
               <option value="ask_question_about_an_image">
                 Ask a Question About an Image
               </option>
-              <option value="image_generation">Image Generation</option>
+              <option value="text_to_image">Image Generation</option>
               <option value="embedding_document">Embedding Document</option>
               <option value="embedding_audio">Embedding Audio</option>
             </select>
@@ -537,47 +537,6 @@ Write me a Shakespeare-style sonnet about Pastel Network and how it's really dec
             >
 A picture of a clown holding a sign that says PASTEL</textarea
             >
-          </div>
-          <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="stylePreset"
-              >Style Preset</label
-            >
-            <div class="relative text-bw-700">
-              <select id="stylePreset" class="select w-full">
-                <option value="">Select a style preset</option>
-                <option value="photographic" selected>Photographic</option>
-                <option value="digital-art">Digital Art</option>
-                <option value="comic-book">Comic Book</option>
-                <!-- Add more style preset options as needed -->
-              </select>
-            </div>
-          </div>
-          <div class="mb-4">
-            <label class="block text-bw-700 font-bold mb-2" for="outputFormat"
-              >Output Format</label
-            >
-            <div class="relative text-bw-700">
-              <select id="outputFormat" class="select w-full">
-                <option value="">Select an output format</option>
-                <option value="png" selected>PNG</option>
-                <option value="jpeg">JPEG</option>
-                <option value="webp">WebP</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="block text-bw-700 font-bold mb-2" for="aspectRatio"
-              >Aspect Ratio</label
-            >
-            <div class="relative text-bw-700">
-              <select id="aspectRatio" class="select w-full">
-                <option value="">Select an aspect ratio</option>
-                <option value="16:9" selected>16:9</option>
-                <option value="1:1">1:1</option>
-                <option value="4:5">4:5</option>
-                <!-- Add more aspect ratio options as needed -->
-              </select>
-            </div>
           </div>
         </div>
 
@@ -1655,12 +1614,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           document.getElementById("maxCost").value = settings.maxCost || "";
           document.getElementById("imagePrompt").value =
             settings.imagePrompt || "";
-          document.getElementById("stylePreset").value =
-            settings.stylePreset || "";
-          document.getElementById("outputFormat").value =
-            settings.outputFormat || "";
-          document.getElementById("aspectRatio").value =
-            settings.aspectRatio || "";
         }
       }
 
@@ -1672,9 +1625,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           prompt: document.getElementById("prompt").value,
           maxCost: document.querySelector("#maxCost").dataset.rawValue,
           imagePrompt: document.getElementById("imagePrompt").value,
-          stylePreset: document.getElementById("stylePreset").value,
-          outputFormat: document.getElementById("outputFormat").value,
-          aspectRatio: document.getElementById("aspectRatio").value,
         };
         localStorage.setItem(
           `inferenceRequestSettings_${selectedInferenceType}`,
@@ -1933,7 +1883,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
         if (selectedInferenceType === "text_completion") {
           textCompletionSettings.style.display = "block";
-        } else if (selectedInferenceType === "image_generation") {
+        } else if (selectedInferenceType === "text_to_image") {
           imageGenerationSettings.style.display = "block";
         } else if (selectedInferenceType === "embedding_document") {
           embeddingDocumentSettings.style.display = "block";
@@ -1980,6 +1930,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       async function saveInferenceRequestToLocalStorage(requestData) {
         let requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
+
         if (
           requestData.selectedInferenceType === "ask_question_about_an_image"
         ) {
@@ -2002,10 +1953,50 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           requestData.inputFields.fileHash = fileHash;
           delete requestData.inputFields.document;
           delete requestData.inputFields.audio;
+        } else if (requestData.selectedInferenceType === "text_to_image") {
+          const blob = await fetch(requestData.inferenceResultsDecoded[0]).then(
+            (res) => res.blob()
+          );
+          const compressedImage = await compressGeneratedImage(blob);
+          requestData.inferenceResultsDecoded[0] = compressedImage;
         }
+
         requests.push(requestData);
         localStorage.setItem("inferenceRequests", JSON.stringify(requests));
         updatePreviousRequestsList();
+      }
+
+      async function compressGeneratedImage(imageBlob) {
+        try {
+          console.log("Compressing image...", imageBlob);
+
+          const options = {
+            maxSizeMB: 0.03,
+            maxWidthOrHeight: 500,
+            useWebWorker: true,
+            initialQuality: 0.6,
+            fileType: "image/webp",
+          };
+
+          const compressedFile = await imageCompression(imageBlob, options);
+          console.log("Image compressed:", compressedFile);
+
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              console.log("Reader loaded:", reader.result);
+              resolve(reader.result);
+            };
+            reader.onerror = (error) => {
+              console.error("Reader error:", error);
+              reject(error);
+            };
+            reader.readAsDataURL(compressedFile);
+          });
+        } catch (error) {
+          console.error("Compression error:", error);
+          throw error;
+        }
       }
 
       async function compressImage(imageBlob) {
@@ -2047,7 +2038,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const inferenceTypeIcon =
               request.selectedInferenceType === "text_completion"
                 ? "🖹"
-                : request.selectedInferenceType === "image_generation"
+                : request.selectedInferenceType === "text_to_image"
                 ? "🖼️"
                 : request.selectedInferenceType ===
                   "ask_question_about_an_image"
@@ -2100,10 +2091,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           }\n\n`;
           markdownContent += `**Inference Results**:\n\n`;
 
-          request.inferenceResultsDecoded.forEach((result, i) => {
-            markdownContent += `### Completion ${i + 1}\n`;
-            markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
-          });
+          if (request.selectedInferenceType === "text_to_image") {
+            markdownContent += `![Generated Image](${request.inferenceResultsDecoded[0]})\n\n`;
+          } else {
+            request.inferenceResultsDecoded.forEach((result, i) => {
+              markdownContent += `### Completion ${i + 1}\n`;
+              markdownContent += `\`\`\`\n${result}\n\`\`\`\n\n`;
+            });
+          }
           markdownContent += `**Model**: ${request.selectedModelCanonicalName}\n`;
           markdownContent += `**Actual Cost (Credits)**: ${request.actualCreditsUsed}\n`;
           markdownContent += `**Remaining Credits**: ${request.remainingCredits}\n`;
@@ -2190,8 +2185,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                       request.inferenceResultsDecoded.decompressedJson
                     )}</pre>
                   `;
-        } else {
-          combinedResults = `<img src="${request.inferenceResultsDecoded[0]}" alt="Generated Image">`;
+        } else if (request.selectedInferenceType === "text_to_image") {
+          combinedResults = `
+            <img src="${request.inferenceResultsDecoded[0]}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
+          `;
         }
 
         previewContainer.innerHTML = `
@@ -2303,9 +2300,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             logStatusMessage("Inference request created successfully.");
             const inferenceResultDict =
               response.data.result.inferenceResultDict;
-            const inferenceResultsDecoded = JSON.parse(
-              inferenceResultDict.inference_result_decoded
-            );
+
+            let combinedResults = "";
             const modelInputDataJSON =
               inferenceResultDict.model_input_data_json;
             const {
@@ -2318,87 +2314,132 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               (endTime - startTime) / 1000
             );
 
-            let combinedResults = "";
-            if (selectedInferenceType === "embedding_document") {
-              const decompressedJson = await decompressJsonFromZip(
-                inferenceResultsDecoded.zipUrl
+            let inferenceResultsDecoded;
+            let compressedImage;
+            if (selectedInferenceType === "text_to_image") {
+              const base64String = inferenceResultDict.generated_image_base64;
+              const contentType = response.headers["content-type"];
+              const mimeType = contentType.split(";")[1].split("=")[1];
+
+              // Function to convert base64 to Uint8Array
+              function base64ToUint8Array(base64) {
+                const binaryString = atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes;
+              }
+
+              let imageBlob;
+              if (base64String) {
+                const imageDataArray = base64ToUint8Array(base64String);
+                imageBlob = new Blob([imageDataArray], { type: mimeType });
+              } else {
+                console.error("Base64 string is not available.");
+                return;
+              }
+
+              // Create a download link to verify the image
+              const url = URL.createObjectURL(imageBlob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `test_image.${mimeType.split("/")[1]}`; // e.g., "test_image.png"
+              document.body.appendChild(a);
+              a.click();
+              setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }, 0);
+
+              // Compress the image using the new helper function
+              compressedImage = await compressGeneratedImage(imageBlob);
+              console.log("Compressed image data URL:", compressedImage);
+
+              // Create an object URL for the compressed image
+              const imageUrl = URL.createObjectURL(compressedImage);
+              console.log("Image URL:", imageUrl);
+
+              // Generate the image name
+              const imageName = modelInputDataJSON.imagePrompt.replace(
+                /\s+/g,
+                "_"
               );
+
+              // Create the combined results HTML
               combinedResults = `
-                      <button class="btn success outline" onclick="downloadZip('${
-                        inferenceResultsDecoded.zipUrl
-                      }')">Download Zip</button>
-                      <pre class="json-preview">${getShortPreview(
-                        decompressedJson
-                      )}</pre>
-                    `;
+                <img src="${imageUrl}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
+                <p>
+                  <a href="${imageUrl}" download="${imageName}.png">Download Image</a>
+                </p>
+              `;
             } else if (
               selectedInferenceType === "ask_question_about_an_image"
             ) {
               combinedResults = `
-                      <img src="${modelInputDataJSON.image}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
-                      <p>Question: ${modelInputDataJSON.question}</p>
-                      <p>Answer: ${inferenceResultsDecoded[0]}</p>
-                    `;
-            } else {
-              if (selectedInferenceType === "text_completion") {
-                if (Array.isArray(inferenceResultsDecoded)) {
-                  inferenceResultsDecoded.forEach((result, i) => {
-                    let parsedResult = result;
-                    try {
-                      const sanitizedResult = sanitizeJSON(result);
-                      const parsedJSON = JSON.parse(sanitizedResult);
-                      if (parsedJSON.text) {
-                        parsedResult = parsedJSON.text;
-                      }
-                    } catch (e) {
-                      parsedResult = fallbackParseResult(result);
+                <img src="${modelInputDataJSON.image}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
+                <p>Question: ${modelInputDataJSON.question}</p>
+                <p>Answer: ${inferenceResultDict.inference_result_decoded[0]}</p>
+              `;
+            } else if (selectedInferenceType === "text_completion") {
+              const inferenceResultsDecoded =
+                inferenceResultDict.inference_result_decoded;
+              if (Array.isArray(inferenceResultsDecoded)) {
+                inferenceResultsDecoded.forEach((result, i) => {
+                  let parsedResult = result;
+                  try {
+                    const sanitizedResult = sanitizeJSON(result);
+                    const parsedJSON = JSON.parse(sanitizedResult);
+                    if (parsedJSON.text) {
+                      parsedResult = parsedJSON.text;
                     }
-                    combinedResults += `<h4>Completion ${i + 1} of ${
-                      inferenceResultsDecoded.length
-                    }</h4>`;
-                    combinedResults += `<github-md>${parsedResult}</github-md>`;
-                    if (i < inferenceResultsDecoded.length - 1) {
-                      combinedResults += "<hr>";
-                    }
-                  });
-                } else {
-                  combinedResults = `<github-md>${inferenceResultsDecoded}</github-md>`;
-                }
+                  } catch (e) {
+                    parsedResult = fallbackParseResult(result);
+                  }
+                  combinedResults += `<h4>Completion ${i + 1} of ${
+                    inferenceResultsDecoded.length
+                  }</h4>`;
+                  combinedResults += `<github-md>${parsedResult}</github-md>`;
+                  if (i < inferenceResultsDecoded.length - 1) {
+                    combinedResults += "<hr>";
+                  }
+                });
               } else {
-                combinedResults = `<img src="${inferenceResultsDecoded[0]}" alt="Generated Image">`;
+                combinedResults = `<github-md>${inferenceResultsDecoded}</github-md>`;
               }
             }
 
             resultContainer.innerHTML = `
-                    <div class="mb-4">
-                      <h3 class="font-bold">Inference Result:</h3>
-                      ${combinedResults}
-                    </div>
-                    <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-                    <div class="table-responsive">
-                      <table class="table">
-                        <tr>
-                          <th>${
-                            selectedInferenceType === "embedding"
-                              ? "Text to Embed"
-                              : "Input Prompt to LLM"
-                          }</th>
-                          <td>${
-                            selectedInferenceType === "embedding"
-                              ? JSON.parse(
-                                  atob(modelInputDataJSONBase64Encoded)
-                                )["embeddingText"]
-                              : modelInputDataJSON
-                          }</td>
-                        </tr>
-                        <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                        <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-                        <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
-                        <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
-                        <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
-                      </table>
-                    </div>
-                  `;
+              <div class="mb-4">
+                <h3 class="font-bold">Inference Result:</h3>
+                ${combinedResults}
+              </div>
+              <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+              <div class="table-responsive">
+                <table class="table">
+                  <tr>
+                    <th>${
+                      selectedInferenceType === "embedding"
+                        ? "Text to Embed"
+                        : "Input Prompt to LLM"
+                    }</th>
+                    <td>${
+                      selectedInferenceType === "embedding"
+                        ? JSON.parse(atob(modelInputDataJSONBase64Encoded))[
+                            "embeddingText"
+                          ]
+                        : modelInputDataJSON
+                    }</td>
+                  </tr>
+                  <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+                  <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+                  <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
+                  <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
+                  <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+                </table>
+              </div>
+            `;
 
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
@@ -2409,9 +2450,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 atob(modelParametersJSONBase64Encoded)
               ),
               maxCost,
-              inferenceResultsDecoded: Array.isArray(inferenceResultsDecoded)
-                ? inferenceResultsDecoded
-                : [inferenceResultsDecoded],
+              inferenceResultsDecoded:
+                selectedInferenceType === "text_to_image"
+                  ? compressedImage
+                  : Array.isArray(inferenceResultsDecoded)
+                  ? inferenceResultsDecoded
+                  : [inferenceResultsDecoded],
               prompt: document.getElementById("prompt").value,
               elapsedTimeInSeconds,
               actualCreditsUsed: proposed_cost_of_request_in_inference_credits,
@@ -3007,7 +3051,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             let inputPromptKey;
             if (selectedInferenceType === "text_completion") {
               inputPromptKey = "prompt";
-            } else if (selectedInferenceType === "image_generation") {
+            } else if (selectedInferenceType === "text_to_image") {
               inputPromptKey = "imagePrompt";
             } else if (selectedInferenceType === "embedding_document") {
               inputPromptKey = "embeddingDocumentFile";
