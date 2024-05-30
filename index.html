@@ -1999,8 +1999,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       async function compressGeneratedImage(imgElement) {
         try {
           const options = {
-            maxSizeMB: 0.03,
-            maxWidthOrHeight: 500,
+            maxSizeMB: 0.05,
+            maxWidthOrHeight: 600,
             useWebWorker: true,
             initialQuality: 0.6,
             fileType: "image/webp",
@@ -2215,7 +2215,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                   `;
         } else if (request.selectedInferenceType === "text_to_image") {
           combinedResults = `
-          <img src="${request.compressedImage}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
+          <img src="${request.inferenceResultsDecoded}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
           <p>Please note that this is a compressed version of the original generated image.</p>
         `;
         }
@@ -2350,9 +2350,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 inferenceResultDict.generated_image_decoded.data;
               if (imageBinaryData) {
                 // Convert the binary data to a Blob
-                const outputFormat = document
-                  .getElementById("output_format")
-                  .value.replace("jpeg", "jpg");
+                const outputFormat =
+                  document
+                    .getElementById("output_format")
+                    .value.replace("jpeg", "jpg") || "jpg";
                 const imageBlob = new Blob([new Uint8Array(imageBinaryData)], {
                   type: `image/${outputFormat}`,
                 });
