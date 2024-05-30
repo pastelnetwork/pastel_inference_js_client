@@ -1206,6 +1206,22 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
           tableBody.innerHTML = "";
 
+          // Filter out credit packs with 0 or negative balance
+          validCreditPackTickets = validCreditPackTickets.filter(
+            (ticket) => ticket.credit_pack_current_credit_balance > 0
+          );
+
+          // Find the credit pack with the highest current credit balance
+          let highestBalanceTicket = validCreditPackTickets[0];
+          for (const ticket of validCreditPackTickets) {
+            if (
+              ticket.credit_pack_current_credit_balance >
+              highestBalanceTicket.credit_pack_current_credit_balance
+            ) {
+              highestBalanceTicket = ticket;
+            }
+          }
+
           for (const ticket of validCreditPackTickets) {
             const row = document.createElement("tr");
 
@@ -1269,6 +1285,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             row.appendChild(creditPackRegistrationTxidCell);
 
             tableBody.appendChild(row);
+            if (ticket === highestBalanceTicket) {
+              radioInput.checked = true;
+              row.classList.add("bg-gray-200", "selected-row");
+            }
           }
 
           handleCreditPackSelection(); // Re-apply event listeners
@@ -1954,11 +1974,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           delete requestData.inputFields.document;
           delete requestData.inputFields.audio;
         } else if (requestData.selectedInferenceType === "text_to_image") {
-          const blob = await fetch(requestData.inferenceResultsDecoded[0]).then(
-            (res) => res.blob()
-          );
-          const compressedImage = await compressGeneratedImage(blob);
-          requestData.inferenceResultsDecoded[0] = compressedImage;
+          const generatedImage = document.getElementById("generated-image");
+          const compressedImage = await compressGeneratedImage(generatedImage);
+          requestData.inferenceResultsDecoded = compressedImage;
         }
 
         requests.push(requestData);
@@ -1966,10 +1984,20 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         updatePreviousRequestsList();
       }
 
-      async function compressGeneratedImage(imageBlob) {
-        try {
-          console.log("Compressing image...", imageBlob);
+      // Helper function to convert a base64 data URL to a Blob
+      function dataURLToBlob(dataURL) {
+        const [header, base64] = dataURL.split(",");
+        const mime = header.match(/:(.*?);/)[1];
+        const binary = atob(base64);
+        const array = [];
+        for (let i = 0; i < binary.length; i++) {
+          array.push(binary.charCodeAt(i));
+        }
+        return new Blob([new Uint8Array(array)], { type: mime });
+      }
 
+      async function compressGeneratedImage(imgElement) {
+        try {
           const options = {
             maxSizeMB: 0.03,
             maxWidthOrHeight: 500,
@@ -1977,14 +2005,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             initialQuality: 0.6,
             fileType: "image/webp",
           };
-
-          const compressedFile = await imageCompression(imageBlob, options);
-          console.log("Image compressed:", compressedFile);
-
+          const response = await fetch(imgElement.src);
+          const blob = await response.blob();
+          const compressedFile = await imageCompression(blob, options);
           return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => {
-              console.log("Reader loaded:", reader.result);
               resolve(reader.result);
             };
             reader.onerror = (error) => {
@@ -1998,7 +2024,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           throw error;
         }
       }
-
       async function compressImage(imageBlob) {
         try {
           const compressedFile = await imageCompression(imageBlob, {
@@ -2051,9 +2076,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               request.selectedInferenceType === "ask_question_about_an_image"
                 ? request.inputFields.question
                 : request.prompt;
-            const promptPreview = previewText
-              ? previewText.substring(0, 40)
-              : "No prompt available";
+            const promptPreview =
+              request.selectedInferenceType === "text_to_image"
+                ? request.inputFields.imagePrompt.substring(0, 40)
+                : previewText
+                ? previewText.substring(0, 40)
+                : "No prompt available";
             listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
                         <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
 
@@ -2092,7 +2120,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           markdownContent += `**Inference Results**:\n\n`;
 
           if (request.selectedInferenceType === "text_to_image") {
-            markdownContent += `![Generated Image](${request.inferenceResultsDecoded[0]})\n\n`;
+            markdownContent += `![Generated Image](${request.compressedImage})\n\n`;
           } else {
             request.inferenceResultsDecoded.forEach((result, i) => {
               markdownContent += `### Completion ${i + 1}\n`;
@@ -2187,8 +2215,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                   `;
         } else if (request.selectedInferenceType === "text_to_image") {
           combinedResults = `
-            <img src="${request.inferenceResultsDecoded[0]}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
-          `;
+          <img src="${request.compressedImage}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
+          <p>Please note that this is a compressed version of the original generated image.</p>
+        `;
         }
 
         previewContainer.innerHTML = `
@@ -2298,6 +2327,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
           if (response.data.success) {
             logStatusMessage("Inference request created successfully.");
+            const contentType = response.headers["content-type"];
+
             const inferenceResultDict =
               response.data.result.inferenceResultDict;
 
@@ -2313,67 +2344,35 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             const elapsedTimeInSeconds = Math.floor(
               (endTime - startTime) / 1000
             );
-
-            let inferenceResultsDecoded;
             let compressedImage;
             if (selectedInferenceType === "text_to_image") {
-              const base64String = inferenceResultDict.generated_image_base64;
-              const contentType = response.headers["content-type"];
-              const mimeType = contentType.split(";")[1].split("=")[1];
-
-              // Function to convert base64 to Uint8Array
-              function base64ToUint8Array(base64) {
-                const binaryString = atob(base64);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                return bytes;
-              }
-
-              let imageBlob;
-              if (base64String) {
-                const imageDataArray = base64ToUint8Array(base64String);
-                imageBlob = new Blob([imageDataArray], { type: mimeType });
-              } else {
-                console.error("Base64 string is not available.");
-                return;
-              }
-
-              // Create a download link to verify the image
-              const url = URL.createObjectURL(imageBlob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `test_image.${mimeType.split("/")[1]}`; // e.g., "test_image.png"
-              document.body.appendChild(a);
-              a.click();
-              setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              }, 0);
-
-              // Compress the image using the new helper function
-              compressedImage = await compressGeneratedImage(imageBlob);
-              console.log("Compressed image data URL:", compressedImage);
-
-              // Create an object URL for the compressed image
-              const imageUrl = URL.createObjectURL(compressedImage);
-              console.log("Image URL:", imageUrl);
-
-              // Generate the image name
-              const imageName = modelInputDataJSON.imagePrompt.replace(
-                /\s+/g,
-                "_"
-              );
-
-              // Create the combined results HTML
-              combinedResults = `
-                <img src="${imageUrl}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
+              const imageBinaryData =
+                inferenceResultDict.generated_image_decoded.data;
+              if (imageBinaryData) {
+                // Convert the binary data to a Blob
+                const outputFormat = document
+                  .getElementById("output_format")
+                  .value.replace("jpeg", "jpg");
+                const imageBlob = new Blob([new Uint8Array(imageBinaryData)], {
+                  type: `image/${outputFormat}`,
+                });
+                // Create an object URL for the image
+                const imageUrl = URL.createObjectURL(imageBlob);
+                // Generate the image name
+                const imageName = modelInputDataJSON.imagePrompt.replace(
+                  /\s+/g,
+                  "_"
+                );
+                // Create the combined results HTML
+                combinedResults = `
+                <img id="generated-image" src="${imageUrl}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
                 <p>
-                  <a href="${imageUrl}" download="${imageName}.png">Download Image</a>
+                  <a href="${imageUrl}" download="${imageName}.${outputFormat}" class="btn success outline m-4">Download Image</a>
                 </p>
               `;
+              } else {
+                combinedResults = "Failed to generate image.";
+              }
             } else if (
               selectedInferenceType === "ask_question_about_an_image"
             ) {
@@ -2395,7 +2394,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                       parsedResult = parsedJSON.text;
                     }
                   } catch (e) {
-                    parsedResult = fallbackParseResult(result);
+                    try {
+                      parsedResult = fallbackParseResult(result);
+                    } catch (e) {
+                      parsedResult = result;
+                    }
                   }
                   combinedResults += `<h4>Completion ${i + 1} of ${
                     inferenceResultsDecoded.length
@@ -2451,11 +2454,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               ),
               maxCost,
               inferenceResultsDecoded:
-                selectedInferenceType === "text_to_image"
-                  ? compressedImage
-                  : Array.isArray(inferenceResultsDecoded)
-                  ? inferenceResultsDecoded
-                  : [inferenceResultsDecoded],
+                inferenceResultDict.inference_result_decoded,
               prompt: document.getElementById("prompt").value,
               elapsedTimeInSeconds,
               actualCreditsUsed: proposed_cost_of_request_in_inference_credits,

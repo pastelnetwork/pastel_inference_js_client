@@ -45,6 +45,7 @@ const {
   getClosestSupernodePastelIDFromList,
   getClosestSupernodeToPastelIDURL,
 } = require("./utility_functions");
+const fs = require("fs");
 
 const MY_LOCAL_PASTELID = process.env.MY_LOCAL_PASTELID;
 const MY_PASTELID_PASSPHRASE = process.env.MY_PASTELID_PASSPHRASE;
@@ -768,10 +769,14 @@ async function handleInferenceRequestEndToEnd(
             };
 
             if (modelInferenceTypeString === "text_to_image") {
-              inferenceResultDict.generated_image_base64 =
-                outputResults.inference_result_json_base64;
-              inferenceResultDict.generated_image_decoded = Buffer.from(
+              let jsonString = Buffer.from(
                 outputResults.inference_result_json_base64,
+                "base64"
+              ).toString("utf-8");
+              let jsonObject = JSON.parse(jsonString);
+              let imageBase64 = jsonObject.image;
+              inferenceResultDict.generated_image_decoded = Buffer.from(
+                imageBase64,
                 "base64"
               );
             } else {
