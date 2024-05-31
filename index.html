@@ -162,7 +162,7 @@
         border: 1px solid #e5e7eb;
         border-radius: 0.5rem;
         padding: 1rem;
-        max-height: 400px;
+        max-height: 1200px;
         overflow-y: auto;
       }
       #requestPreview {
@@ -195,6 +195,11 @@
       .new-ticket-table {
         width: auto; /* Change to auto to fit content */
         table-layout: auto; /* Use auto layout to fit column content */
+      }
+      .tooltip-icon {
+        margin-left: 5px;
+        font-size: 14px;
+        color: #6b7280;
       }
     </style>
   </head>
@@ -486,7 +491,9 @@
               </option>
               <option value="text_to_image">Image Generation</option>
               <option value="embedding_document">Embedding Document</option>
-              <option value="embedding_audio">Embedding Audio</option>
+              <option value="embedding_audio">
+                Audio Transcript and Embedding
+              </option>
             </select>
           </div>
         </div>
@@ -582,7 +589,7 @@ A picture of a clown holding a sign that says PASTEL</textarea
             <label
               class="block text-bw-700 font-bold mb-2"
               for="embeddingAudioFile"
-              >Audio File to Transcribed and Embed</label
+              >Audio File to Transcribe and Embed</label
             >
             <input
               type="file"
@@ -670,6 +677,7 @@ A picture of a clown holding a sign that says PASTEL</textarea
 
     <div
       class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 has-border rounded-xl bg-white shadow-md"
+      style="height: 800px; overflow-y: auto"
     >
       <div class="lg:col-span-1 flex flex-col">
         <h2 class="text-2xl mb-4 text-bw-800">
@@ -678,7 +686,7 @@ A picture of a clown holding a sign that says PASTEL</textarea
         <div
           id="previousRequestsList"
           class="bg-gray-100 p-4 rounded-lg overflow-y-auto flex-grow"
-          style="max-height: 300px"
+          style="max-height: 1200px"
         >
           <!-- List of previous inference requests will be dynamically populated here -->
         </div>
@@ -933,6 +941,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         }
         const formattedValue = parseAndFormatNumber(inputElement.value);
         inputElement.value = formattedValue;
+      }
+
+      async function fetchImageSize(url) {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return blob.size;
       }
 
       function parseAndFormat(value) {
@@ -1527,11 +1541,31 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           const fieldContainer = document.createElement("div");
           fieldContainer.className = "mb-4";
 
+          const labelText = param.description.split("[Optional]")[0].trim();
+          const tooltipText =
+            param.description
+              .split("[Optional]")[1]
+              ?.trim()
+              .replace(/^\(|\)$/g, "") || "";
+
           const label = document.createElement("label");
-          label.className = "block text-bw-700 font-bold mb-2";
+          label.className =
+            "block font-bold mb-2" +
+            (param.description.includes("[Optional]") ? " text-bw-800" : "");
           label.htmlFor = param.name;
-          label.textContent = param.description;
+          label.textContent = labelText;
           fieldContainer.appendChild(label);
+
+          if (tooltipText) {
+            const tooltipSpan = document.createElement("span");
+            tooltipSpan.className = "tooltip bw top";
+            tooltipSpan.dataset.tooltip = tooltipText;
+            const tooltipButton = document.createElement("button");
+            tooltipButton.className = "tooltip-icon";
+            tooltipButton.textContent = "ⓘ";
+            tooltipSpan.appendChild(tooltipButton);
+            label.appendChild(tooltipSpan);
+          }
 
           const input = document.createElement("input");
           input.className = "input w-full";
@@ -1950,7 +1984,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       async function saveInferenceRequestToLocalStorage(requestData) {
         let requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
-
         if (
           requestData.selectedInferenceType === "ask_question_about_an_image"
         ) {
@@ -1960,40 +1993,52 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             requestData.inputFields.image = compressedImage;
           } catch (error) {
             console.error("Error compressing image:", error);
-            // Handle the error gracefully, e.g., show an error message to the user
-            // and continue with the original image or take appropriate action
           }
-        } else if (
-          requestData.selectedInferenceType === "embedding_document" ||
-          requestData.selectedInferenceType === "embedding_audio"
-        ) {
-          const fileHash = sha3_256(
-            requestData.inputFields.document || requestData.inputFields.audio
-          );
-          requestData.inputFields.fileHash = fileHash;
+        } else if (requestData.selectedInferenceType === "embedding_document") {
+          const fileInput = document.getElementById("embeddingDocumentFile");
+          const originalFileName = fileInput.files[0].name;
+          const fileHash = sha3_256(requestData.inputFields.document);
+          requestData.inputFields.document_details = `
+            <div>
+              <p>Original File Name: ${originalFileName}</p>
+              <p>File Hash: ${fileHash}</p>
+            </div>
+          `;
           delete requestData.inputFields.document;
+        } else if (requestData.selectedInferenceType === "embedding_audio") {
+          const fileHash = sha3_256(requestData.inputFields.audio);
+          requestData.inputFields.fileHash = fileHash;
           delete requestData.inputFields.audio;
         } else if (requestData.selectedInferenceType === "text_to_image") {
           const generatedImage = document.getElementById("generated-image");
           const compressedImage = await compressGeneratedImage(generatedImage);
           requestData.inferenceResultsDecoded = compressedImage;
         }
-
+        if (requestData.selectedInferenceType === "embedding_document") {
+          const embeddingDocumentFileInput = document.getElementById(
+            "embeddingDocumentFile"
+          );
+          if (
+            embeddingDocumentFileInput &&
+            embeddingDocumentFileInput.files.length > 0
+          ) {
+            requestData.inputFields.document_file_name =
+              embeddingDocumentFileInput.files[0].name;
+          }
+        } else if (requestData.selectedInferenceType === "embedding_audio") {
+          const embeddingAudioFileInput =
+            document.getElementById("embeddingAudioFile");
+          if (
+            embeddingAudioFileInput &&
+            embeddingAudioFileInput.files.length > 0
+          ) {
+            requestData.inputFields.audio_file_name =
+              embeddingAudioFileInput.files[0].name;
+          }
+        }
         requests.push(requestData);
         localStorage.setItem("inferenceRequests", JSON.stringify(requests));
         updatePreviousRequestsList();
-      }
-
-      // Helper function to convert a base64 data URL to a Blob
-      function dataURLToBlob(dataURL) {
-        const [header, base64] = dataURL.split(",");
-        const mime = header.match(/:(.*?);/)[1];
-        const binary = atob(base64);
-        const array = [];
-        for (let i = 0; i < binary.length; i++) {
-          array.push(binary.charCodeAt(i));
-        }
-        return new Blob([new Uint8Array(array)], { type: mime });
       }
 
       async function compressGeneratedImage(imgElement) {
@@ -2060,31 +2105,50 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           listContainer.appendChild(noRequestsMessage);
         } else {
           requests.forEach((request, index) => {
-            const inferenceTypeIcon =
-              request.selectedInferenceType === "text_completion"
-                ? "🖹"
-                : request.selectedInferenceType === "text_to_image"
-                ? "🖼️"
-                : request.selectedInferenceType ===
-                  "ask_question_about_an_image"
-                ? "🖺"
-                : "🔢";
+            let inferenceTypeIcon;
+            let promptPreview;
+            if (request.selectedInferenceType === "text_completion") {
+              inferenceTypeIcon = "🖹";
+              promptPreview = request.prompt;
+            } else if (request.selectedInferenceType === "text_to_image") {
+              inferenceTypeIcon = "🖼️";
+              promptPreview = request.inputFields.imagePrompt;
+            } else if (
+              request.selectedInferenceType === "ask_question_about_an_image"
+            ) {
+              inferenceTypeIcon = "🖺";
+              promptPreview = request.inputFields.question;
+            } else if (request.selectedInferenceType === "embedding_document") {
+              inferenceTypeIcon = "🔢";
+              promptPreview = request.inputFields.document_file_name || "";
+            } else if (request.selectedInferenceType === "embedding_audio") {
+              inferenceTypeIcon = "🕪";
+              promptPreview = request.inputFields.audio_file_name || "";
+            } else {
+              inferenceTypeIcon = "❔";
+              promptPreview = request.prompt;
+            }
+            if (
+              request.selectedInferenceType !== "embedding_document" &&
+              request.selectedInferenceType !== "embedding_audio"
+            ) {
+              const previewText =
+                request.selectedInferenceType === "ask_question_about_an_image"
+                  ? request.inputFields.question
+                  : request.prompt;
+              promptPreview =
+                request.selectedInferenceType === "text_to_image"
+                  ? request.inputFields.imagePrompt.substring(0, 40)
+                  : previewText
+                  ? previewText.substring(0, 40)
+                  : "No prompt available";
+            }
+
             const listItem = document.createElement("div");
             listItem.className =
               "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
-            const previewText =
-              request.selectedInferenceType === "ask_question_about_an_image"
-                ? request.inputFields.question
-                : request.prompt;
-            const promptPreview =
-              request.selectedInferenceType === "text_to_image"
-                ? request.inputFields.imagePrompt.substring(0, 40)
-                : previewText
-                ? previewText.substring(0, 40)
-                : "No prompt available";
             listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
-                        <button class="delete-btn" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
-
+              <button class="delete-btn" style="font-size: 0.75rem;" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
             listItem.addEventListener("click", () =>
               displayRequestPreview(index)
             );
@@ -2167,12 +2231,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
         const request = requests[index];
         const previewContainer = document.getElementById("requestPreview");
-
         let combinedResults = "";
         if (request.selectedInferenceType === "text_completion") {
-          const results = Array.isArray(request.inferenceResultsDecoded)
-            ? request.inferenceResultsDecoded
-            : [request.inferenceResultsDecoded];
+          const results = Array.isArray(
+            JSON.parse(request.inferenceResultsDecoded)
+          )
+            ? JSON.parse(request.inferenceResultsDecoded)
+            : [JSON.parse(request.inferenceResultsDecoded)];
           results.forEach((result, i) => {
             let parsedResult = result;
             try {
@@ -2196,27 +2261,50 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           request.selectedInferenceType === "ask_question_about_an_image"
         ) {
           combinedResults = `
-            <img src="${request.inputFields.image}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
+            <img src="${
+              request.inputFields.image
+            }" alt="Input Image" style="max-width: 100%; max-height: 400px;">
             <p>Question: ${request.inputFields.question}</p>
-            <p>Answer: ${request.inferenceResultsDecoded[0]}</p>
+            <p>Answer:</p>
+            <github-md>${
+              JSON.parse(request.inferenceResultsDecoded)[0]
+            }</github-md>
           `;
-        } else if (
-          request.selectedInferenceType === "embedding_document" ||
-          request.selectedInferenceType === "embedding_audio"
-        ) {
+        } else if (request.selectedInferenceType === "embedding_document") {
           combinedResults = `
                     <p>File SHA3-256 Hash: ${request.inputFields.fileHash}</p>
-                    <p>Semantic Query String: ${
-                      request.inputFields.question
-                    }</p>
-                    <pre class="json-preview">${getShortPreview(
-                      request.inferenceResultsDecoded.decompressedJson
-                    )}</pre>
-                  `;
+                    <p>Semantic Query String: ${request.inputFields.question}</p>
+                    `;
+        } else if (request.selectedInferenceType === "embedding_audio") {
+          const inferenceResultDecoded = request.inferenceResultsDecoded;
+          const formattedResult = prettyJSON(inferenceResultDecoded);
+          const coloredResult = formattedResult
+            .replace(/({|})/g, '<span style="color: #4CAF50;">$1</span>') // Light green for braces
+            .replace(
+              /"([^"]+)"(?=:)/g,
+              '<span style="color: #2196F3;">$1</span>'
+            ) // Pale blue for keys
+            .replace(
+              /: ("[^"]+")/g,
+              ': <span style="color: #FFC107;">$1</span>'
+            ) // Pale yellow for string values
+            .replace(/: (\d+)/g, ': <span style="color: #FFC107;">$1</span>') // Pale yellow for numeric values
+            .replace(
+              /: (true|false|null)/g,
+              ': <span style="color: #FFC107;">$1</span>'
+            ); // Pale yellow for boolean and null values
+          combinedResults = `
+            <p>Original File Name: ${request.inputFields.audio_file_name}</p>
+            <p>File SHA3-256 Hash: ${request.inputFields.fileHash}</p>
+            <p>Semantic Query String: ${request.inputFields.question}</p>
+            <div style="max-height: 1000px; overflow-y: auto;">
+              <pre>${coloredResult}</pre>
+            </div>
+          `;
         } else if (request.selectedInferenceType === "text_to_image") {
           combinedResults = `
           <img src="${request.inferenceResultsDecoded}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
-          <p>Please note that this is a compressed version of the original generated image.</p>
+          <p class="text-sm italic m-2">(Please note that this is a compressed version of the original generated image.)</p>
         `;
         }
 
@@ -2259,15 +2347,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           }</td></tr>
         </table>
       </div>`;
-
-        if (request.selectedInferenceType === "text_completion") {
-          renderMarkdown();
-        }
-      }
-
-      function getShortPreview(jsonData) {
-        const lines = jsonData.split("\n");
-        return lines.slice(0, 300).join("\n");
+        renderMarkdown();
       }
 
       function downloadZip(zipUrl) {
@@ -2360,31 +2440,74 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                 // Create an object URL for the image
                 const imageUrl = URL.createObjectURL(imageBlob);
                 // Generate the image name
-                const imageName = modelInputDataJSON.imagePrompt.replace(
-                  /\s+/g,
-                  "_"
-                );
+                const imageName = modelInputDataJSON.imagePrompt
+                  .replace(/[^\w]/g, "_")
+                  .replace(/_+/g, "_")
+                  .substring(0, 100);
                 // Create the combined results HTML
+                const imageSizeBytes = await fetchImageSize(imageUrl);
+                const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(2);
                 combinedResults = `
-                <img id="generated-image" src="${imageUrl}" alt="Generated Image" style="max-width: 100%; max-height: 400px;">
-                <p>
-                  <a href="${imageUrl}" download="${imageName}.${outputFormat}" class="btn success outline m-4">Download Image</a>
-                </p>
-              `;
+                  <div class="m-8">
+                    <img id="generated-image" src="${imageUrl}" alt="Generated Image" class="max-w-full max-h-96 mx-auto mb-4">
+                    <p class="text-center">
+                      <a href="${imageUrl}" download="${imageName}.${outputFormat}" class="btn success outline m-4">Download Image</a>
+                    </p>
+                    <p class="text-center text-gray-500">File size: ${imageSizeMB} MB</p>
+                  </div>
+                `;
               } else {
                 combinedResults = "Failed to generate image.";
               }
+            } else if (selectedInferenceType === "embedding_audio") {
+              const embeddingAudioFileInput =
+                document.getElementById("embeddingAudioFile");
+              const originalFileName = embeddingAudioFileInput.files[0].name;
+              const inferenceResultDecoded =
+                inferenceResultDict.inference_result_decoded;
+              const formattedResult = prettyJSON(inferenceResultDecoded);
+              const coloredResult = formattedResult
+                .replace(/({|})/g, '<span style="color: #4CAF50;">$1</span>') // Light green for braces
+                .replace(
+                  /"([^"]+)"(?=:)/g,
+                  '<span style="color: #2196F3;">$1</span>'
+                ) // Pale blue for keys
+                .replace(
+                  /: ("[^"]+")/g,
+                  ': <span style="color: #FFC107;">$1</span>'
+                ) // Pale yellow for string values
+                .replace(
+                  /: (\d+)/g,
+                  ': <span style="color: #FFC107;">$1</span>'
+                ) // Pale yellow for numeric values
+                .replace(
+                  /: (true|false|null)/g,
+                  ': <span style="color: #FFC107;">$1</span>'
+                ); // Pale yellow for boolean and null values
+              combinedResults = `
+                <p>Original File Name: ${originalFileName}</p>
+                <p>Semantic Query String: ${modelInputDataJSON.question}</p>
+                <div style="max-height: 1000px; overflow-y: auto;">
+                  <pre>${coloredResult}</pre>
+                </div>
+              `;
             } else if (
               selectedInferenceType === "ask_question_about_an_image"
             ) {
+              const imageFile = document.getElementById("imageFile").files[0];
+              const imageUrl = URL.createObjectURL(imageFile);
               combinedResults = `
-                <img src="${modelInputDataJSON.image}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
+                <img src="${imageUrl}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
                 <p>Question: ${modelInputDataJSON.question}</p>
-                <p>Answer: ${inferenceResultDict.inference_result_decoded[0]}</p>
+                <p>Answer:</p>
+                <github-md>${
+                  JSON.parse(inferenceResultDict.inference_result_decoded)[0]
+                }</github-md> 
               `;
             } else if (selectedInferenceType === "text_completion") {
-              const inferenceResultsDecoded =
-                inferenceResultDict.inference_result_decoded;
+              const inferenceResultsDecoded = JSON.parse(
+                inferenceResultDict.inference_result_decoded
+              );
               if (Array.isArray(inferenceResultsDecoded)) {
                 inferenceResultsDecoded.forEach((result, i) => {
                   let parsedResult = result;
@@ -2410,40 +2533,58 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
                   }
                 });
               } else {
+                // It's not an array, just a single result; so wrap it in markdown tags
                 combinedResults = `<github-md>${inferenceResultsDecoded}</github-md>`;
               }
             }
 
             resultContainer.innerHTML = `
-              <div class="mb-4">
-                <h3 class="font-bold">Inference Result:</h3>
-                ${combinedResults}
-              </div>
-              <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-              <div class="table-responsive">
-                <table class="table">
-                  <tr>
-                    <th>${
-                      selectedInferenceType === "embedding"
-                        ? "Text to Embed"
-                        : "Input Prompt to LLM"
-                    }</th>
-                    <td>${
-                      selectedInferenceType === "embedding"
-                        ? JSON.parse(atob(modelInputDataJSONBase64Encoded))[
-                            "embeddingText"
-                          ]
-                        : modelInputDataJSON
-                    }</td>
-                  </tr>
-                  <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                  <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-                  <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
-                  <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
-                  <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
-                </table>
-              </div>
-            `;
+            <div class="mb-4">
+              <h3 class="font-bold">Inference Result:</h3>
+              ${combinedResults}
+            </div>
+            <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+            <div class="table-responsive">
+              <table class="table">
+                <tr>
+                  <th>${
+                    selectedInferenceType === "embedding_document"
+                      ? "Input Document File Name"
+                      : selectedInferenceType === "embedding_audio"
+                      ? "Input Audio File Name"
+                      : "Input Prompt to LLM"
+                  }</th>
+                  <td>${
+                    selectedInferenceType === "embedding_document"
+                      ? JSON.parse(atob(modelInputDataJSONBase64Encoded))
+                          .document_file_name
+                      : selectedInferenceType === "embedding_audio"
+                      ? JSON.parse(atob(modelInputDataJSONBase64Encoded))
+                          .audio_file_name
+                      : modelInputDataJSON.prompt
+                  }</td>
+                </tr>
+                <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+                <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+                <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
+                <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
+                <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+              </table>
+            </div>
+            ${
+              selectedInferenceType === "embedding_document"
+                ? `<p class="text-center">
+                    <a href="#" id="downloadZipButton" class="btn success outline m-4">
+                      Download Zip File of JSON Document Embeddings${
+                        inferenceResultDict.semantic_query_result
+                          ? " and Semantic Search Results"
+                          : ""
+                      }
+                    </a>
+                  </p>`
+                : ""
+            }
+          `;
 
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
@@ -2466,9 +2607,36 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               requestTimestamp: startTime.toISOString(),
             });
 
-            if (selectedInferenceType === "text_completion") {
-              renderMarkdown();
+            if (selectedInferenceType === "embedding_document") {
+              const embeddingDocumentFileInput = document.getElementById(
+                "embeddingDocumentFile"
+              );
+              const originalFileName = embeddingDocumentFileInput.files[0].name;
+              document
+                .getElementById("downloadZipButton")
+                .addEventListener("click", () => {
+                  const processedFileName = originalFileName
+                    .replace(/\.[^/.]+$/, "")
+                    .replace(/[^\w]/g, "_")
+                    .replace(/_+/g, "_")
+                    .substring(0, 100);
+                  // Convert the buffer data to a Uint8Array
+                  const zipFileDataBuffer =
+                    inferenceResultDict.zip_file_data.data;
+                  const zipFileUint8Array = new Uint8Array(zipFileDataBuffer);
+                  const zipBlob = new Blob([zipFileUint8Array], {
+                    type: "application/zip",
+                  });
+                  const downloadLink = document.createElement("a");
+                  downloadLink.href = URL.createObjectURL(zipBlob);
+                  downloadLink.download = `${processedFileName}.zip`;
+                  downloadLink.click();
+                });
+              // Update the table cell with the original file name
+              resultContainer.querySelector("td").textContent =
+                originalFileName;
             }
+            renderMarkdown();
           } else {
             throw new Error("Failed to create inference request");
           }

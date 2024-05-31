@@ -779,6 +779,13 @@ async function handleInferenceRequestEndToEnd(
                 imageBase64,
                 "base64"
               );
+            } else if (modelInferenceTypeString === "embedding_document") {
+              const inferenceResultDecoded = Buffer.from(
+                outputResults.inference_result_json_base64,
+                "base64"
+              ).toString("utf-8");
+              let zipBinary = Buffer.from(inferenceResultDecoded, "base64");
+              inferenceResultDict.zip_file_data = zipBinary;
             } else {
               const inferenceResultDecoded = Buffer.from(
                 outputResults.inference_result_json_base64,
