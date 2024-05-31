@@ -2272,7 +2272,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           `;
         } else if (request.selectedInferenceType === "embedding_document") {
           combinedResults = `
-                    <p>File SHA3-256 Hash: ${request.inputFields.fileHash}</p>
                     <p>Semantic Query String: ${request.inputFields.question}</p>
                     `;
         } else if (request.selectedInferenceType === "embedding_audio") {
@@ -2307,46 +2306,58 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           <p class="text-sm italic m-2">(Please note that this is a compressed version of the original generated image.)</p>
         `;
         }
-
         previewContainer.innerHTML = `
-                  <div class="mb-4">
-                      <h3 class="font-bold">Inference Result:</h3>
-                      ${combinedResults}
-                  </div>
-                  <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-      <div class="table-responsive">
-        <table class="table">
-          <tr>
-            <th>
-              ${
-                request.selectedInferenceType === "ask_question_about_an_image"
-                  ? "Question"
-                  : "Input Prompt to LLM"
-              }
-            </th>
-            <td>
-              ${
-                request.selectedInferenceType === "ask_question_about_an_image"
-                  ? request.inputFields.question
-                  : request.prompt
-              }
-            </td>
-          </tr>
-          <tr><th>Actual Cost (Credits)</th><td>${
-            request.actualCreditsUsed
-          }</td></tr>
-          <tr><th>Remaining Credits</th><td>${
-            request.remainingCredits
-          }</td></tr>
-          <tr><th>Request Timestamp</th><td>${
-            request.requestTimestamp
-          }</td></tr>
-          <tr><th>Model</th><td>${request.selectedModelCanonicalName}</td></tr>
-          <tr><th>Total Time in Seconds to Process Request</th><td>${
-            request.elapsedTimeInSeconds
-          }</td></tr>
-        </table>
-      </div>`;
+        <div class="mb-4">
+          <h3 class="font-bold">Inference Result:</h3>
+          ${combinedResults}
+        </div>
+        <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
+        <div class="table-responsive">
+          <table class="table">
+            <tr>
+              <th>
+                ${
+                  request.selectedInferenceType ===
+                  "ask_question_about_an_image"
+                    ? "Question"
+                    : request.selectedInferenceType === "embedding_document"
+                    ? "Input Document Name"
+                    : request.selectedInferenceType === "text_to_image"
+                    ? "Image Generation Prompt"
+                    : "Input Prompt to LLM"
+                }
+              </th>
+              <td>
+                ${
+                  request.selectedInferenceType ===
+                  "ask_question_about_an_image"
+                    ? request.inputFields.question
+                    : request.selectedInferenceType === "embedding_document"
+                    ? request.inputFields.document_file_name
+                    : request.selectedInferenceType === "text_to_image"
+                    ? request.inputFields.imagePrompt
+                    : request.prompt
+                }
+              </td>
+            </tr>
+            <tr><th>Actual Cost (Credits)</th><td>${
+              request.actualCreditsUsed
+            }</td></tr>
+            <tr><th>Remaining Credits</th><td>${
+              request.remainingCredits
+            }</td></tr>
+            <tr><th>Request Timestamp</th><td>${
+              request.requestTimestamp
+            }</td></tr>
+            <tr><th>Model</th><td>${
+              request.selectedModelCanonicalName
+            }</td></tr>
+            <tr><th>Total Time in Seconds to Process Request</th><td>${
+              request.elapsedTimeInSeconds
+            }</td></tr>
+          </table>
+        </div>`;
+
         renderMarkdown();
       }
 
