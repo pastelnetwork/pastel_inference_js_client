@@ -68,17 +68,26 @@ async function getLocalRPCSettings(
   let rpcuser = "";
   let rpcpassword = "";
   for (const line of lines) {
-    if (line.startsWith("rpcport")) {
-      rpcport = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpcuser")) {
-      rpcuser = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpcpassword")) {
-      rpcpassword = line.split("=")[1]?.trim();
-    } else if (line.startsWith("rpchost")) {
-      // Skip rpchost
-    } else if (line?.trim() !== "") {
-      const [currentFlag, currentValue] = line?.trim().split("=");
-      otherFlags[currentFlag?.trim()] = currentValue?.trim();
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue; // Ignore blank lines and comments
+    }
+    if (trimmedLine.includes("=")) {
+      const [key, value] = trimmedLine.split("=", 2);
+      const trimmedKey = key.trim();
+      const trimmedValue = value.trim();
+
+      if (trimmedKey === "rpcport") {
+        rpcport = trimmedValue;
+      } else if (trimmedKey === "rpcuser") {
+        rpcuser = trimmedValue;
+      } else if (trimmedKey === "rpcpassword") {
+        rpcpassword = trimmedValue;
+      } else if (trimmedKey === "rpchost") {
+        rpchost = trimmedValue;
+      } else {
+        otherFlags[trimmedKey] = trimmedValue;
+      }
     }
   }
   return { rpchost, rpcport, rpcuser, rpcpassword, otherFlags };
