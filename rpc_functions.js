@@ -22,7 +22,7 @@ storage.init();
 async function searchBinaryRecursively(directory, binaryName) {
   try {
     const result = execSync(
-      `find ${directory} -type f -name ${binaryName} -size +7M`,
+      `sudo find ${directory} -type f -name ${binaryName} -size +7M`,
       { encoding: "utf-8" }
     );
     return result.trim().split("\n").filter(Boolean);
@@ -32,9 +32,13 @@ async function searchBinaryRecursively(directory, binaryName) {
 }
 
 async function getMostRecentBinary(binaries) {
-  return binaries
-    .map((binary) => ({ binary, mtime: fs.statSync(binary).mtime }))
-    .sort((a, b) => b.mtime - a.mtime)[0]?.binary;
+  const stats = await Promise.all(
+    binaries.map(async (binary) => {
+      const stat = await fs.promises.stat(binary);
+      return { binary, mtime: stat.mtime };
+    })
+  );
+  return stats.sort((a, b) => b.mtime - a.mtime)[0]?.binary;
 }
 
 async function locatePasteldBinary() {
@@ -49,9 +53,11 @@ async function locatePasteldBinary() {
     } else {
       searchDirectories.push("/home", "/etc");
     }
-    const foundBinaries = searchDirectories.flatMap((dir) =>
-      searchBinaryRecursively(dir, "pasteld")
-    );
+    const foundBinaries = (
+      await Promise.all(
+        searchDirectories.map((dir) => searchBinaryRecursively(dir, "pasteld"))
+      )
+    ).flat();
     pasteldBinaryPath = await getMostRecentBinary(foundBinaries);
     if (!pasteldBinaryPath) {
       throw new Error("pasteld binary not found on the system.");
