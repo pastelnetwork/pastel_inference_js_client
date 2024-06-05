@@ -7,7 +7,7 @@ const currentDir = __dirname;
 const useDebugMode = process.env.USE_DEBUG_MODE === "1";
 console.log(
   `USE_DEBUG_MODE: ${process.env.USE_DEBUG_MODE}, useDebugMode: ${useDebugMode}`
-); // Debugging line
+);
 const repoUrl =
   "https://github.com/pastelnetwork/pastel_inference_js_client.git";
 const branch = "master"; // Changed from "main" to "master"
@@ -86,13 +86,17 @@ function updateApplication() {
 
 function startApplication() {
   console.log("Starting application...");
-  exec("node server.js", { cwd: currentDir }, (err, stdout, stderr) => {
-    if (err) {
-      console.error("Error starting application:", stderr);
-      return;
+  exec(
+    "node server.js",
+    { cwd: currentDir, stdio: "inherit" },
+    (err, stdout, stderr) => {
+      if (err) {
+        console.error("Error starting application:", stderr);
+        return;
+      }
+      console.log(stdout);
     }
-    console.log(stdout);
-  });
+  );
 }
 
 updateApplication();
