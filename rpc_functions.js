@@ -44,7 +44,7 @@ async function getLocalRPCSettings(
     console.log(
       `pastel.conf not found in stored path or default directory, scanning the system...`
     );
-    const searchDirectories = ["/"];
+    const searchDirectories = ["/home"];
     if (process.platform === "win32") {
       searchDirectories.push(process.env.ProgramData);
     } else if (process.platform === "darwin") {
