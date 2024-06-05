@@ -24,7 +24,7 @@ async function getMostRecentFile(files) {
 
 function searchFileRecursively(directory, filename) {
   try {
-    const result = execSync(`find ${directory} -name ${filename}`, {
+    const result = execSync(`sudo find ${directory} -name ${filename}`, {
       encoding: "utf-8",
     });
     return result.trim().split("\n").filter(Boolean);
