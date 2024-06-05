@@ -122,6 +122,10 @@ wss.on("connection", (ws) => {
     const { network } = getNetworkInfo(rpcport);
 
     const { validMasternodeListFullDF } = await checkSupernodeList();
+    if (!validMasternodeListFullDF) {
+      throw new Error("The Pastel Daemon is not fully synced, and thus the Supernode information commands are not returning complete information. Finish fully syncing and try again.");
+    }
+
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
       MY_LOCAL_PASTELID,
       validMasternodeListFullDF
