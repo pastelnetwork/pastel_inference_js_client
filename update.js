@@ -86,7 +86,7 @@ function updateApplication() {
 
 function startApplication() {
   console.log("Starting application...");
-  exec("node index.js", { cwd: currentDir }, (err, stdout, stderr) => {
+  exec("node server.js", { cwd: currentDir }, (err, stdout, stderr) => {
     if (err) {
       console.error("Error starting application:", stderr);
       return;
