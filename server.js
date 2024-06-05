@@ -44,6 +44,7 @@ const {
   getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
 } = require("./utility_functions");
+
 if (!process.env.MY_LOCAL_PASTELID || !process.env.MY_PASTELID_PASSPHRASE) {
   console.error("Required environment variables are not set.");
   process.exit(1); // Exit if essential environment variables are not available
@@ -57,7 +58,6 @@ app.use(bodyParser.json({ limit: "50mb" }));
 const upload = multer({ dest: "uploads/" });
 
 const port = process.env.CLIENT_PORT || 3100;
-
 const webSocketPort = process.env.CLIENT_WEBSOCKET_PORT || 3101;
 
 const wss = new WebSocket.Server({ port: webSocketPort }, () => {
@@ -115,11 +115,15 @@ wss.on("connection", (ws) => {
   });
 });
 
+let rpcport;
+let network;
+
 (async () => {
   try {
     await initializeRPCConnection();
-    const { rpcport } = await getLocalRPCSettings();
-    const { network } = getNetworkInfo(rpcport);
+    const rpcSettings = await getLocalRPCSettings();
+    rpcport = rpcSettings.rpcport;
+    network = getNetworkInfo(rpcport).network;
 
     const { validMasternodeListFullDF } = await checkSupernodeList();
     if (!validMasternodeListFullDF) {
@@ -136,10 +140,6 @@ wss.on("connection", (ws) => {
 
     async function configureRPCAndSetBurnAddress() {
       try {
-        // Get the local RPC settings
-        const { rpcport } = await getLocalRPCSettings();
-        // Initialize the RPC connection
-        await initializeRPCConnection();
         // Initialize variable for the burn address
         let burnAddress;
         // Determine the burn address based on the RPC port
@@ -481,25 +481,7 @@ wss.on("connection", (ws) => {
       upload.single("pastelIDFile"),
       async (req, res) => {
         try {
-          const { rpcport } = req.query; // Get rpcport from query parameters
-          const { network } = getNetworkInfo(rpcport); // Use getNetworkInfo function to get the network type
-          // Determine the destination folder based on the network
-          let destFolder = "";
-          if (network === "mainnet") {
-            destFolder = path.join(process.env.HOME, ".pastel/pastelkeys");
-          } else if (network === "testnet") {
-            destFolder = path.join(
-              process.env.HOME,
-              ".pastel/testnet/pastelkeys"
-            );
-          } else if (network === "devnet") {
-            destFolder = path.join(
-              process.env.HOME,
-              ".pastel/devnet/pastelkeys"
-            );
-          } else {
-            throw new Error(`Unknown network: ${network}`);
-          }
+          const destFolder = getNetworkSpecificDestFolder(network);
           // Ensure the destination folder exists
           fs.mkdirSync(destFolder, { recursive: true });
           // Move the uploaded file to the destination folder
@@ -574,3 +556,15 @@ wss.on("connection", (ws) => {
     process.exit(1);
   }
 })();
+
+function getNetworkSpecificDestFolder(network) {
+  if (network === "mainnet") {
+    return path.join(process.env.HOME, ".pastel/pastelkeys");
+  } else if (network === "testnet") {
+    return path.join(process.env.HOME, ".pastel/testnet/pastelkeys");
+  } else if (network === "devnet") {
+    return path.join(process.env.HOME, ".pastel/devnet/pastelkeys");
+  } else {
+    throw new Error(`Unknown network: ${network}`);
+  }
+}
