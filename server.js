@@ -37,6 +37,8 @@ const {
   getNewAddress,
   checkForPastelIDAndCreateIfNeeded,
   createAndRegisterNewPastelID,
+  stopPastelDaemon,
+  startPastelDaemon,
 } = require("./rpc_functions");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -127,7 +129,9 @@ let network;
 
     const { validMasternodeListFullDF } = await checkSupernodeList();
     if (!validMasternodeListFullDF) {
-      throw new Error("The Pastel Daemon is not fully synced, and thus the Supernode information commands are not returning complete information. Finish fully syncing and try again.");
+      throw new Error(
+        "The Pastel Daemon is not fully synced, and thus the Supernode information commands are not returning complete information. Finish fully syncing and try again."
+      );
     }
 
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
@@ -488,6 +492,12 @@ let network;
           const sourceFilePath = req.file.path;
           const destFilePath = path.join(destFolder, req.file.originalname);
           fs.renameSync(sourceFilePath, destFilePath);
+
+          // Stop the Pastel daemon
+          await stopPastelDaemon();
+          // Start the Pastel daemon
+          await startPastelDaemon();
+
           res.json({
             success: true,
             message: "PastelID imported successfully!",

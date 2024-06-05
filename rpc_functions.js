@@ -11,10 +11,74 @@ const Joi = require("joi");
 const { SupernodeList } = require("./sequelize_data_models");
 const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
-const { execSync } = require("child_process");
+const { execSync, spawn } = require("child_process");
 const storage = require("node-persist");
 
 let rpc_connection;
+
+// Initialize the storage
+storage.init();
+
+async function searchBinaryRecursively(directory, binaryName) {
+  try {
+    const result = execSync(
+      `find ${directory} -type f -name ${binaryName} -size +7M`,
+      { encoding: "utf-8" }
+    );
+    return result.trim().split("\n").filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+}
+
+async function getMostRecentBinary(binaries) {
+  return binaries
+    .map((binary) => ({ binary, mtime: fs.statSync(binary).mtime }))
+    .sort((a, b) => b.mtime - a.mtime)[0]?.binary;
+}
+
+async function locatePasteldBinary() {
+  await storage.init();
+  let pasteldBinaryPath = await storage.getItem("pasteldBinaryPath");
+  if (!pasteldBinaryPath || !fs.existsSync(pasteldBinaryPath)) {
+    const searchDirectories = ["/home", "/usr/local/bin", "/usr/bin"];
+    if (process.platform === "win32") {
+      searchDirectories.push(process.env.ProgramFiles);
+    } else if (process.platform === "darwin") {
+      searchDirectories.push("/Users");
+    } else {
+      searchDirectories.push("/home", "/etc");
+    }
+    const foundBinaries = searchDirectories.flatMap((dir) =>
+      searchBinaryRecursively(dir, "pasteld")
+    );
+    pasteldBinaryPath = await getMostRecentBinary(foundBinaries);
+    if (!pasteldBinaryPath) {
+      throw new Error("pasteld binary not found on the system.");
+    }
+    await storage.setItem("pasteldBinaryPath", pasteldBinaryPath);
+  }
+  return pasteldBinaryPath;
+}
+
+async function startPastelDaemon() {
+  try {
+    const pasteldPath = await locatePasteldBinary();
+    console.log(`Starting pasteld from path: ${pasteldPath}`);
+
+    const pastelDaemon = spawn(pasteldPath, [], { stdio: "inherit" });
+
+    pastelDaemon.on("close", (code) => {
+      console.log(`pasteld process exited with code ${code}`);
+    });
+
+    pastelDaemon.on("error", (err) => {
+      console.error("Error starting pasteld:", err);
+    });
+  } catch (error) {
+    console.error("Failed to start pasteld:", error);
+  }
+}
 
 async function getMostRecentFile(files) {
   return files
@@ -262,6 +326,16 @@ async function checkMasternodeTop() {
     return; // Stop the function if the connection is not available
   }
   const masternodeTopOutput = await rpc_connection.masternode("top");
+  return masternodeTopOutput;
+}
+
+async function stopPastelDaemon() {
+  const isConnectionReady = await waitForRPCConnection();
+  if (!isConnectionReady) {
+    logger.error("RPC connection is not available. Cannot proceed.");
+    return; // Stop the function if the connection is not available
+  }
+  const masternodeTopOutput = await rpc_connection.stop();
   return masternodeTopOutput;
 }
 
@@ -1284,4 +1358,6 @@ module.exports = {
   importWallet,
   registerPastelID,
   rpc_connection,
+  stopPastelDaemon,
+  startPastelDaemon,
 };
