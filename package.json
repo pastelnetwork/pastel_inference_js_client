@@ -4,7 +4,7 @@
   "description": "A JavaScript client for interacting with the Pastel Network and performing inference tasks.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node update.js",
     "dev": "nodemon server.js",
     "test": "jest",
     "lint": "eslint .",
