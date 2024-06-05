@@ -1,9 +1,13 @@
+require("dotenv").config();
 const { exec } = require("child_process");
 const path = require("path");
 const currentDir = __dirname;
 
 // Configuration
 const useDebugMode = process.env.USE_DEBUG_MODE === "1";
+console.log(
+  `USE_DEBUG_MODE: ${process.env.USE_DEBUG_MODE}, useDebugMode: ${useDebugMode}`
+); // Debugging line
 const repoUrl =
   "https://github.com/pastelnetwork/pastel_inference_js_client.git";
 const branch = "master"; // Changed from "main" to "master"
