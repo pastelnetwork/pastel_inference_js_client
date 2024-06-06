@@ -3,11 +3,13 @@ const crypto = require("crypto");
 const zstd = require("zstd-codec").ZstdCodec;
 const axios = require("axios");
 const Sequelize = require("sequelize");
+const ping = require("ping");
 const { logger, safeStringify } = require("./logger");
 
 const {
   verifyMessageWithPastelID,
   getBestBlockHashAndMerkleRoot,
+  checkSupernodeList,
 } = require("./rpc_functions");
 
 const { messageSchema } = require("./validation_schemas");
@@ -90,26 +92,24 @@ async function estimatedMarketPriceOfInferenceCreditsInPSLTerms() {
 function parseAndFormat(value) {
   try {
     if (typeof value === "string") {
-      // Check if the JSON string is already formatted
       if (value.includes("\n")) {
         return value;
       }
-      // Parse JSON string to handle it properly
       const parsedValue = JSON.parse(value);
-      return JSON.stringify(parsedValue, null, 4); // Indent JSON string
+      return JSON.stringify(parsedValue, null, 4);
     }
-    return JSON.stringify(value, null, 4); // Format other values
+    return JSON.stringify(value, null, 4);
   } catch (error) {
-    return value; // Return original value if parsing fails
+    return value;
   }
 }
 
 function prettyJSON(data) {
   if (data instanceof Sequelize.Model) {
-    data = data.get({ plain: true }); // Convert Sequelize models to plain objects
+    data = data.get({ plain: true });
   }
   if (data instanceof Map) {
-    data = Object.fromEntries(data); // Convert Map to object
+    data = Object.fromEntries(data);
   }
   if (Array.isArray(data) || (typeof data === "object" && data !== null)) {
     const formattedData = {};
@@ -117,16 +117,16 @@ function prettyJSON(data) {
       if (typeof value === "string" && key.endsWith("_json")) {
         formattedData[key] = parseAndFormat(value);
       } else if (typeof value === "object" && value !== null) {
-        formattedData[key] = prettyJSON(value); // Recurse for nested objects
+        formattedData[key] = prettyJSON(value);
       } else {
-        formattedData[key] = value; // Handle other types
+        formattedData[key] = value;
       }
     }
-    return JSON.stringify(formattedData, null, 4); // Pretty print the object
+    return JSON.stringify(formattedData, null, 4);
   } else if (typeof data === "string") {
-    return parseAndFormat(data); // Handle strings separately
+    return parseAndFormat(data);
   }
-  return data; // Return data as is for other types
+  return data;
 }
 
 function abbreviateJSON(jsonString, maxLength) {
@@ -175,7 +175,7 @@ function computeSHA3256Hexdigest(input) {
 
 function getSHA256HashOfInputData(inputData) {
   const hash = crypto.createHash("sha3-256");
-  hash.update(inputData, "utf-8"); // Explicitly specifying the encoding
+  hash.update(inputData, "utf-8");
   return hash.digest("hex");
 }
 
@@ -200,10 +200,6 @@ async function calculateXORDistance(pastelID1, pastelID2) {
 }
 
 function adjustJSONSpacing(jsonString) {
-  // Correctly format spaces after colons and commas to match Python's json.dumps()
-  // This regex replaces the colon followed by any amount of whitespace with ": "
-  // and the comma followed by any amount of whitespace with ", "
-  // Ensure it does not match colons within timestamps or other strings
   return jsonString.replace(/(?<!\d):(\s*)/g, ": ").replace(/,(\s*)/g, ", ");
 }
 
@@ -216,22 +212,18 @@ function pythonCompatibleStringify(obj) {
     const priorityKeys = ["challenge", "challenge_id", "challenge_signature"];
     return Object.keys(unsortedObj)
       .sort((a, b) => {
-        // Check if the keys are priority keys
         const aPriority = priorityKeys.indexOf(a);
         const bPriority = priorityKeys.indexOf(b);
 
-        // If both are priority keys, sort them according to their order in priorityKeys
         if (aPriority !== -1 && bPriority !== -1) {
           return aPriority - bPriority;
         }
-        // If only one is a priority key, it should come later
         if (aPriority !== -1) {
-          return 1; // a is a priority key, sort it to end
+          return 1;
         }
         if (bPriority !== -1) {
-          return -1; // b is a priority key, sort it to end
+          return -1;
         }
-        // Normal lexicographical sort for other keys
         return a.localeCompare(b);
       })
       .reduce((acc, key) => {
@@ -263,10 +255,8 @@ function pythonCompatibleStringify(obj) {
       value.startsWith("{") &&
       value.endsWith("}")
     ) {
-      // If the value is a string that looks like a JSON object, escape the double quotes
       return escapeJsonString(value);
     }
-    // Ensure that numbers are not converted into strings
     if (typeof value === "number") {
       return value;
     }
@@ -274,7 +264,6 @@ function pythonCompatibleStringify(obj) {
   }
   const sortedObject = sortObjectByKeys(obj);
   let jsonString = JSON.stringify(sortedObject, customReplacer);
-  // Remove quotes around "true" and "false"
   jsonString = jsonString.replace(/"(true|false)"/g, "$1");
   jsonString = adjustJSONSpacing(jsonString);
   return jsonString;
@@ -346,7 +335,6 @@ async function computeSHA3256HashOfSQLModelResponseFields(modelInstance) {
 
 async function prepareModelForEndpoint(modelInstance) {
   let preparedModelInstance = {};
-  // Extract the plain object if it's a Sequelize model or already a plain object
   let instanceData =
     typeof modelInstance.get === "function"
       ? modelInstance.get({ plain: true })
@@ -354,26 +342,20 @@ async function prepareModelForEndpoint(modelInstance) {
   for (const key in instanceData) {
     if (Object.prototype.hasOwnProperty.call(instanceData, key)) {
       if (key.endsWith("_json")) {
-        // Check if the property is already a string that needs to be parsed
         if (typeof instanceData[key] === "string") {
           try {
-            // Parse the JSON string to an object
             const parsedJson = JSON.parse(instanceData[key]);
-            // Apply Python-compatible stringification to the parsed object
             preparedModelInstance[key] = pythonCompatibleStringify(parsedJson);
           } catch (e) {
             console.error("Failed to parse JSON for key:", key, "Error:", e);
-            // Optionally handle the error, e.g., by not modifying the original value
             preparedModelInstance[key] = instanceData[key];
           }
         } else {
-          // If it's already an object, apply Python-compatible stringification
           preparedModelInstance[key] = pythonCompatibleStringify(
             instanceData[key]
           );
         }
       } else {
-        // Copy other properties as they are
         preparedModelInstance[key] = instanceData[key];
       }
     }
@@ -382,7 +364,6 @@ async function prepareModelForEndpoint(modelInstance) {
 }
 
 function removeSequelizeFields(plainObject) {
-  // Define the fields to remove from the object
   const fieldsToRemove = [
     "id",
     "_changed",
@@ -392,9 +373,7 @@ function removeSequelizeFields(plainObject) {
     "isNewRecord",
     "uniqno",
   ];
-  // Iterate over each property in the object
   Object.keys(plainObject).forEach((fieldName) => {
-    // If the field is one of those we want to remove, delete it from the object
     if (fieldsToRemove.includes(fieldName)) {
       delete plainObject[fieldName];
     }
@@ -403,7 +382,6 @@ function removeSequelizeFields(plainObject) {
 
 async function prepareModelForValidation(modelInstance) {
   let preparedModelInstance;
-  // Check if modelInstance is a Sequelize model or similar
   if (typeof modelInstance.get === "function") {
     preparedModelInstance = modelInstance.get({ plain: true });
   } else if (typeof modelInstance === "object") {
@@ -411,7 +389,6 @@ async function prepareModelForValidation(modelInstance) {
   } else {
     throw new Error("Invalid modelInstance type");
   }
-  // Dynamically parse properties ending with `_json` if they are strings
   Object.keys(preparedModelInstance).forEach((key) => {
     if (
       key.endsWith("_json") &&
@@ -506,10 +483,15 @@ async function validateHashFields(modelInstance, validationErrors) {
 
 async function getClosestSupernodePastelIDFromList(
   localPastelID,
-  supernodePastelIDs
+  supernodePastelIDs,
+  maxResponseTimeInMilliseconds = 800
 ) {
+  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
+    supernodePastelIDs,
+    maxResponseTimeInMilliseconds
+  );
   const xorDistances = await Promise.all(
-    supernodePastelIDs.map(async (supernodePastelID) => {
+    filteredSupernodePastelIDs.map(async (supernodePastelID) => {
       const distance = await calculateXORDistance(
         localPastelID,
         supernodePastelID
@@ -526,18 +508,15 @@ async function getClosestSupernodePastelIDFromList(
 }
 
 function checkIfPastelIDIsValid(inputString) {
-  // Define the regex pattern to match the conditions:
-  // Starts with 'jX'; Followed by characters that are only alphanumeric and are shown in the example;
   const pattern = /^jX[A-Za-z0-9]{84}$/;
   return pattern.test(inputString);
 }
 
 async function getSupernodeUrlFromPastelID(pastelID, supernodeListDF) {
-  const isValidPastelID = checkIfPastelIDIsValid(pastelID); // Ensure this function is defined to validate PastelIDs
+  const isValidPastelID = checkIfPastelIDIsValid(pastelID);
   if (!isValidPastelID) {
     throw new Error(`Invalid PastelID: ${pastelID}`);
   }
-  // Find the supernode entry with the matching 'extKey'
   const supernodeEntry = supernodeListDF.find(
     (node) => node.extKey === pastelID
   );
@@ -546,7 +525,6 @@ async function getSupernodeUrlFromPastelID(pastelID, supernodeListDF) {
       `Supernode with PastelID ${pastelID} not found in the supernode list`
     );
   }
-  // Extract the IP address from the 'ipaddress_port' string
   const ipaddress = supernodeEntry["ipaddress_port"].split(":")[0];
   const supernodeURL = `http://${ipaddress}:7123`;
   return supernodeURL;
@@ -559,12 +537,11 @@ async function validatePastelIDSignatureFields(
   let lastSignatureFieldName = null;
   let lastHashFieldName = null;
   let firstPastelID;
-  let pastelID, messageToVerify, signature; // Declare these variables in function scope
-  // Determine if the modelInstance is a Sequelize model or a plain object
+  let pastelID, messageToVerify, signature;
+
   const fields = modelInstance.dataValues
     ? modelInstance.dataValues
     : modelInstance;
-  // Look for the first PastelID field
   for (const fieldName in fields) {
     if (
       fieldName.toLowerCase().includes("_pastelid") &&
@@ -574,7 +551,6 @@ async function validatePastelIDSignatureFields(
       break;
     }
   }
-  // Identify the relevant fields for hash and signature
   for (const fieldName in fields) {
     if (fieldName.includes("_signature_on_")) {
       lastSignatureFieldName = fieldName;
@@ -585,7 +561,6 @@ async function validatePastelIDSignatureFields(
       lastHashFieldName = fieldName;
     }
   }
-  // Check if the field might be embedded in JSON
   const embeddedField =
     fields[
       "supernode_pastelid_and_signature_on_inference_request_response_hash"
@@ -594,12 +569,12 @@ async function validatePastelIDSignatureFields(
     try {
       const parsedData = JSON.parse(embeddedField);
       firstPastelID = parsedData["signing_sn_pastelid"];
-      signature = parsedData["sn_signature_on_response_hash"]; // Correctly retrieve signature
+      signature = parsedData["sn_signature_on_response_hash"];
     } catch (e) {
       validationErrors.push(
         "Error parsing JSON from signature field: " + e.message
       );
-      return; // Exit if JSON parsing fails
+      return;
     }
   }
   if (
@@ -611,7 +586,6 @@ async function validatePastelIDSignatureFields(
     pastelID = firstPastelID;
     messageToVerify = fields[lastHashFieldName];
     if (!embeddedField) {
-      // If not from embedded field, fetch normally
       signature = fields[lastSignatureFieldName];
     }
     const verificationResult = await verifyMessageWithPastelID(
@@ -631,15 +605,17 @@ async function validatePastelIDSignatureFields(
 
 async function getClosestSupernodeToPastelIDURL(
   inputPastelID,
-  supernodeListDF
+  supernodeListDF,
+  maxResponseTimeInMilliseconds = 800
 ) {
-  if (supernodeListDF.length > 0) {
-    const listOfSupernodePastelIDs = supernodeListDF.map(
-      ({ extKey }) => extKey
-    );
+  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
+    supernodeListDF,
+    maxResponseTimeInMilliseconds
+  );
+  if (filteredSupernodePastelIDs.length > 0) {
     const closestSupernodePastelID = await getClosestSupernodePastelIDFromList(
       inputPastelID,
-      listOfSupernodePastelIDs
+      filteredSupernodePastelIDs
     );
     const supernodeURL = await getSupernodeUrlFromPastelID(
       closestSupernodePastelID,
@@ -653,21 +629,32 @@ async function getClosestSupernodeToPastelIDURL(
 async function getNClosestSupernodesToPastelIDURLs(
   n,
   inputPastelID,
-  supernodeListDF
+  supernodeListDF,
+  maxResponseTimeInMilliseconds = 800
 ) {
+  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
+    supernodeListDF,
+    maxResponseTimeInMilliseconds
+  );
   const xorDistances = await Promise.all(
-    supernodeListDF.map(async ({ extKey, ipaddress_port: ipAddressPort }) => {
-      const distance = await calculateXORDistance(inputPastelID, extKey);
+    filteredSupernodePastelIDs.map(async (supernodePastelID) => {
+      const supernode = supernodeListDF.find(
+        (node) => node.extKey === supernodePastelID
+      );
+      const distance = await calculateXORDistance(
+        inputPastelID,
+        supernodePastelID
+      );
       return {
-        pastelID: extKey,
-        url: `http://${ipAddressPort.split(":")[0]}:7123`,
+        pastelID: supernodePastelID,
+        url: `http://${supernode.ipaddress_port.split(":")[0]}:7123`,
         distance,
       };
     })
   );
   const sortedXorDistances = xorDistances.sort((a, b) => {
-    if (a.distance > b.distance) return 1;
     if (a.distance < b.distance) return -1;
+    if (a.distance > b.distance) return 1;
     return 0;
   });
   const closestSupernodes = sortedXorDistances.slice(0, n);
@@ -956,6 +943,40 @@ function validateInferenceData(inferenceResultDict, auditResults) {
   return validationResults;
 }
 
+async function filterSupernodesByPingResponseTime(
+  supernodeList,
+  maxResponseTimeInMilliseconds = 800
+) {
+  // Fetch the full supernode list if only pastelIDs are provided
+  let fullSupernodeList = supernodeList;
+  if (typeof supernodeList[0] === "string") {
+    const { validMasternodeListFullDF } = await checkSupernodeList();
+    fullSupernodeList = validMasternodeListFullDF.filter((supernode) =>
+      supernodeList.includes(supernode.extKey)
+    );
+  }
+
+  const pingResults = await Promise.all(
+    fullSupernodeList.map(async (supernode) => {
+      const ipAddressPort = supernode.ipaddress_port;
+      if (!ipAddressPort) {
+        logger.warn(
+          `Missing ipaddress_port for supernode: ${safeStringify(supernode)}`
+        );
+        return null;
+      }
+      const ipAddress = ipAddressPort.split(":")[0];
+      const res = await ping.promise.probe(ipAddress, {
+        timeout: Math.ceil(maxResponseTimeInMilliseconds / 1000),
+      });
+      return res.time <= maxResponseTimeInMilliseconds ? supernode : null;
+    })
+  );
+  return pingResults
+    .filter((result) => result !== null)
+    .map((supernode) => supernode.extKey);
+}
+
 module.exports = {
   fetchCurrentPSLMarketPrice,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
@@ -986,5 +1007,6 @@ module.exports = {
   validateInferenceResponseFields,
   validateInferenceResultFields,
   validateInferenceData,
+  filterSupernodesByPingResponseTime,
   logger,
 };
