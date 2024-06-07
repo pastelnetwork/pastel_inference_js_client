@@ -43,6 +43,7 @@ const {
   createAndRegisterNewPastelID,
   stopPastelDaemon,
   startPastelDaemon,
+  getMyPslAddressWithLargestBalance
 } = require("./rpc_functions");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -297,6 +298,15 @@ let network;
       try {
         const result = await getMyValidCreditPackTicketsEndToEnd();
         res.json({ success: true, result: result || [] });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.get("/get-my-psl-address-with-largest-balance", async (req, res) => {
+      try {
+        const result = await getMyPslAddressWithLargestBalance();
+        res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }

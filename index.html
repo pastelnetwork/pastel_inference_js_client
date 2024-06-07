@@ -337,6 +337,21 @@
             </script>
           </span>
         </div>
+
+        <div class="mt-4 flex items-center">
+          <label class="block text-bw-700 font-bold mb-2"
+            >My PSL Address:</label
+          >
+          <span id="myPslAddress" class="text-bw-700 ml-2"></span>
+          <button
+            id="copyAddressButton"
+            class="ml-2 tooltip"
+            data-tooltip="Copy address to clipboard"
+          >
+            📋
+          </button>
+        </div>
+
         <button
           id="createPastelIDButton"
           class="btn success outline m-4 hidden"
@@ -947,6 +962,21 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         return blob.size;
       }
 
+      async function getMyPslAddressWithLargestBalance() {
+        try {
+          const response = await axios.get(
+            "/get-my-psl-address-with-largest-balance"
+          );
+          return response.data.result;
+        } catch (error) {
+          console.error(
+            "Error retrieving PSL address with largest balance:",
+            error
+          );
+          return "";
+        }
+      }
+
       function parseAndFormat(value) {
         try {
           if (typeof value === "string") {
@@ -1484,6 +1514,32 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               estimatedTotalCostInPSLForCreditPack
           );
 
+          const walletBalance = parseFloat(
+            document
+              .getElementById("walletBalance")
+              .textContent.replace(/,/g, "")
+          );
+          if (amountToFundCreditTrackingAddress > walletBalance) {
+            const insufficientFundsMessage = `The purchase of this credit pack would require ${amountToFundCreditTrackingAddress.toLocaleString()} PSL, but you only have ${walletBalance.toLocaleString()} PSL in your wallet. Please send at least ${(
+              amountToFundCreditTrackingAddress - walletBalance
+            ).toLocaleString()} more PSL to your wallet and try again. Alternatively, you can reduce the number of credits in the credit pack you are trying to purchase to ${Math.floor(
+              walletBalance /
+                (estimatedTotalCostInPSLForCreditPack / numCredits)
+            ).toLocaleString()} credits instead of ${numCredits.toLocaleString()} credits.`;
+
+            const errorMessageElement = document.createElement("div");
+            errorMessageElement.classList.add(
+              "text-red-800",
+              "font-bold",
+              "mt-4"
+            );
+            errorMessageElement.textContent = insufficientFundsMessage;
+            statusContent.appendChild(errorMessageElement);
+
+            console.error(insufficientFundsMessage);
+            throw new Error(insufficientFundsMessage);
+          }
+
           const response = await axios.post("/create-and-fund-new-address", {
             amount: amountToFundCreditTrackingAddress,
           });
@@ -1849,6 +1905,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           }
         }
 
+        try {
+          const myPslAddress = await getMyPslAddressWithLargestBalance();
+          document.getElementById("myPslAddress").textContent = myPslAddress;
+        } catch (error) {
+          console.error(
+            "Error displaying PSL address with largest balance:",
+            error
+          );
+        }
+
         function displayMessage(message, isSuccess) {
           messageContainer.innerHTML = `<p class="${
             isSuccess ? "text-green-600" : "text-red-600"
@@ -2079,6 +2145,47 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           });
         });
       }
+
+      document
+        .getElementById("copyAddressButton")
+        .addEventListener("click", () => {
+          const addressElement = document.getElementById("myPslAddress");
+          const address = addressElement.textContent;
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(address).then(() => {
+              const tooltip = document.getElementById("copyAddressButton");
+              tooltip.setAttribute(
+                "data-tooltip",
+                "Copied address to clipboard!"
+              );
+
+              setTimeout(() => {
+                tooltip.setAttribute(
+                  "data-tooltip",
+                  "Copy address to clipboard"
+                );
+              }, 2000);
+            });
+          } else {
+            const tempInput = document.createElement("input");
+            tempInput.value = address;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            const tooltip = document.getElementById("copyAddressButton");
+            tooltip.setAttribute(
+              "data-tooltip",
+              "Copied address to clipboard!"
+            );
+
+            setTimeout(() => {
+              tooltip.setAttribute("data-tooltip", "Copy address to clipboard");
+            }, 2000);
+          }
+        });
 
       document.addEventListener("DOMContentLoaded", () => {
         handleCreditPackSelection();
@@ -3203,11 +3310,19 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             "Initializing ticket creation...",
             statusContent
           );
-          await createNewCreditPackTicket(
-            numCredits,
-            maxTotalPrice,
-            maxPerCreditPrice
-          );
+          try {
+            await createNewCreditPackTicket(
+              numCredits,
+              maxTotalPrice,
+              maxPerCreditPrice
+            );
+          } catch (error) {
+            console.error("Error creating credit pack ticket:", error.message);
+            logCreateTicketStatusMessage(
+              `Failed to create credit pack ticket: ${error.message}`,
+              statusContent
+            );
+          }
         });
 
         // Add event listener to format and update raw values on input change

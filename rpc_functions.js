@@ -698,6 +698,32 @@ function formatNumberWithCommas(number) {
   return new Intl.NumberFormat("en-US").format(number);
 }
 
+async function getMyPslAddressWithLargestBalance() {
+  const isConnectionReady = await waitForRPCConnection();
+  if (!isConnectionReady) {
+    logger.error("RPC connection is not available. Cannot proceed.");
+    return; // Stop the function if the connection is not available
+  }
+  try {
+    const addressAmounts = await rpc_connection.listaddressamounts();
+    const addressWithLargestBalance = Object.keys(addressAmounts).reduce(
+      (maxAddress, currentAddress) => {
+        return addressAmounts[currentAddress] >
+          (addressAmounts[maxAddress] || 0)
+          ? currentAddress
+          : maxAddress;
+      },
+      null
+    );
+    return addressWithLargestBalance;
+  } catch (error) {
+    logger.error(
+      `Error in getMyPslAddressWithLargestBalance: ${safeStringify(error)}`
+    );
+    throw error;
+  }
+}
+
 async function createAndFundNewPSLCreditTrackingAddress(
   amountOfPSLToFundAddressWith
 ) {
@@ -1413,4 +1439,5 @@ module.exports = {
   rpc_connection,
   stopPastelDaemon,
   startPastelDaemon,
+  getMyPslAddressWithLargestBalance,
 };
