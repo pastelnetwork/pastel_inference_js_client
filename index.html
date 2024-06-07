@@ -3163,7 +3163,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       function logMessageToTerminal(term, logMessage) {
-        const cleanMessage = cleanAndFormatMessage(logMessage.message);
+        // Ensure logMessage.message is a string before cleaning and formatting
+        const message =
+          typeof logMessage.message === "string" ? logMessage.message : "";
+        const cleanMessage = cleanAndFormatMessage(message);
+        if (typeof cleanMessage !== "string") {
+          console.error("cleanMessage is not a string:", cleanMessage);
+          return; // Exit the function to prevent further errors
+        }
         const parts = cleanMessage.split(/(\{[\s\S]*?\})/);
         const formattedParts = parts
           .map((part) => {
@@ -3181,13 +3188,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               }
             } catch (e) {
               // If parsing fails, fall through to return the part as plain text
+              console.error("JSON parsing error:", e);
             }
             return part;
           })
           .join("");
-
-        const timestamp = new Date(logMessage.timestamp).toISOString();
-        const logLevel = logMessage.level;
+        const timestamp = logMessage.timestamp
+          ? new Date(logMessage.timestamp).toISOString()
+          : "Invalid timestamp";
+        const logLevel = logMessage.level || "Unknown level";
         const messageLines =
           `[${timestamp}] [${logLevel}] ${formattedParts}`.split("\n");
         messageLines.forEach((line) => term.writeln(line));
