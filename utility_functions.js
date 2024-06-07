@@ -5,6 +5,7 @@ const axios = require("axios");
 const Sequelize = require("sequelize");
 const ping = require("ping");
 const { logger, safeStringify } = require("./logger");
+const supernodeCacheStorage = require("node-persist");
 
 const {
   verifyMessageWithPastelID,
@@ -25,6 +26,10 @@ const MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING =
 const MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS = parseInt(
   process.env.MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS
 );
+
+async function initializeSupernodeCacheStorage() {
+  await supernodeCacheStorage.init({ dir: "./supernode-cache" });
+}
 
 async function fetchCurrentPSLMarketPrice() {
   async function checkPrices() {
@@ -486,10 +491,12 @@ async function getClosestSupernodePastelIDFromList(
   supernodePastelIDs,
   maxResponseTimeInMilliseconds = 800
 ) {
-  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
-    supernodePastelIDs,
-    maxResponseTimeInMilliseconds
-  );
+  await initializeSupernodeCacheStorage();
+  const filteredSupernodePastelIDs =
+    await filterSupernodesByPingResponseTimeAndPortResponse(
+      supernodePastelIDs,
+      maxResponseTimeInMilliseconds
+    );
   const xorDistances = await Promise.all(
     filteredSupernodePastelIDs.map(async (supernodePastelID) => {
       const distance = await calculateXORDistance(
@@ -608,10 +615,15 @@ async function getClosestSupernodeToPastelIDURL(
   supernodeListDF,
   maxResponseTimeInMilliseconds = 800
 ) {
-  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
-    supernodeListDF,
-    maxResponseTimeInMilliseconds
-  );
+  if (!inputPastelID) {
+    return null;
+  }
+  await initializeSupernodeCacheStorage();
+  const filteredSupernodePastelIDs =
+    await filterSupernodesByPingResponseTimeAndPortResponse(
+      supernodeListDF,
+      maxResponseTimeInMilliseconds
+    );
   if (filteredSupernodePastelIDs.length > 0) {
     const closestSupernodePastelID = await getClosestSupernodePastelIDFromList(
       inputPastelID,
@@ -632,10 +644,15 @@ async function getNClosestSupernodesToPastelIDURLs(
   supernodeListDF,
   maxResponseTimeInMilliseconds = 800
 ) {
-  const filteredSupernodePastelIDs = await filterSupernodesByPingResponseTime(
-    supernodeListDF,
-    maxResponseTimeInMilliseconds
-  );
+  if (!inputPastelID) {
+    return null;
+  }
+  await initializeSupernodeCacheStorage();
+  const filteredSupernodePastelIDs =
+    await filterSupernodesByPingResponseTimeAndPortResponse(
+      supernodeListDF,
+      maxResponseTimeInMilliseconds
+    );
   const xorDistances = await Promise.all(
     filteredSupernodePastelIDs.map(async (supernodePastelID) => {
       const supernode = supernodeListDF.find(
@@ -943,10 +960,18 @@ function validateInferenceData(inferenceResultDict, auditResults) {
   return validationResults;
 }
 
-async function filterSupernodesByPingResponseTime(
+async function filterSupernodesByPingResponseTimeAndPortResponse(
   supernodeList,
   maxResponseTimeInMilliseconds = 800
 ) {
+  const cacheKey = "filteredSupernodes";
+  const cacheExpiry = 3 * 60 * 1000; // 3 minutes in milliseconds
+  const currentTime = Date.now();
+  // Retrieve cached data
+  const cachedData = await supernodeCacheStorage.getItem(cacheKey);
+  if (cachedData && currentTime - cachedData.timestamp < cacheExpiry) {
+    return cachedData.filteredSupernodes;
+  }
   // Fetch the full supernode list if only pastelIDs are provided
   let fullSupernodeList = supernodeList;
   if (typeof supernodeList[0] === "string") {
@@ -955,26 +980,37 @@ async function filterSupernodesByPingResponseTime(
       supernodeList.includes(supernode.extKey)
     );
   }
-
   const pingResults = await Promise.all(
     fullSupernodeList.map(async (supernode) => {
-      const ipAddressPort = supernode.ipaddress_port;
-      if (!ipAddressPort) {
-        logger.warn(
-          `Missing ipaddress_port for supernode: ${safeStringify(supernode)}`
-        );
+      try {
+        const ipAddressPort = supernode.ipaddress_port;
+        if (!ipAddressPort) return null;
+        const ipAddress = ipAddressPort.split(":")[0];
+        const pingResponse = await ping.promise.probe(ipAddress, {
+          timeout: Math.ceil(maxResponseTimeInMilliseconds / 1000),
+        });
+        if (pingResponse.time > maxResponseTimeInMilliseconds) return null;
+        await axios.get(`http://${ipAddress}:7123`, {
+          timeout: maxResponseTimeInMilliseconds,
+        });
+        await axios.get(`http://${ipAddress}:8089`, {
+          timeout: maxResponseTimeInMilliseconds,
+        });
+        return supernode;
+      } catch (error) {
         return null;
       }
-      const ipAddress = ipAddressPort.split(":")[0];
-      const res = await ping.promise.probe(ipAddress, {
-        timeout: Math.ceil(maxResponseTimeInMilliseconds / 1000),
-      });
-      return res.time <= maxResponseTimeInMilliseconds ? supernode : null;
     })
   );
-  return pingResults
+  const filteredSupernodes = pingResults
     .filter((result) => result !== null)
     .map((supernode) => supernode.extKey);
+  // Update cache
+  await supernodeCacheStorage.setItem(cacheKey, {
+    timestamp: currentTime,
+    filteredSupernodes,
+  });
+  return filteredSupernodes;
 }
 
 module.exports = {
@@ -1007,6 +1043,6 @@ module.exports = {
   validateInferenceResponseFields,
   validateInferenceResultFields,
   validateInferenceData,
-  filterSupernodesByPingResponseTime,
+  filterSupernodesByPingResponseTimeAndPortResponse,
   logger,
 };

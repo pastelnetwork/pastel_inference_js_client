@@ -5,6 +5,10 @@ const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const {
+  getCurrentPastelIdAndPassphrase,
+  setPastelIdAndPassphrase,
+} = require("./storage");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 
 const {
@@ -35,7 +39,7 @@ const {
   getBalance,
   getWalletInfo,
   getNewAddress,
-  checkForPastelIDAndCreateIfNeeded,
+  checkForRegisteredPastelID,
   createAndRegisterNewPastelID,
   stopPastelDaemon,
   startPastelDaemon,
@@ -47,12 +51,8 @@ const {
   getNClosestSupernodesToPastelIDURLs,
 } = require("./utility_functions");
 
-if (!process.env.MY_LOCAL_PASTELID || !process.env.MY_PASTELID_PASSPHRASE) {
-  console.error("Required environment variables are not set.");
-  process.exit(1); // Exit if essential environment variables are not available
-}
-const MY_LOCAL_PASTELID = process.env.MY_LOCAL_PASTELID;
-const MY_PASTELID_PASSPHRASE = process.env.MY_PASTELID_PASSPHRASE;
+let MY_LOCAL_PASTELID = "";
+let MY_PASTELID_PASSPHRASE = "";
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
@@ -87,14 +87,12 @@ app.get("/ws-url", (req, res) => {
 wss.on("connection", (ws) => {
   logger.info(`Client connected: ${ws}`);
 
-  // Send the buffered log entries to the newly connected client
   logBuffer.forEach((logEntry) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(logEntry);
     }
   });
 
-  // Stream new log entries to the client
   const logListener = (logEntry) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(logEntry);
@@ -127,6 +125,10 @@ let network;
     rpcport = rpcSettings.rpcport;
     network = getNetworkInfo(rpcport).network;
 
+    const pastelData = await getCurrentPastelIdAndPassphrase();
+    MY_LOCAL_PASTELID = pastelData.pastelID;
+    MY_PASTELID_PASSPHRASE = pastelData.passphrase;
+
     const { validMasternodeListFullDF } = await checkSupernodeList();
     if (!validMasternodeListFullDF) {
       throw new Error(
@@ -134,19 +136,20 @@ let network;
       );
     }
 
-    const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
-      MY_LOCAL_PASTELID,
-      validMasternodeListFullDF
-    );
-    if (!supernodeURL) {
-      throw new Error("Supernode URL is undefined");
+    let supernodeURL;
+    if (MY_LOCAL_PASTELID !== "") {
+      const result = await getClosestSupernodeToPastelIDURL(
+        MY_LOCAL_PASTELID,
+        validMasternodeListFullDF
+      );
+      if (result) {
+        supernodeURL = result.url;
+      }
     }
 
     async function configureRPCAndSetBurnAddress() {
       try {
-        // Initialize variable for the burn address
         let burnAddress;
-        // Determine the burn address based on the RPC port
         if (rpcport === "9932") {
           burnAddress = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd";
         } else if (rpcport === "19932") {
@@ -154,13 +157,12 @@ let network;
         } else if (rpcport === "29932") {
           burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
         } else {
-          // Handle cases where the port does not match expected values
           throw new Error(`Unsupported RPC port: ${rpcport}`);
         }
-        return burnAddress; // Return the burn address
+        return burnAddress;
       } catch (error) {
         console.error("Failed to configure RPC or set burn address:", error);
-        throw error; // Re-throw the error if you need to handle it further up the chain
+        throw error;
       }
     }
 
@@ -174,7 +176,7 @@ let network;
 
     app.get("/get-network-info", async (req, res) => {
       try {
-        res.json({ network }); // Ensure it's an object with a key
+        res.json({ network });
       } catch (error) {
         console.error("Error getting network info:", error);
         res
@@ -202,6 +204,14 @@ let network;
 
     app.get("/get-inference-model-menu", async (req, res) => {
       try {
+        if (!MY_LOCAL_PASTELID || !MY_PASTELID_PASSPHRASE) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              message: "Pastel ID and passphrase not set.",
+            });
+        }
         const pastelInferenceClient = new PastelInferenceClient(
           MY_LOCAL_PASTELID,
           MY_PASTELID_PASSPHRASE
@@ -349,7 +359,7 @@ let network;
       const { filter, minheight } = req.query;
       try {
         const result = await listPastelIDTickets(filter, minheight);
-        console.log("Pastel ID Tickets:", result); // Add this line
+        console.log("Pastel ID Tickets:", result);
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -473,7 +483,7 @@ let network;
     app.post("/check-for-pastel-id", async (req, res) => {
       const { autoRegister } = req.body;
       try {
-        const result = await checkForPastelIDAndCreateIfNeeded(autoRegister);
+        const result = await checkForRegisteredPastelID(autoRegister);
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -486,16 +496,12 @@ let network;
       async (req, res) => {
         try {
           const destFolder = getNetworkSpecificDestFolder(network);
-          // Ensure the destination folder exists
           fs.mkdirSync(destFolder, { recursive: true });
-          // Move the uploaded file to the destination folder
           const sourceFilePath = req.file.path;
           const destFilePath = path.join(destFolder, req.file.originalname);
           fs.renameSync(sourceFilePath, destFilePath);
 
-          // Stop the Pastel daemon
           await stopPastelDaemon();
-          // Start the Pastel daemon
           await startPastelDaemon();
 
           res.json({
@@ -537,24 +543,19 @@ let network;
     app.post("/set-pastel-id-passphrase", async (req, res) => {
       const { pastelID, passphrase } = req.body;
       try {
-        const envPath = path.join(__dirname, ".env");
-        const envVars = fs.readFileSync(envPath, "utf8").split("\n");
-        const newEnvVars = envVars.map((line) => {
-          if (line.startsWith("MY_LOCAL_PASTELID=")) {
-            return `MY_LOCAL_PASTELID=${pastelID}`;
-          } else if (line.startsWith("MY_PASTELID_PASSPHRASE=")) {
-            return `MY_PASTELID_PASSPHRASE=${passphrase}`;
-          }
-          return line;
-        });
-        fs.writeFileSync(envPath, newEnvVars.join("\n"));
+        await setPastelIdAndPassphrase(pastelID, passphrase);
+        MY_LOCAL_PASTELID = pastelID;
+        MY_PASTELID_PASSPHRASE = passphrase;
         res.json({ success: true });
+        app.emit("pastelIDAndPassphraseSet");
       } catch (error) {
         console.error("Error setting PastelID and passphrase:", error);
-        res.status(500).json({
-          success: false,
-          message: "Failed to set PastelID and passphrase",
-        });
+        res
+          .status(500)
+          .json({
+            success: false,
+            message: "Failed to set PastelID and passphrase",
+          });
       }
     });
 

@@ -1010,6 +1010,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         return result;
       }
 
+      async function fetchValidPastelIDs() {
+        try {
+          const response = await axios.get("/list-pastel-id-tickets", {
+            params: { filter: "mine" },
+          });
+          return response.data.result.map((ticket) => ticket.ticket.pastelID);
+        } catch (error) {
+          console.error("Error retrieving Pastel ID tickets:", error);
+          return [];
+        }
+      }
+
       function formatAndHighlightMessage(message) {
         const parts = message.split(/(\{[\s\S]*?\})/);
         return parts
@@ -1074,6 +1086,70 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         );
       }
 
+      async function setSelectedPastelIDAndPassphrase(selectedPastelID) {
+        let storedPassphrase = localStorage.getItem(selectedPastelID);
+
+        if (!storedPassphrase) {
+          const dialogHtml = `
+            <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
+              <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
+                <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
+                <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
+                <input type="password" id="passphraseInput" style="margin-bottom: 10px; padding: 5px; width: 100%;">
+                <div>
+                  <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
+                </div>
+              </div>
+            </div>
+          `;
+
+          const dialog = document.createElement("div");
+          dialog.innerHTML = dialogHtml;
+          document.body.appendChild(dialog);
+
+          return new Promise((resolve) => {
+            const submitButton = dialog.querySelector("#submitPassphrase");
+            const passphraseInput = dialog.querySelector("#passphraseInput");
+
+            submitButton.addEventListener("click", async () => {
+              const inputPassphrase = passphraseInput.value;
+              if (inputPassphrase) {
+                try {
+                  localStorage.setItem(selectedPastelID, btoa(inputPassphrase));
+                  storedPassphrase = btoa(inputPassphrase);
+                  dialog.remove();
+                  await postPassphrase(selectedPastelID, storedPassphrase);
+                  resolve();
+                } catch (error) {
+                  console.error("Error handling passphrase:", error);
+                }
+              } else {
+                console.error("No passphrase entered");
+              }
+            });
+          });
+        } else {
+          await postPassphrase(selectedPastelID, storedPassphrase);
+        }
+
+        async function postPassphrase(pastelID, encodedPassphrase) {
+          try {
+            await axios.post("/set-pastel-id-passphrase", {
+              pastelID: pastelID,
+              passphrase: atob(encodedPassphrase),
+            });
+
+            // Fetch the model menu after setting the PastelID and passphrase
+            await fetchModelMenu();
+
+            // Fetch received messages after setting the PastelID and passphrase
+            await fetchReceivedMessages();
+          } catch (error) {
+            console.error("Error setting PastelID and passphrase:", error);
+          }
+        }
+      }
+
       function togglePastelIDDropdown() {
         const dropdown = document.getElementById("pastelIDDropdown");
         dropdown.classList.toggle("hidden");
@@ -1081,8 +1157,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
 
       function updatePastelIDSelection() {
         const selectedID = document.getElementById("pastelIDDropdown").value;
-        document.getElementById("userPastelID").textContent = selectedID;
-        togglePastelIDDropdown(); // Hide dropdown after selection
+        document.getElementById("userPastelID").textContent =
+          selectedID || "No PastelID selected";
       }
 
       async function checkCreditPackTicketInfo(txid) {
@@ -1504,7 +1580,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           populateModelDropdown();
         } catch (error) {
           console.error("Error fetching model menu:", error);
-          displayError("Failed to load model menu. Please try again later.");
+          //displayError("Failed to load model menu. Please try again later.");
         }
       }
 
@@ -1716,9 +1792,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             displayLoading(false);
             if (response.data.success) {
               displayMessage(
-                `Successfully created and registered a new PastelID! Your new PastelID is ${response.data.PastelID}`,
+                `Successfully created and registered a new PastelID! Your new PastelID is ${response.data.PastelID}; Note that you might need to wait a couple minutes for your PastelID to be confirmed and mined in a Pastel block!`,
                 true
               );
+              localStorage.setItem(response.data.PastelID, btoa(passphrase));
               location.reload(); // Refresh the page to update the UI
             } else {
               displayMessage(response.data.message, false);
@@ -1797,7 +1874,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             .classList.remove("hidden");
         }
       });
-
       document.addEventListener("DOMContentLoaded", async () => {
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");
         const passphraseContainer = document.getElementById(
@@ -1812,8 +1888,34 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         );
         const refreshButton = document.getElementById("refreshButton");
 
-        pastelIDDropdown.addEventListener("change", () => {
+        async function fetchValidPastelIDs() {
+          try {
+            const response = await axios.get("/list-pastel-id-tickets", {
+              params: { filter: "mine" },
+            });
+            return response.data.result.map((ticket) => ticket.ticket.pastelID);
+          } catch (error) {
+            console.error("Error retrieving Pastel ID tickets:", error);
+            return [];
+          }
+        }
+
+        const validPastelIDs = await fetchValidPastelIDs();
+        const storedPastelIDs = Object.keys(localStorage);
+
+        storedPastelIDs.forEach((pastelID) => {
+          if (validPastelIDs.includes(pastelID)) {
+            const option = document.createElement("option");
+            option.value = pastelID;
+            option.textContent = pastelID;
+            pastelIDDropdown.appendChild(option);
+          }
+        });
+
+        pastelIDDropdown.addEventListener("change", async () => {
           const selectedPastelID = pastelIDDropdown.value;
+          document.getElementById("userPastelID").textContent =
+            selectedPastelID || "No PastelID selected";
           if (selectedPastelID) {
             const storedPassphrase = localStorage.getItem(selectedPastelID);
             if (storedPassphrase) {
@@ -1822,6 +1924,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             } else {
               passphraseContainer.classList.remove("hidden");
             }
+            await setSelectedPastelIDAndPassphrase(selectedPastelID);
           } else {
             passphraseContainer.classList.add("hidden");
           }
@@ -1857,8 +1960,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           }
         });
 
-        const pastelIDTickets = await listPastelIDTickets();
-        if (pastelIDTickets.length === 0) {
+        if (validPastelIDs.length === 0) {
           document
             .getElementById("pastelIDDropdownContainer")
             .classList.add("hidden");
@@ -1868,12 +1970,21 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           document
             .getElementById("pastelIDDropdownContainer")
             .classList.remove("hidden");
-          pastelIDTickets.forEach((ticket) => {
-            const option = document.createElement("option");
-            option.value = ticket.ticket.pastelID;
-            option.textContent = ticket.ticket.pastelID;
-            pastelIDDropdown.appendChild(option);
-          });
+        }
+
+        // Call setSelectedPastelIDAndPassphrase based on the number of PastelIDs
+        if (validPastelIDs.length === 1) {
+          const pastelID = validPastelIDs[0];
+          document.getElementById("userPastelID").textContent = pastelID;
+          pastelIDDropdown.value = pastelID; // Set the selected value of the dropdown
+          await setSelectedPastelIDAndPassphrase(pastelID);
+        } else {
+          const selectedPastelID = pastelIDDropdown.value;
+          document.getElementById("userPastelID").textContent =
+            selectedPastelID || "No PastelID selected";
+          if (selectedPastelID) {
+            await setSelectedPastelIDAndPassphrase(selectedPastelID);
+          }
         }
       });
 
@@ -1895,9 +2006,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       document
         .getElementById("refreshButton")
         .addEventListener("click", refreshCreditPackTickets);
-
-      // Fetch the model menu when the page loads
-      fetchModelMenu();
 
       // Handle inference type change
       const inferenceTypeSelect = document.getElementById("inferenceType");
@@ -2738,71 +2846,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             });
           }
         } catch (error) {
-          console.error("Error retrieving received messages:", error);
+          console.log("Error retrieving received messages:", error);
           const receivedMessagesContainer =
             document.getElementById("receivedMessages");
           receivedMessagesContainer.innerHTML =
             "Failed to retrieve received messages. Please try again later.";
         }
       }
-
-      // Fetch received messages when the page loads
-      window.addEventListener("DOMContentLoaded", fetchReceivedMessages);
-
-      window.addEventListener("DOMContentLoaded", async () => {
-        const pastelIDElement = document.getElementById("userPastelID");
-        const pastelIDDropdown = document.getElementById("pastelIDDropdown");
-        const pastelIDDropdownContainer = document.getElementById(
-          "pastelIDDropdownContainer"
-        );
-        const createPastelIDButton = document.getElementById(
-          "createPastelIDButton"
-        );
-        const changePastelIDButton = document.getElementById(
-          "changePastelIDButton"
-        );
-
-        await getMyValidCreditPacks();
-        if (!localStorage.getItem(STORAGE_KEY)) {
-          await getMyValidCreditPacks();
-        }
-
-        try {
-          const response = await axios.get("/list-pastel-id-tickets", {
-            params: { filter: "mine" },
-          });
-          const pastelIDTickets = response.data.result;
-
-          // Clear existing options
-          pastelIDDropdown.innerHTML = "";
-
-          if (pastelIDTickets.length > 0) {
-            pastelIDTickets.forEach((ticket, index) => {
-              const option = document.createElement("option");
-              option.value = ticket.ticket.pastelID;
-              option.textContent = ticket.ticket.pastelID;
-              pastelIDDropdown.appendChild(option);
-              if (index === 0) {
-                pastelIDElement.textContent = ticket.ticket.pastelID; // Display the first PastelID by default
-              }
-            });
-            // Only show the change button and dropdown if there are multiple PastelIDs
-            if (pastelIDTickets.length > 1) {
-              changePastelIDButton.classList.remove("hidden");
-              pastelIDDropdownContainer.classList.remove("hidden");
-            } else {
-              changePastelIDButton.classList.add("hidden");
-              pastelIDDropdownContainer.classList.add("hidden");
-            }
-          } else {
-            pastelIDElement.textContent = "No PastelID found";
-            createPastelIDButton.style.display = "block"; // Show create button if no IDs
-          }
-        } catch (error) {
-          console.error("Error retrieving Pastel ID tickets:", error);
-          pastelIDElement.textContent = "Failed to load PastelIDs";
-        }
-      });
 
       // Handle create PastelID button click
       document

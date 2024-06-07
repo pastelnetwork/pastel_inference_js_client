@@ -22,19 +22,6 @@ To install the Pastel Inference JavaScript Client, you need to have Node.js (ver
 npm install pastel-inference-js-client
 ```
 
-## Configuration
-
-Before using the client, you need to configure it with your Pastel ID and passphrase. You can do this by setting the following environment variables:
-
-- `MY_LOCAL_PASTELID`: Your Pastel ID.
-- `MY_PASTELID_PASSPHRASE`: The passphrase associated with your Pastel ID.
-
-You can set these variables in a `.env` file in the root directory of your project:
-
-```ini
-MY_LOCAL_PASTELID=your_pastel_id
-MY_PASTELID_PASSPHRASE=your_passphrase
-```
 
 ## Inference Client Class and Message Validation
 

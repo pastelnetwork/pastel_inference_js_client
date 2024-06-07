@@ -13,7 +13,7 @@ const { messageSchema, supernodeListSchema } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
 const { execSync, spawn } = require("child_process");
 const storage = require("node-persist");
-
+const { setPastelIdAndPassphrase } = require("./storage");
 let rpc_connection;
 
 // Initialize the storage
@@ -400,9 +400,17 @@ async function sendToAddress(
   const isConnectionReady = await waitForRPCConnection();
   if (!isConnectionReady) {
     logger.error("RPC connection is not available. Cannot proceed.");
-    return; // Stop the function if the connection is not available
+    return { success: false, message: "RPC connection is not available" };
   }
   try {
+    // Check available balance
+    const balance = await getBalance();
+    if (balance < amount) {
+      const message = `Insufficient balance. Available: ${balance}, Required: ${amount}`;
+      logger.error(message);
+      return { success: false, message };
+    }
+    // Proceed with sending the amount
     const result = await rpc_connection.sendtoaddress(
       address,
       amount,
@@ -410,10 +418,13 @@ async function sendToAddress(
       commentTo,
       subtractFeeFromAmount
     );
-    return result;
+    return { success: true, result };
   } catch (error) {
     logger.error(`Error in sendToAddress: ${safeStringify(error)}`);
-    return null;
+    return {
+      success: false,
+      message: `Error in sendToAddress: ${safeStringify(error)}`,
+    };
   }
 }
 
@@ -645,7 +656,7 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       "sign",
       messageToSign,
       pastelid,
-      '"' + passphrase + '"',
+      passphrase,
       "ed448"
     );
     return responseObj.signature;
@@ -697,19 +708,27 @@ async function createAndFundNewPSLCreditTrackingAddress(
   }
   try {
     const newCreditTrackingAddress = await rpc_connection.getnewaddress();
-    const txid = await sendToAddress(
+    const sendResult = await sendToAddress(
       newCreditTrackingAddress,
       amountOfPSLToFundAddressWith,
       "Funding new credit tracking address",
       "",
       false
     );
+    if (!sendResult.success) {
+      logger.error(
+        `Error funding new credit tracking address ${newCreditTrackingAddress} with ${formatNumberWithCommas(
+          amountOfPSLToFundAddressWith
+        )} PSL. Reason: ${sendResult.message}`
+      );
+      return null; // Or handle the error accordingly
+    }
     logger.info(
       `Funded new credit tracking address ${newCreditTrackingAddress} with ${formatNumberWithCommas(
         amountOfPSLToFundAddressWith
-      )} PSL. TXID: ${txid}`
+      )} PSL. TXID: ${sendResult.result}`
     );
-    return { newCreditTrackingAddress, txid };
+    return { newCreditTrackingAddress, txid: sendResult.result };
   } catch (error) {
     logger.error(
       `Error creating and funding new PSL credit tracking address: ${safeStringify(
@@ -867,6 +886,57 @@ async function registerPastelID(pastelid, passphrase, address) {
 }
 
 async function listPastelIDTickets(filter = "mine", minheight = null) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    if (filter !== "mine") {
+      const params = [filter];
+      if (minheight !== null) {
+        params.push(minheight);
+      }
+      const result = await rpc_connection.tickets("list", "id", ...params);
+      logger.info(`Pastel ID Tickets: ${result}`);
+      logger.info(`Listed PastelID tickets with filter: ${filter}`);
+      return result;
+    }
+    // If filter is "mine", combine results from `pastelid list` and `tickets find id <PastelID>`
+    const pastelIDs = await rpc_connection.pastelid("list");
+    const registeredTickets = [];
+
+    for (const pastelIDObj of pastelIDs) {
+      const pastelID = pastelIDObj.PastelID;
+      try {
+        const ticket = await rpc_connection.tickets("find", "id", pastelID);
+        if (ticket && ticket.ticket) {
+          if (minheight === null || ticket.height >= minheight) {
+            registeredTickets.push(ticket);
+          }
+        }
+      } catch (error) {
+        // Handle the case where the PastelID is not registered
+        if (error.message.includes("ticket not found")) {
+          continue;
+        } else {
+          throw error;
+        }
+      }
+    }
+    logger.info(`Registered Pastel ID Tickets: ${registeredTickets}`);
+    logger.info(`Listed registered PastelID tickets with filter: ${filter}`);
+    return registeredTickets;
+  } catch (error) {
+    logger.error(
+      `Error listing PastelID tickets with filter: ${filter}. Error:`,
+      safeStringify(error)
+    );
+    throw error;
+  }
+}
+
+async function listPastelIDTicketsOld(filter = "mine", minheight = null) {
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
@@ -1113,7 +1183,7 @@ async function getNewAddress() {
   }
 }
 
-async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
+async function checkForRegisteredPastelID() {
   try {
     const { rpchost, rpcport, rpcuser, rpcpassword } = getLocalRPCSettings();
     logger.info(
@@ -1133,36 +1203,11 @@ async function checkForPastelIDAndCreateIfNeeded(autoRegister = false) {
         return pastelID;
       }
     }
-    logger.info("No registered Pastel ID found. Checking wallet balance...");
-    const balance = await getBalance();
-    const registrationFee = 1000;
-    const transactionFee = 1;
-    const requiredBalance = registrationFee + transactionFee;
-    if (balance < requiredBalance) {
-      logger.error(
-        `Insufficient balance to register a new Pastel ID. Required: ${requiredBalance} PSL, Available: ${balance} PSL`
-      );
-      logger.info(
-        "Please acquire PSL through the faucet or purchase it on an exchange."
-      );
-      return null;
-    }
-    if (!autoRegister) {
-      const confirmRegistration = await promptUserConfirmation(
-        "Do you want to proceed with registering a new Pastel ID? (yes/no)"
-      );
-      if (confirmRegistration.toLowerCase() !== "yes") {
-        logger.info("User declined to register a new Pastel ID.");
-        return null;
-      }
-    }
-    logger.info("Registering a new Pastel ID...");
-    const newPastelID = await createAndRegisterPastelID(burnAddress);
-    logger.info(`New Pastel ID registered successfully: ${newPastelID}`);
-    return newPastelID;
+    logger.info("No registered Pastel ID found.");
+    return null;
   } catch (error) {
     logger.error(
-      `Error in checkForPastelIDAndCreateIfNeeded: ${safeStringify(error)}`
+      `Error in checkForRegisteredPastelID: ${safeStringify(error)}`
     );
     throw error;
   }
@@ -1281,9 +1326,11 @@ async function createAndRegisterNewPastelID(passphraseForNewPastelID) {
     }
     const newPastelIDResult = await rpc_connection.pastelid(
       "newkey",
-      '"' + passphraseForNewPastelID + '"'
+      passphraseForNewPastelID
     );
     const newPastelID = newPastelIDResult.pastelid;
+    await setPastelIdAndPassphrase(newPastelID, passphraseForNewPastelID);
+
     addressAmounts = await rpc_connection.listaddressamounts();
     fundingAddress = Object.keys(addressAmounts).find(
       (addr) => addressAmounts[addr] >= registrationFee
@@ -1299,7 +1346,7 @@ async function createAndRegisterNewPastelID(passphraseForNewPastelID) {
       "register",
       "id",
       newPastelID,
-      '"' + passphraseForNewPastelID + '"',
+      passphraseForNewPastelID,
       fundingAddress
     );
     return {
@@ -1340,7 +1387,7 @@ module.exports = {
   checkPSLAddressBalanceAlternative,
   createAndFundNewPSLCreditTrackingAddress,
   checkSupernodeList,
-  checkForPastelIDAndCreateIfNeeded,
+  checkForRegisteredPastelID,
   getLocalRPCSettings,
   getNetworkInfo,
   getPastelIDDirectory,

@@ -34,9 +34,11 @@ async function main() {
   const useTestLLMTextCompletion = false;
   const useTestImageGeneration = false;
 
+  const MY_LOCAL_PASTELID = "";
+  const MY_PASTELID_PASSPHRASE = "";
   const inferenceClient = new PastelInferenceClient(
-    process.env.MY_LOCAL_PASTELID,
-    process.env.MY_PASTELID_PASSPHRASE
+    MY_LOCAL_PASTELID,
+    MY_PASTELID_PASSPHRASE
   );
 
   // Define variables to store the credit pack ticket TXID and tracking address
