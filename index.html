@@ -3212,20 +3212,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           };
 
           socket.onmessage = (event) => {
-            const logMessage = JSON.parse(event.data);
-            logMessageToTerminal(term, logMessage);
+            if (event.data) {
+              const logMessage = JSON.parse(event.data);
+              logMessageToTerminal(term, logMessage);
 
-            if (displayInferenceRequestLoggerMessages) {
-              logStatusMessage(logMessage.message);
-            }
+              if (displayInferenceRequestLoggerMessages) {
+                logStatusMessage(logMessage.message);
+              }
 
-            if (displayCreateTicketLoggerMessages) {
-              const statusContainer = document.getElementById(
-                "createTicketStatusContainer"
-              );
-              const statusContent =
-                document.getElementById("createTicketStatus");
-              logCreateTicketStatusMessage(logMessage.message, statusContent);
+              if (displayCreateTicketLoggerMessages) {
+                const statusContainer = document.getElementById(
+                  "createTicketStatusContainer"
+                );
+                const statusContent =
+                  document.getElementById("createTicketStatus");
+                if (logMessage.message) {
+                  logCreateTicketStatusMessage(
+                    logMessage.message,
+                    statusContent
+                  );
+                }
+              }
             }
           };
 
