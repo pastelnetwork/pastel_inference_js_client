@@ -141,6 +141,7 @@ const creditPackPurchaseRequestResponseSchema = Joi.object({
   credit_purchase_request_response_message_version_string:
     Joi.string().required(),
   responding_supernode_pastelid: Joi.string().required(),
+  list_of_blacklisted_supernode_pastelids: Joi.string().required(),
   list_of_potentially_agreeing_supernodes: Joi.string().required(),
   list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms:
     Joi.string().required(),

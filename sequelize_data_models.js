@@ -484,6 +484,10 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    list_of_blacklisted_supernode_pastelids: {
+      type: DataTypes.JSON,
+      allowNull: false,
+    },
     list_of_potentially_agreeing_supernodes: {
       type: DataTypes.JSON,
       allowNull: false,
