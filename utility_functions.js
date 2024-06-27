@@ -161,8 +161,10 @@ function transformCreditPackPurchaseRequestResponse(result) {
   const transformedResult = { ...result };
   const fieldsToConvert = [
     "list_of_potentially_agreeing_supernodes",
+    "list_of_blacklisted_supernode_pastelids",
     "list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms",
-    "agreeing_supernodes_signatures_dict",
+    "list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms_selected_for_signature_inclusion",
+    "selected_agreeing_supernodes_signatures_dict",
   ];
   fieldsToConvert.forEach((field) => {
     if (transformedResult[field]) {

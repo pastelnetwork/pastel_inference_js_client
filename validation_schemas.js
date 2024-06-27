@@ -138,6 +138,8 @@ const creditPackPurchaseRequestResponseSchema = Joi.object({
   credit_usage_tracking_psl_address: Joi.string().required(),
   request_response_timestamp_utc_iso_string: Joi.string().required(),
   request_response_pastel_block_height: Joi.number().integer().required(),
+  best_block_merkle_root: Joi.string().required(),
+  best_block_height: Joi.number().integer().required(),
   credit_purchase_request_response_message_version_string:
     Joi.string().required(),
   responding_supernode_pastelid: Joi.string().required(),
@@ -145,7 +147,9 @@ const creditPackPurchaseRequestResponseSchema = Joi.object({
   list_of_potentially_agreeing_supernodes: Joi.string().required(),
   list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms:
     Joi.string().required(),
-  agreeing_supernodes_signatures_dict: Joi.string().required(),
+  list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms_selected_for_signature_inclusion:
+    Joi.string().required(),
+  selected_agreeing_supernodes_signatures_dict: Joi.string().required(),
   sha3_256_hash_of_credit_pack_purchase_request_response_fields:
     Joi.string().required(),
   responding_supernode_signature_on_credit_pack_purchase_request_response_hash:

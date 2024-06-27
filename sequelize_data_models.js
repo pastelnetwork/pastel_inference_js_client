@@ -476,6 +476,14 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    best_block_merkle_root: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    best_block_height: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     credit_purchase_request_response_message_version_string: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -496,7 +504,12 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       type: DataTypes.JSON,
       allowNull: false,
     },
-    agreeing_supernodes_signatures_dict: {
+    list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms_selected_for_signature_inclusion:
+      {
+        type: DataTypes.JSON,
+        allowNull: false,
+      },
+    selected_agreeing_supernodes_signatures_dict: {
       type: DataTypes.JSON,
       allowNull: false,
     },
