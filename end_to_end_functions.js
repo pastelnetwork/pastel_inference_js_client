@@ -332,26 +332,28 @@ async function handleCreditPackTicketEndToEnd(
       return null;
     }
 
-    for (const supernodePastelID of JSON.parse(
-      signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
-    )) {
-      try {
-        if (checkIfPastelIDIsValid(supernodePastelID)) {
-          const supernodeURL = await getSupernodeUrlFromPastelID(
-            supernodePastelID,
-            validMasternodeListFullDF
-          );
-          await inferenceClient.creditPackPurchaseCompletionAnnouncement(
-            supernodeURL,
-            creditPackPurchaseRequestConfirmation
+    await Promise.all(
+      JSON.parse(
+        signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
+      ).map(async (supernodePastelID) => {
+        try {
+          if (checkIfPastelIDIsValid(supernodePastelID)) {
+            const supernodeURL = await getSupernodeUrlFromPastelID(
+              supernodePastelID,
+              validMasternodeListFullDF
+            );
+            await inferenceClient.creditPackPurchaseCompletionAnnouncement(
+              supernodeURL,
+              creditPackPurchaseRequestConfirmation
+            );
+          }
+        } catch (error) {
+          logger.error(
+            `Error getting Supernode URL for PastelID: ${supernodePastelID}: ${error.message}`
           );
         }
-      } catch (error) {
-        logger.error(
-          `Error getting Supernode URL for PastelID: ${supernodePastelID}: ${error.message}`
-        );
-      }
-    }
+      })
+    );
 
     let creditPackPurchaseRequestStatus;
     for (let i = 0; i < closestSupernodes.length; i++) {
@@ -457,24 +459,28 @@ async function handleCreditPackTicketEndToEnd(
         );
       }
 
-      for (const supernodePastelID of signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms) {
-        try {
-          if (checkIfPastelIDIsValid(supernodePastelID)) {
-            const supernodeURL = await getSupernodeUrlFromPastelID(
-              supernodePastelID,
-              validMasternodeListFullDF
-            );
-            await inferenceClient.creditPackPurchaseCompletionAnnouncement(
-              supernodeURL,
-              creditPackStorageRetryRequestResponse
-            );
+      await Promise.all(
+        signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms.map(
+          async (supernodePastelID) => {
+            try {
+              if (checkIfPastelIDIsValid(supernodePastelID)) {
+                const supernodeURL = await getSupernodeUrlFromPastelID(
+                  supernodePastelID,
+                  validMasternodeListFullDF
+                );
+                await inferenceClient.creditPackPurchaseCompletionAnnouncement(
+                  supernodeURL,
+                  creditPackStorageRetryRequestResponse
+                );
+              }
+            } catch (error) {
+              logger.error(
+                `Error sending credit_pack_purchase_completion_announcement to Supernode URL: ${supernodeURL}: ${error.message}`
+              );
+            }
           }
-        } catch (error) {
-          logger.error(
-            `Error sending credit_pack_purchase_completion_announcement to Supernode URL: ${supernodeURL}: ${error.message}`
-          );
-        }
-      }
+        )
+      );
 
       return creditPackStorageRetryRequestResponse;
     } else {
