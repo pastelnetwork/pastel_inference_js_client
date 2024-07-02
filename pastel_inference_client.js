@@ -855,7 +855,7 @@ class PastelInferenceClient {
           challenge_signature,
         },
         {
-          timeout: 5 * 1000, // Shortened timeout of 5 seconds
+          timeout: 2 * 1000, // Shortened timeout of 2 seconds
         }
       );
 
@@ -1448,7 +1448,7 @@ class PastelInferenceClient {
       const response = await axios.get(
         `${supernodeURL}/get_inference_model_menu`,
         {
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000,
+          timeout: 4 * 1000,
         }
       );
 
