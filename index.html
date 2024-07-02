@@ -3163,32 +3163,51 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
       }
 
       function logMessageToTerminal(term, logMessage) {
-        // Ensure logMessage.message is a string before cleaning and formatting
         const message =
           typeof logMessage.message === "string" ? logMessage.message : "";
         const cleanMessage = cleanAndFormatMessage(message);
         if (typeof cleanMessage !== "string") {
           console.error("cleanMessage is not a string:", cleanMessage);
-          return; // Exit the function to prevent further errors
+          return;
         }
         const parts = cleanMessage.split(/(\{[\s\S]*?\})/);
         const formattedParts = parts
           .map((part) => {
-            try {
-              if (part.startsWith("{") && part.endsWith("}")) {
-                const parsed = JSON.parse(part);
-                const formatted = prettyJSON(parsed);
-                const colored = formatted
-                  .replace(/({|})/g, "\x1b[1;32m$1\x1b[0m") // Light green for braces
-                  .replace(/"([^"]+)"(?=:)/g, '\x1b[1;34m"$1"\x1b[0m') // Pale blue for keys
-                  .replace(/: ("[^"]+")/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for string values
-                  .replace(/: (\d+)/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for numeric values
-                  .replace(/: (true|false|null)/g, ": \x1b[1;33m$1\x1b[0m"); // Pale yellow for boolean and null values
-                return `\n${colored}\n`;
+            if (part.startsWith("{") && part.endsWith("}")) {
+              let parsed;
+              try {
+                parsed = JSON.parse(part);
+              } catch (e) {
+                try {
+                  // Fix common JSON issues
+                  let fixedPart = part
+                    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Ensure keys are quoted
+                    .replace(/:\s*(['"])?([^\n\r\t,}\]]+)(['"])?/g, ': "$2"') // Ensure values are quoted
+                    .replace(/,\s*([\]}])/g, "$1") // Remove trailing commas
+                    .replace(/\\n/g, "\\n") // Handle newlines
+                    .replace(/\\r/g, "\\r") // Handle carriage returns
+                    .replace(/\\t/g, "\\t") // Handle tabs
+                    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); // Remove control characters
+
+                  // Fix for unterminated strings
+                  const quotesBalanced = fixedPart.split('"').length % 2 === 1;
+                  if (quotesBalanced) {
+                    fixedPart = fixedPart + '"';
+                  }
+
+                  parsed = JSON.parse(fixedPart);
+                } catch (innerE) {
+                  // Silently fail
+                  return part;
+                }
               }
-            } catch (e) {
-              // If parsing fails, fall through to return the part as plain text
-              console.error("JSON parsing error:", e);
+              const formatted = prettyJSON(parsed);
+              return formatted
+                .replace(/({|})/g, "\x1b[1;32m$1\x1b[0m") // Light green for braces
+                .replace(/"([^"]+)"(?=:)/g, '\x1b[1;34m"$1"\x1b[0m') // Pale blue for keys
+                .replace(/: ("[^"]+")/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for string values
+                .replace(/: (\d+)/g, ": \x1b[1;33m$1\x1b[0m") // Pale yellow for numeric values
+                .replace(/: (true|false|null)/g, ": \x1b[1;33m$1\x1b[0m"); // Pale yellow for boolean and null values
             }
             return part;
           })
@@ -3548,6 +3567,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
         document
           .getElementById("inferenceType")
           .dispatchEvent(new Event("change")); // Trigger change event
+
+        // Automatically refresh the table of existing credit packs on initial page load
+        getMyValidCreditPacks(true).catch((error) => {
+          console.error("Error refreshing credit pack tickets:", error);
+        });
       });
     </script>
     <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
