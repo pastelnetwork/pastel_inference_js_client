@@ -908,7 +908,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
     <div class="bg-bw-800 text-bw-50 py-6">
       <div class="container mx-auto px-4">
         <p class="text-center">
-          &copy; 2023 Pastel Inference Client UI. All rights reserved.
+          &copy; 2024 Pastel Inference Client UI. All rights reserved.
         </p>
       </div>
     </div>
@@ -1843,16 +1843,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             displayLoading(true);
             const response = await axios.post(
               "/create-and-register-pastel-id",
-              { passphraseForNewPastelID: passphrase }
+              {
+                passphraseForNewPastelID: passphrase,
+              }
             );
             displayLoading(false);
             if (response.data.success) {
               displayMessage(
-                `Successfully created and registered a new PastelID! Your new PastelID is ${response.data.PastelID}; Note that you might need to wait a couple minutes for your PastelID to be confirmed and mined in a Pastel block!`,
+                `PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`,
                 true
               );
               localStorage.setItem(response.data.PastelID, btoa(passphrase));
-              location.reload(); // Refresh the page to update the UI
+              await checkPastelIDRegistrationStatus(response.data.PastelID);
             } else {
               displayMessage(response.data.message, false);
             }
@@ -1865,6 +1867,49 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             );
           }
         });
+
+        async function checkPastelIDRegistrationStatus(pastelID) {
+          let attempts = 0;
+          const maxAttempts = 60; // 5 minutes (5 * 60 seconds / 5 seconds per attempt)
+          const checkInterval = 5000; // 5 seconds
+
+          const checkStatus = async () => {
+            try {
+              const response = await axios.get(
+                `/check-pastel-id-status/${pastelID}`
+              );
+              if (response.data.registered) {
+                displayMessage(
+                  "PastelID successfully registered! The page will now reload.",
+                  true
+                );
+                setTimeout(() => location.reload(), 3000);
+              } else {
+                attempts++;
+                if (attempts < maxAttempts) {
+                  displayMessage(
+                    `PastelID registration in progress... (Attempt ${attempts}/${maxAttempts})`,
+                    true
+                  );
+                  setTimeout(checkStatus, checkInterval);
+                } else {
+                  displayMessage(
+                    "PastelID registration is taking longer than expected. Please check back later or contact support if the issue persists.",
+                    false
+                  );
+                }
+              }
+            } catch (error) {
+              console.error("Error checking PastelID status:", error);
+              displayMessage(
+                "Error checking PastelID registration status. Please try again later.",
+                false
+              );
+            }
+          };
+
+          checkStatus();
+        }
 
         importPastelIDButton.addEventListener("click", async () => {
           const pastelIDFile =
@@ -1940,6 +1985,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             .classList.remove("hidden");
         }
       });
+
       document.addEventListener("DOMContentLoaded", async () => {
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");
         const passphraseContainer = document.getElementById(
