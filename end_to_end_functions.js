@@ -228,8 +228,7 @@ async function handleCreditPackTicketEndToEnd(
     const highestRankedSupernodeURL = closestSupernodes[0].url;
 
     logger.info(
-      "Closest supernode URL for credit pack request:",
-      highestRankedSupernodeURL
+      `Closest supernode URL for credit pack request: ${highestRankedSupernodeURL}`
     );
 
     const preliminaryPriceQuote =

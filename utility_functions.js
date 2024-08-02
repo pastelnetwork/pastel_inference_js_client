@@ -514,6 +514,7 @@ async function getClosestSupernodePastelIDFromList(
     return 0;
   });
   return sortedXorDistances[0].pastelID;
+  // return "jXYZ4YQ38vNPGCqSTUANnLWCKyig2mDXSfV2Dm2XrAma4Hw8rTujh1ganjhu1foMgnMLkSLAtDwxeg5yfacP2G"; // For testing
 }
 
 function checkIfPastelIDIsValid(inputString) {
