@@ -616,7 +616,7 @@ async function validatePastelIDSignatureFields(
 async function getClosestSupernodeToPastelIDURL(
   inputPastelID,
   supernodeListDF,
-  maxResponseTimeInMilliseconds = 800
+  maxResponseTimeInMilliseconds = 1200
 ) {
   if (!inputPastelID) {
     return null;
@@ -636,7 +636,19 @@ async function getClosestSupernodeToPastelIDURL(
       closestSupernodePastelID,
       supernodeListDF
     );
-    return { url: supernodeURL, pastelID: closestSupernodePastelID };
+    // Verify if the supernode URL is responsive
+    try {
+      //For Debugging, force a specific supernode URL:
+      // TODO: Remove this line before deployment
+      // let supernodeURL = "http://167.86.69.188:7123";
+      // let closestSupernodePastelID =
+      //   "jXYZ4YQ38vNPGCqSTUANnLWCKyig2mDXSfV2Dm2XrAma4Hw8rTujh1ganjhu1foMgnMLkSLAtDwxeg5yfacP2G";
+      await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
+
+      return { url: supernodeURL, pastelID: closestSupernodePastelID };
+    } catch (error) {
+      return { url: null, pastelID: null };
+    }
   }
   return { url: null, pastelID: null };
 }
@@ -665,11 +677,8 @@ async function getNClosestSupernodesToPastelIDURLs(
         inputPastelID,
         supernodePastelID
       );
-      return {
-        pastelID: supernodePastelID,
-        url: `http://${supernode.ipaddress_port.split(":")[0]}:7123`,
-        distance,
-      };
+      const url = `http://${supernode.ipaddress_port.split(":")[0]}:7123`;
+      return { pastelID: supernodePastelID, url, distance };
     })
   );
   const sortedXorDistances = xorDistances.sort((a, b) => {
@@ -678,7 +687,18 @@ async function getNClosestSupernodesToPastelIDURLs(
     return 0;
   });
   const closestSupernodes = sortedXorDistances.slice(0, n);
-  return closestSupernodes.map(({ url, pastelID }) => ({ url, pastelID }));
+  const validSupernodes = [];
+
+  for (const { url, pastelID } of closestSupernodes) {
+    try {
+      await axios.get(url, { timeout: maxResponseTimeInMilliseconds });
+      validSupernodes.push({ url, pastelID });
+    } catch (error) {
+      // Ignore the non-responsive supernode
+    }
+  }
+
+  return validSupernodes;
 }
 
 async function validateCreditPackTicketMessageData(modelInstance) {
@@ -1008,6 +1028,7 @@ async function filterSupernodesByPingResponseTimeAndPortResponse(
   const filteredSupernodes = pingResults
     .filter((result) => result !== null)
     .map((supernode) => supernode.extKey);
+
   // Update cache
   await supernodeCacheStorage.setItem(cacheKey, {
     timestamp: currentTime,

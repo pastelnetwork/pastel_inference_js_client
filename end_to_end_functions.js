@@ -220,17 +220,28 @@ async function handleCreditPackTicketEndToEnd(
         passphrase
       );
 
+    // Get the 5 closest supernodes
     const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
-      1,
+      5,
       pastelID,
       validMasternodeListFullDF
     );
-    const highestRankedSupernodeURL = closestSupernodes[0].url;
+
+    if (closestSupernodes.length === 0) {
+      throw new Error("No responsive supernodes found.");
+    }
+
+    // Select one of the closest supernodes at random
+    const randomIndex = Math.floor(Math.random() * closestSupernodes.length);
+    const selectedSupernode = closestSupernodes[randomIndex];
+    const highestRankedSupernodeURL = selectedSupernode.url;
+    // const highestRankedSupernodeURL = "http://167.86.69.188:7123"; //selectedSupernode.url; #TODO: Restore this
 
     logger.info(
-      `Closest supernode URL for credit pack request: ${highestRankedSupernodeURL}`
+      `Selected supernode URL for credit pack request: ${highestRankedSupernodeURL}`
     );
 
+    // Proceed with the rest of the process using the selected supernode
     const preliminaryPriceQuote =
       await inferenceClient.creditPackTicketInitialPurchaseRequest(
         highestRankedSupernodeURL,

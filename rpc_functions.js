@@ -825,14 +825,14 @@ async function checkSupernodeList() {
     const masternodeListFullDF = masternodeListFullData.map((data) => {
       const rank = masternodeListRank[data.txid_vout];
       const pubkey = masternodeListPubkey[data.txid_vout];
-      const extra = masternodeListExtra[data.txid_vout];
+      const extra = masternodeListExtra[data.txid_vout] || {};
       return {
         ...data,
         rank: Number(rank),
         pubkey,
-        extAddress: extra && extra.extAddress,
-        extP2P: extra && extra.extP2P,
-        extKey: extra && extra.extKey,
+        extAddress: extra.extAddress || "NA",
+        extP2P: extra.extP2P || "NA",
+        extKey: extra.extKey || "NA", // Fill missing extKey with "NA"
         activedays: data.activeseconds / 86400,
       };
     });
