@@ -49,6 +49,9 @@
         border-color: #388e3c;
         color: #ffffff;
       }
+      .icon-large {
+        font-size: 1.5rem; /* Adjust this size as needed */
+      }
       .xterm {
         width: 100% !important;
         border-radius: 0.5rem; /* Adds rounded corners */
@@ -200,6 +203,22 @@
         margin-left: 5px;
         font-size: 14px;
         color: #6b7280;
+      }
+      .select-column {
+        width: 6%;
+      }
+      .initial-credits-column {
+        width: 16%;
+      }
+      .current-credit-balance-column {
+        width: 16.5%;
+      }
+      .tracking-address-column {
+        width: 25%;
+      }
+      .table {
+        width: 100%;
+        table-layout: fixed;
       }
     </style>
   </head>
@@ -470,10 +489,12 @@
           <table class="table bordered bw">
             <thead>
               <tr>
-                <th>Select</th>
-                <th>Initial Credits in Pack</th>
-                <th>Current Credit Balance</th>
-                <th>Tracking Address</th>
+                <th class="select-column">Select</th>
+                <th class="initial-credits-column">Initial Credits in Pack</th>
+                <th class="current-credit-balance-column">
+                  Current Credit Balance
+                </th>
+                <th class="tracking-address-column">Tracking Address</th>
                 <th>Blockheight Registered</th>
                 <th>Credit Pack Registration TXID</th>
               </tr>
@@ -702,7 +723,7 @@ A picture of a clown holding a sign that says PASTEL</textarea
 
       <div
         class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4 has-border rounded-xl bg-white shadow-md"
-        style="height: 800px; overflow-y: auto"
+        style="height: 1000px; overflow-y: auto"
       >
         <div class="lg:col-span-1 flex flex-col">
           <h2 class="text-2xl mb-4 text-bw-800">
@@ -907,14 +928,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           </button>
         </div>
       </div>
-      <button onclick="toggleTerminal()" class="btn success outline">
+      <button onclick="toggleTerminal()" class="btn success outline mt-4">
         Toggle Terminal
       </button>
 
-      <h2 class="text-2xl">Terminal</h2>
+      <h2 class="text-2xl mt-5">Terminal</h2>
 
       <div id="terminal" class="bg-gray-900 text-white p-4 rounded-xl"></div>
-      <div class="flex justify-between items-center">
+      <div class="flex justify-between items-center mb-4">
         <button id="exportTerminalButton" class="btn success outline">
           Export Terminal Session Text
         </button>
@@ -2386,7 +2407,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             throw error;
           }
         }
-
         function updatePreviousRequestsList() {
           const requests =
             JSON.parse(localStorage.getItem("inferenceRequests")) || [];
@@ -2446,7 +2466,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
               const listItem = document.createElement("div");
               listItem.className =
                 "mb-2 p-2 bg-white rounded-lg flex justify-between items-center cursor-pointer";
-              listItem.innerHTML = `<span>${inferenceTypeIcon} ${promptPreview}...</span>
+              listItem.innerHTML = `<span><span class="icon-large">${inferenceTypeIcon}</span> ${promptPreview}...</span>
               <button class="delete-btn" style="font-size: 0.75rem;" title="Delete entry?" onclick="deleteRequest(${index})">❌</button>`;
               listItem.addEventListener("click", () =>
                 displayRequestPreview(index)
