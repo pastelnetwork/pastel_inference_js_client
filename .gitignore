@@ -142,3 +142,4 @@ dist
 /my-local-pastelid-cache
 
 /supernode-cache
+.node-persist/
