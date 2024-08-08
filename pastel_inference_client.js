@@ -45,6 +45,7 @@ const {
 } = require("./validation_schemas");
 const { logger, safeStringify } = require("./logger");
 const {
+  filterSupernodes,
   getNClosestSupernodesToPastelIDURLs,
   computeSHA3256HashOfSQLModelResponseFields,
   prepareModelForEndpoint,
@@ -77,7 +78,10 @@ class PastelInferenceClient {
   async requestAndSignChallenge(supernodeURL) {
     try {
       const response = await axios.get(
-        `${supernodeURL}/request_challenge/${this.pastelID}`
+        `${supernodeURL}/request_challenge/${this.pastelID}`,
+        {
+          timeout: 3000,
+        }
       );
       const { challenge, challenge_id } = response.data;
       const challenge_signature = await signMessageWithPastelID(
@@ -184,6 +188,8 @@ class PastelInferenceClient {
   }
 
   async getValidCreditPackTicketsForPastelID(supernodeURL) {
+    // supernodeURL = 'http://167.86.69.188:7123';
+    const useVerbose = false;
     try {
       if (!this.pastelID) {
         return [];
@@ -196,33 +202,46 @@ class PastelInferenceClient {
         challenge_id,
         challenge_signature,
       };
-      logActionWithPayload(
-        "retrieving",
-        "valid credit pack tickets for PastelID",
-        payload
-      );
+      if (useVerbose) {
+        logActionWithPayload(
+          "retrieving",
+          "valid credit pack tickets for PastelID",
+          payload
+        );
+      }
       const response = await axios.post(
         `${supernodeURL}/get_valid_credit_pack_tickets_for_pastelid`,
         payload,
         {
-          timeout: MESSAGING_TIMEOUT_IN_SECONDS * 1000 * 3,
+          timeout: 6000,
         }
       );
       if (response.status !== 200) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        if (useVerbose) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return [];
       }
       const validCreditPackTickets = response.data;
-      logger.info(
-        `Received ${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`
-      );
+      if (useVerbose && validCreditPackTickets.length) {
+        logger.info(
+          `Received ${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`
+        );
+      }
       return validCreditPackTickets;
     } catch (error) {
-      logger.error(
-        `Error retrieving valid credit pack tickets for PastelID: ${error.message}`
-      );
-      throw error;
+      if (useVerbose) {
+        logger.error(
+          `Error retrieving valid credit pack tickets for PastelID: ${error.message}`
+        );
+      }
+      if (useVerbose) {
+        throw error;
+      }
+      return [];
     }
   }
+
 
   async checkCreditPackBalance(supernodeURL, txid) {
     try {
@@ -471,8 +490,8 @@ class PastelInferenceClient {
       quotedPricePerCredit <= maximumPerCreditPriceInPSL &&
       quotedTotalPrice <= maximumTotalCreditPackPriceInPSL &&
       priceDifferencePercentage <=
-        process.env
-          .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
+      process.env
+        .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
     ) {
       logger.info(
         `Preliminary price quote is within the acceptable range: ${numberFormat.format(
@@ -488,7 +507,7 @@ class PastelInferenceClient {
         )}%, which is within the allowed maximum of ${percentageFormat(
           process.env
             .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
-            100
+          100
         )}%.`
       );
       return true;
@@ -507,7 +526,7 @@ class PastelInferenceClient {
         )}%, which exceeds the allowed maximum of ${percentageFormat(
           process.env
             .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
-            100
+          100
         )}%.`
       );
       return false;
@@ -523,9 +542,9 @@ class PastelInferenceClient {
     const estimatedTotalCostOfTicket =
       Math.round(
         desiredNumberOfCredits *
-          estimatedPricePerCredit *
-          (1 + priceCushionPercentage) *
-          100
+        estimatedPricePerCredit *
+        (1 + priceCushionPercentage) *
+        100
       ) / 100;
     return estimatedTotalCostOfTicket;
   }
@@ -879,8 +898,7 @@ class PastelInferenceClient {
         );
       } else {
         logger.error(
-          `Error sending credit pack purchase completion announcement to ${supernodeURL}: ${
-            error.message || error
+          `Error sending credit pack purchase completion announcement to ${supernodeURL}: ${error.message || error
           }`
         );
       }
@@ -1384,20 +1402,15 @@ class PastelInferenceClient {
     pastelIDOfSupernodeToAudit
   ) {
     try {
-      const { validMasternodeListFullDF, _ } = await checkSupernodeList();
-      const n = 4;
-      const supernodeURLsAndPastelIDs =
-        await getNClosestSupernodesToPastelIDURLs(
-          n,
-          this.pastelID,
-          validMasternodeListFullDF
-        );
-      const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs
+      const { validMasternodeListFullDF } = await checkSupernodeList();
+      const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
+
+      const supernodeURLsAndPastelIDs = filteredSupernodes
         .filter(({ pastelID }) => pastelID !== pastelIDOfSupernodeToAudit)
-        .map(({ pastelID }) => pastelID);
-      const listOfSupernodeURLs = supernodeURLsAndPastelIDs
-        .filter(({ pastelID }) => pastelID !== pastelIDOfSupernodeToAudit)
-        .map(({ url }) => url);
+        .slice(0, 5); // Get the 5 closest supernodes
+
+      const listOfSupernodePastelIDs = supernodeURLsAndPastelIDs.map(({ pastelID }) => pastelID);
+      const listOfSupernodeURLs = supernodeURLsAndPastelIDs.map(({ url }) => url);
       const listOfSupernodeIPs = listOfSupernodeURLs.map(
         (url) => url.split("//")[1].split(":")[0]
       );
@@ -1539,71 +1552,70 @@ class PastelInferenceClient {
     desiredModelInferenceTypeString,
     desiredModelParametersJSON
   ) {
-    const number_of_closest_supernodes_to_check_at_one_time = 3;
+    const minimumNumberOfResponses = 3; // Minimum number of valid responses needed
+    const timeoutPeriod = 3000; // Timeout period in milliseconds
+
     try {
-      const { validMasternodeListFullDF, _ } = await checkSupernodeList();
-      const supernodeURLsAndPastelIDs =
-        await getNClosestSupernodesToPastelIDURLs(
-          validMasternodeListFullDF.length,
-          this.pastelID,
-          validMasternodeListFullDF
-        );
+      const { validMasternodeListFullDF } = await checkSupernodeList();
+      const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
+      let validResponses = [];
 
-      const checkBatch = async (batch) => {
-        const modelSupportTasks = batch.map(({ url }) =>
-          this.checkIfSupernodeSupportsDesiredModel(
-            url,
-            desiredModelCanonicalString,
-            desiredModelInferenceTypeString,
-            desiredModelParametersJSON
-          )
-        );
-        const modelSupportResults = await Promise.all(modelSupportTasks);
-        return modelSupportResults;
-      };
+      // Custom promise to collect a specified minimum number of valid responses
+      await new Promise((resolve, reject) => {
+        let completedRequests = 0;
 
-      for (
-        let i = 0;
-        i < supernodeURLsAndPastelIDs.length;
-        i += number_of_closest_supernodes_to_check_at_one_time
-      ) {
-        const batch = supernodeURLsAndPastelIDs.slice(
-          i,
-          i + number_of_closest_supernodes_to_check_at_one_time
-        );
-        const modelSupportResults = await checkBatch(batch);
+        const checkSupernode = async (supernode) => {
+          try {
+            const result = await Promise.race([
+              this.checkIfSupernodeSupportsDesiredModel(
+                supernode.url,
+                desiredModelCanonicalString,
+                desiredModelInferenceTypeString,
+                desiredModelParametersJSON
+              ),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutPeriod))
+            ]);
+            if (result) {
+              validResponses.push({ result, url: supernode.url });
+              if (validResponses.length >= minimumNumberOfResponses) {
+                resolve();
+              }
+            }
+          } catch (error) {
+            logger.error(`Error querying supernode at ${supernode.url}: ${error.message}`);
+          } finally {
+            completedRequests++;
+            if (completedRequests >= filteredSupernodes.length && validResponses.length < minimumNumberOfResponses) {
+              reject(new Error("Insufficient valid responses received from supernodes"));
+            }
+          }
+        };
 
-        const supportedSupernodeIndex = modelSupportResults.indexOf(true);
-        if (supportedSupernodeIndex !== -1) {
-          const closestSupportingSupernode = batch[supportedSupernodeIndex];
-          logger.info(
-            `Found supporting supernode: ${closestSupportingSupernode.pastelID} | URL: ${closestSupportingSupernode.url}`
-          );
-          return {
-            supernodeSupportDict: {
-              [closestSupportingSupernode.pastelID]: true,
-            },
-            closestSupportingSupernodePastelID:
-              closestSupportingSupernode.pastelID,
-            closestSupportingSupernodeURL: closestSupportingSupernode.url,
-          };
-        }
+        filteredSupernodes.forEach(checkSupernode);
+      });
+
+      // Find the fastest valid response
+      const fastestResponse = validResponses.reduce((prev, current) => {
+        return prev.time < current.time ? prev : current;
+      });
+
+      if (fastestResponse) {
+        logger.info(`Found supporting supernode: URL: ${fastestResponse.url}`);
+        return {
+          supernodeSupportDict: {
+            [fastestResponse.url]: true,
+          },
+          closestSupportingSupernodeURL: fastestResponse.url,
+        };
+      } else {
+        logger.warn(`No supporting supernodes found for model: ${desiredModelCanonicalString}`);
+        return {
+          supernodeSupportDict: {},
+          closestSupportingSupernodeURL: null,
+        };
       }
-
-      logger.warn(
-        `No supporting supernodes found for model: ${desiredModelCanonicalString}`
-      );
-      return {
-        supernodeSupportDict: {},
-        closestSupportingSupernodePastelID: null,
-        closestSupportingSupernodeURL: null,
-      };
     } catch (error) {
-      logger.error(
-        `Error getting closest Supernode URL that supports desired model: ${safeStringify(
-          error.message
-        )}`
-      );
+      logger.error(`Error getting closest Supernode URL that supports desired model: ${safeStringify(error.message)}`);
       throw error;
     }
   }

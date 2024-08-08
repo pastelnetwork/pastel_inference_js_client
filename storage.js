@@ -1,15 +1,18 @@
 const storage = require("node-persist");
+const { logger } = require("./logger");
 
 let storageInitialized = false;
 
 async function initializeStorage() {
   if (!storageInitialized) {
-    await storage.init({
-      dir: "./my-local-pastelid-cache",
-      logging: true,
-    });
-    console.log("Storage initialized");
-    storageInitialized = true;
+    try {
+      await storage.init({ logging: false });
+      logger.info("Storage initialized successfully");
+      storageInitialized = true;
+    } catch (error) {
+      logger.error(`Error initializing storage: ${error.message}`);
+      throw error;
+    }
   }
 }
 
@@ -18,28 +21,38 @@ async function getCurrentPastelIdAndPassphrase() {
     await initializeStorage();
     const pastelID = await storage.getItem("MY_LOCAL_PASTELID");
     const passphrase = await storage.getItem("MY_PASTELID_PASSPHRASE");
-    console.log(`Retrieved PastelID: ${pastelID}, Passphrase: ${passphrase}`);
-    return { pastelID: pastelID || "", passphrase: passphrase || "" };
+
+    if (!pastelID || !passphrase) {
+      logger.warn("PastelID or passphrase not found in storage");
+      return { pastelID: null, passphrase: null };
+    }
+
+    logger.info(`Retrieved PastelID from storage: ${pastelID}`);
+    return { pastelID, passphrase };
   } catch (error) {
-    console.error("Error retrieving PastelID and passphrase:", error);
-    return { pastelID: "", passphrase: "" };
+    logger.error(`Error retrieving PastelID and passphrase: ${error.message}`);
+    return { pastelID: null, passphrase: null };
   }
 }
 
 async function setPastelIdAndPassphrase(pastelID, passphrase) {
+  if (!pastelID || !passphrase) {
+    logger.error("Attempted to set empty PastelID or passphrase");
+    throw new Error("PastelID and passphrase must not be empty");
+  }
+
   try {
     await initializeStorage();
     await storage.setItem("MY_LOCAL_PASTELID", pastelID);
     await storage.setItem("MY_PASTELID_PASSPHRASE", passphrase);
-    console.log(`Set PastelID: ${pastelID}, Passphrase: ${passphrase}`);
+    logger.info(`Set PastelID: ${pastelID}`);
   } catch (error) {
-    console.error("Error setting PastelID and passphrase:", error);
+    logger.error(`Error setting PastelID and passphrase: ${error.message}`);
     throw error;
   }
 }
 
 module.exports = {
-  initializeStorage,
   getCurrentPastelIdAndPassphrase,
   setPastelIdAndPassphrase,
 };

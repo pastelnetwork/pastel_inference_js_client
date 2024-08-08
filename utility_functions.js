@@ -6,12 +6,15 @@ const Sequelize = require("sequelize");
 const ping = require("ping");
 const { logger, safeStringify } = require("./logger");
 const supernodeCacheStorage = require("node-persist");
+const { getCurrentPastelIdAndPassphrase } = require('./storage');
 
 const {
   verifyMessageWithPastelID,
   getBestBlockHashAndMerkleRoot,
   checkSupernodeList,
 } = require("./rpc_functions");
+
+const MAX_CACHE_AGE_MS = 1 * 60 * 1000; // 1 minute in milliseconds
 
 const { messageSchema } = require("./validation_schemas");
 
@@ -27,8 +30,48 @@ const MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS = parseInt(
   process.env.MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS
 );
 
+
 async function initializeSupernodeCacheStorage() {
   await supernodeCacheStorage.init({ dir: "./supernode-cache" });
+  await clearOldCache();
+}
+
+async function clearOldCache() {
+  const currentTime = Date.now();
+  const cacheKeys = await supernodeCacheStorage.keys();
+
+  for (const key of cacheKeys) {
+    const item = await supernodeCacheStorage.getItem(key);
+    if (item && item.timestamp) {
+      if (currentTime - item.timestamp > MAX_CACHE_AGE_MS) {
+        await supernodeCacheStorage.removeItem(key);
+      }
+    } else {
+      // If the item doesn't have a timestamp, remove it as well
+      await supernodeCacheStorage.removeItem(key);
+    }
+  }
+}
+
+async function storeInCache(key, data) {
+  await supernodeCacheStorage.setItem(key, {
+    timestamp: Date.now(),
+    data: data
+  });
+}
+
+// Modify the function that retrieves data from the cache
+async function getFromCache(key) {
+  const item = await supernodeCacheStorage.getItem(key);
+  if (item && item.timestamp) {
+    if (Date.now() - item.timestamp <= MAX_CACHE_AGE_MS) {
+      return item.data;
+    } else {
+      // Data is too old, remove it
+      await supernodeCacheStorage.removeItem(key);
+    }
+  }
+  return null;
 }
 
 async function fetchCurrentPSLMarketPrice() {
@@ -65,8 +108,7 @@ async function fetchCurrentPSLMarketPrice() {
     throw new Error(`Invalid PSL price: ${averagePrice}`);
   }
   logger.info(
-    `The current Average PSL price is: $${averagePrice.toFixed(8)} based on ${
-      prices.length
+    `The current Average PSL price is: $${averagePrice.toFixed(8)} based on ${prices.length
     } sources`
   );
   return averagePrice;
@@ -488,33 +530,54 @@ async function validateHashFields(modelInstance, validationErrors) {
   }
 }
 
+
 async function getClosestSupernodePastelIDFromList(
   localPastelID,
-  supernodePastelIDs,
+  filteredSupernodes,
   maxResponseTimeInMilliseconds = 800
 ) {
   await initializeSupernodeCacheStorage();
-  const filteredSupernodePastelIDs =
-    await filterSupernodesByPingResponseTimeAndPortResponse(
-      supernodePastelIDs,
-      maxResponseTimeInMilliseconds
-    );
+  if (!filteredSupernodes || filteredSupernodes.length === 0) {
+    logger.warn("No filtered supernodes available");
+    return null;
+  }
+
   const xorDistances = await Promise.all(
-    filteredSupernodePastelIDs.map(async (supernodePastelID) => {
-      const distance = await calculateXORDistance(
-        localPastelID,
-        supernodePastelID
-      );
-      return { pastelID: supernodePastelID, distance };
+    filteredSupernodes.map(async (supernode) => {
+      let pastelID;
+      if (typeof supernode === 'string') {
+        pastelID = supernode;
+      } else if (supernode && supernode.pastelID) {
+        pastelID = supernode.pastelID;
+      } else {
+        logger.warn(`Invalid supernode data: ${JSON.stringify(supernode)}`);
+        return null;
+      }
+
+      try {
+        const distance = await calculateXORDistance(localPastelID, pastelID);
+        return { pastelID, distance: BigInt(distance) };
+      } catch (error) {
+        logger.error(`Error calculating XOR distance: ${error.message}`);
+        return null;
+      }
     })
   );
-  const sortedXorDistances = xorDistances.sort((a, b) => {
+
+  const validDistances = xorDistances.filter(Boolean);
+
+  if (validDistances.length === 0) {
+    logger.warn("No valid XOR distances calculated");
+    return null;
+  }
+
+  const sortedXorDistances = validDistances.sort((a, b) => {
     if (a.distance < b.distance) return -1;
     if (a.distance > b.distance) return 1;
     return 0;
   });
+
   return sortedXorDistances[0].pastelID;
-  // return "jXYZ4YQ38vNPGCqSTUANnLWCKyig2mDXSfV2Dm2XrAma4Hw8rTujh1ganjhu1foMgnMLkSLAtDwxeg5yfacP2G"; // For testing
 }
 
 function checkIfPastelIDIsValid(inputString) {
@@ -573,7 +636,7 @@ async function validatePastelIDSignatureFields(
   }
   const embeddedField =
     fields[
-      "supernode_pastelid_and_signature_on_inference_request_response_hash"
+    "supernode_pastelid_and_signature_on_inference_request_response_hash"
     ];
   if (embeddedField) {
     try {
@@ -618,38 +681,44 @@ async function getClosestSupernodeToPastelIDURL(
   supernodeListDF,
   maxResponseTimeInMilliseconds = 1200
 ) {
+  logger.info(`Attempting to find closest supernode for PastelID: ${inputPastelID}`);
   if (!inputPastelID) {
+    logger.warn("No input PastelID provided");
     return null;
   }
   await initializeSupernodeCacheStorage();
-  const filteredSupernodePastelIDs =
-    await filterSupernodesByPingResponseTimeAndPortResponse(
-      supernodeListDF,
-      maxResponseTimeInMilliseconds
-    );
-  if (filteredSupernodePastelIDs.length > 0) {
+  const filteredSupernodes = await filterSupernodes(
+    supernodeListDF,
+    maxResponseTimeInMilliseconds
+  );
+  if (filteredSupernodes.length > 0) {
     const closestSupernodePastelID = await getClosestSupernodePastelIDFromList(
       inputPastelID,
-      filteredSupernodePastelIDs
+      filteredSupernodes,
+      maxResponseTimeInMilliseconds
     );
-    const supernodeURL = await getSupernodeUrlFromPastelID(
-      closestSupernodePastelID,
-      supernodeListDF
-    );
-    // Verify if the supernode URL is responsive
-    try {
-      //For Debugging, force a specific supernode URL:
-      // TODO: Remove this line before deployment
-      // let supernodeURL = "http://167.86.69.188:7123";
-      // let closestSupernodePastelID =
-      //   "jXYZ4YQ38vNPGCqSTUANnLWCKyig2mDXSfV2Dm2XrAma4Hw8rTujh1ganjhu1foMgnMLkSLAtDwxeg5yfacP2G";
-      await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
-
-      return { url: supernodeURL, pastelID: closestSupernodePastelID };
-    } catch (error) {
+    if (!closestSupernodePastelID) {
+      logger.warn("No closest supernode PastelID found");
       return { url: null, pastelID: null };
     }
+
+    // Find the supernode info in the original supernodeListDF
+    const closestSupernode = supernodeListDF.find(
+      (supernode) => supernode.extKey === closestSupernodePastelID
+    );
+
+    if (closestSupernode) {
+      const supernodeURL = `http://${closestSupernode.ipaddress_port.split(":")[0]}:7123`;
+      try {
+        await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
+        return { url: supernodeURL, pastelID: closestSupernodePastelID };
+      } catch (error) {
+        logger.error(`Error connecting to closest supernode: ${error.message}`);
+        return { url: null, pastelID: null };
+      }
+    }
   }
+  logger.warn("No filtered supernodes available");
   return { url: null, pastelID: null };
 }
 
@@ -663,22 +732,18 @@ async function getNClosestSupernodesToPastelIDURLs(
     return null;
   }
   await initializeSupernodeCacheStorage();
-  const filteredSupernodePastelIDs =
-    await filterSupernodesByPingResponseTimeAndPortResponse(
-      supernodeListDF,
-      maxResponseTimeInMilliseconds
-    );
+  const filteredSupernodes = await filterSupernodes(
+    supernodeListDF,
+    maxResponseTimeInMilliseconds
+  );
+
   const xorDistances = await Promise.all(
-    filteredSupernodePastelIDs.map(async (supernodePastelID) => {
-      const supernode = supernodeListDF.find(
-        (node) => node.extKey === supernodePastelID
-      );
+    filteredSupernodes.map(async (supernode) => {
       const distance = await calculateXORDistance(
         inputPastelID,
-        supernodePastelID
+        supernode.pastelID
       );
-      const url = `http://${supernode.ipaddress_port.split(":")[0]}:7123`;
-      return { pastelID: supernodePastelID, url, distance };
+      return { ...supernode, distance };
     })
   );
   const sortedXorDistances = xorDistances.sort((a, b) => {
@@ -687,16 +752,17 @@ async function getNClosestSupernodesToPastelIDURLs(
     return 0;
   });
   const closestSupernodes = sortedXorDistances.slice(0, n);
-  const validSupernodes = [];
 
-  for (const { url, pastelID } of closestSupernodes) {
+  const validSupernodePromises = closestSupernodes.map(async ({ url, pastelID }) => {
     try {
       await axios.get(url, { timeout: maxResponseTimeInMilliseconds });
-      validSupernodes.push({ url, pastelID });
+      return { url, pastelID };
     } catch (error) {
-      // Ignore the non-responsive supernode
+      return null;
     }
-  }
+  });
+
+  const validSupernodes = (await Promise.all(validSupernodePromises)).filter(Boolean);
 
   return validSupernodes;
 }
@@ -786,7 +852,7 @@ function validateInferenceResponseFields(
     remainingCreditsAfterRequestCounts
   ).reduce((a, b) =>
     remainingCreditsAfterRequestCounts[a] >
-    remainingCreditsAfterRequestCounts[b]
+      remainingCreditsAfterRequestCounts[b]
       ? a
       : b
   );
@@ -794,7 +860,7 @@ function validateInferenceResponseFields(
     creditUsageTrackingPSLAddressCounts
   ).reduce((a, b) =>
     creditUsageTrackingPSLAddressCounts[a] >
-    creditUsageTrackingPSLAddressCounts[b]
+      creditUsageTrackingPSLAddressCounts[b]
       ? a
       : b
   );
@@ -802,7 +868,7 @@ function validateInferenceResponseFields(
     requestConfirmationMessageAmountInPatoshisCounts
   ).reduce((a, b) =>
     requestConfirmationMessageAmountInPatoshisCounts[a] >
-    requestConfirmationMessageAmountInPatoshisCounts[b]
+      requestConfirmationMessageAmountInPatoshisCounts[b]
       ? a
       : b
   );
@@ -810,7 +876,7 @@ function validateInferenceResponseFields(
     maxBlockHeightToIncludeConfirmationTransactionCounts
   ).reduce((a, b) =>
     maxBlockHeightToIncludeConfirmationTransactionCounts[a] >
-    maxBlockHeightToIncludeConfirmationTransactionCounts[b]
+      maxBlockHeightToIncludeConfirmationTransactionCounts[b]
       ? a
       : b
   );
@@ -819,7 +885,7 @@ function validateInferenceResponseFields(
       supernodePastelIDAndSignatureOnInferenceResponseIDCounts
     ).reduce((a, b) =>
       supernodePastelIDAndSignatureOnInferenceResponseIDCounts[a] >
-      supernodePastelIDAndSignatureOnInferenceResponseIDCounts[b]
+        supernodePastelIDAndSignatureOnInferenceResponseIDCounts[b]
         ? a
         : b
     );
@@ -924,7 +990,7 @@ function validateInferenceResultFields(resultAuditResults, usageResult) {
     inferenceResultFileTypeStringsCounts
   ).reduce((a, b) =>
     inferenceResultFileTypeStringsCounts[a] >
-    inferenceResultFileTypeStringsCounts[b]
+      inferenceResultFileTypeStringsCounts[b]
       ? a
       : b
   );
@@ -932,7 +998,7 @@ function validateInferenceResultFields(resultAuditResults, usageResult) {
     respondingSupernodeSignatureOnInferenceResultIDCounts
   ).reduce((a, b) =>
     respondingSupernodeSignatureOnInferenceResultIDCounts[a] >
-    respondingSupernodeSignatureOnInferenceResultIDCounts[b]
+      respondingSupernodeSignatureOnInferenceResultIDCounts[b]
       ? a
       : b
   );
@@ -982,20 +1048,44 @@ function validateInferenceData(inferenceResultDict, auditResults) {
 
   return validationResults;
 }
-
-async function filterSupernodesByPingResponseTimeAndPortResponse(
+async function filterSupernodes(
   supernodeList,
-  maxResponseTimeInMilliseconds = 800
+  maxResponseTimeInMilliseconds = 700,
+  minPerformanceRatio = 0.6,
+  maxSupernodes = 10,
+  totalTimeoutMs = 1000
 ) {
   const cacheKey = "filteredSupernodes";
-  const cacheExpiry = 3 * 60 * 1000; // 3 minutes in milliseconds
-  const currentTime = Date.now();
-  // Retrieve cached data
-  const cachedData = await supernodeCacheStorage.getItem(cacheKey);
-  if (cachedData && currentTime - cachedData.timestamp < cacheExpiry) {
-    return cachedData.filteredSupernodes;
+
+  const stats = {
+    totalProcessed: 0,
+    removedDueToPing: 0,
+    removedDueToPerformance: 0,
+    removedDueToError: 0,
+    timeouts: 0
+  };
+
+  const logResults = () => {
+    const totalRemoved = stats.removedDueToPing + stats.removedDueToPerformance + stats.removedDueToError;
+    const removedPercentage = ((totalRemoved / stats.totalProcessed) * 100).toFixed(2);
+    logger.info(`Total supernodes processed: ${stats.totalProcessed}`);
+    logger.info(`Total supernodes removed: ${totalRemoved} (${removedPercentage}%)`);
+    logger.info(`- Removed due to ping: ${stats.removedDueToPing}`);
+    logger.info(`- Removed due to performance: ${stats.removedDueToPerformance}`);
+    logger.info(`- Removed due to errors: ${stats.removedDueToError}`);
+    if (stats.timeouts > 0) {
+      logger.info(`Total timeouts: ${stats.timeouts}`);
+    }
+  };
+
+  const cachedData = await getFromCache(cacheKey);
+  // const cachedData = null;
+
+  if (cachedData && cachedData.length >= maxSupernodes) {
+    logger.info("Returning cached supernodes.");
+    return cachedData.slice(0, maxSupernodes);
   }
-  // Fetch the full supernode list if only pastelIDs are provided
+
   let fullSupernodeList = supernodeList;
   if (typeof supernodeList[0] === "string") {
     const { validMasternodeListFullDF } = await checkSupernodeList();
@@ -1003,38 +1093,78 @@ async function filterSupernodesByPingResponseTimeAndPortResponse(
       supernodeList.includes(supernode.extKey)
     );
   }
-  const pingResults = await Promise.all(
-    fullSupernodeList.map(async (supernode) => {
-      try {
-        const ipAddressPort = supernode.ipaddress_port;
-        if (!ipAddressPort) return null;
-        const ipAddress = ipAddressPort.split(":")[0];
-        const pingResponse = await ping.promise.probe(ipAddress, {
-          timeout: Math.ceil(maxResponseTimeInMilliseconds / 1000),
-        });
-        if (pingResponse.time > maxResponseTimeInMilliseconds) return null;
-        await axios.get(`http://${ipAddress}:7123`, {
-          timeout: maxResponseTimeInMilliseconds,
-        });
-        await axios.get(`http://${ipAddress}:8089`, {
-          timeout: maxResponseTimeInMilliseconds,
-        });
-        return supernode;
-      } catch (error) {
+
+  const filteredSupernodes = [];
+  let completed = false;
+  const { default: pLimit } = await import('p-limit');
+  const limit = pLimit(150);
+
+  const checkSupernode = async (supernode) => {
+    stats.totalProcessed++;
+    if (completed) return;
+    const cacheKey = `supernode_${supernode.extKey}`;
+    const cachedResult = await getFromCache(cacheKey);
+    // const cachedResult = null;
+    if (cachedResult) return cachedResult;
+
+    try {
+      const ipAddressPort = supernode.ipaddress_port;
+      if (!ipAddressPort) return null;
+      const ipAddress = ipAddressPort.split(":")[0];
+      const pingResponse = await ping.promise.probe(ipAddress, {
+        timeout: Math.ceil(maxResponseTimeInMilliseconds / 1000),
+      });
+      if (pingResponse.time > maxResponseTimeInMilliseconds) {
+        stats.removedDueToPing++;
         return null;
       }
-    })
-  );
-  const filteredSupernodes = pingResults
-    .filter((result) => result !== null)
-    .map((supernode) => supernode.extKey);
+      const performanceResponse = await axios.get(`http://${ipAddress}:7123/liveness_ping`, {
+        timeout: maxResponseTimeInMilliseconds,
+      });
+      if (performanceResponse.data.performance_ratio_score < minPerformanceRatio) {
+        stats.removedDueToPerformance++;
+        return null;
+      }
+      const result = { pastelID: supernode.extKey, url: `http://${ipAddress}:7123` };
+      await storeInCache(cacheKey, result);
+      return result;
+    } catch (error) {
+      // logger.error(`Error checking supernode ${supernode.extKey} (${supernode.ipaddress_port}): ${error.message}`);
+      stats.removedDueToError++;
+      return null;
+    }
+  };
 
-  // Update cache
-  await supernodeCacheStorage.setItem(cacheKey, {
-    timestamp: currentTime,
-    filteredSupernodes,
-  });
-  return filteredSupernodes;
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => {
+      stats.timeouts++;
+      reject(new Error("Operation timed out"));
+    }, totalTimeoutMs)
+  );
+
+  try {
+    await Promise.race([
+      timeoutPromise,
+      Promise.all(fullSupernodeList.map(supernode =>
+        limit(() => checkSupernode(supernode).then(result => {
+          if (result) {
+            filteredSupernodes.push(result);
+            if (filteredSupernodes.length >= maxSupernodes) {
+              completed = true;
+            }
+          }
+        }))
+      ))
+    ]);
+  } catch (error) {
+    if (error.message !== "Operation timed out") {
+      throw error;
+    }
+  }
+
+  await storeInCache(cacheKey, filteredSupernodes);
+  logResults();
+  return filteredSupernodes.slice(0, maxSupernodes);
 }
 
 module.exports = {
@@ -1058,6 +1188,7 @@ module.exports = {
   validatePastelBlockHeightFields,
   validateHashFields,
   validatePastelIDSignatureFields,
+  filterSupernodes,
   getClosestSupernodePastelIDFromList,
   checkIfPastelIDIsValid,
   getSupernodeUrlFromPastelID,
@@ -1067,6 +1198,5 @@ module.exports = {
   validateInferenceResponseFields,
   validateInferenceResultFields,
   validateInferenceData,
-  filterSupernodesByPingResponseTimeAndPortResponse,
   logger,
 };

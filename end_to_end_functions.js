@@ -1,6 +1,7 @@
 require("dotenv").config();
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require('path');
 const {
   UserMessage,
   CreditPackPurchaseRequest,
@@ -37,6 +38,7 @@ const {
 const { PastelInferenceClient } = require("./pastel_inference_client");
 const {
   prettyJSON,
+  filterSupernodes,
   getNClosestSupernodesToPastelIDURLs,
   validateCreditPackTicketMessageData,
   validateInferenceData,
@@ -46,11 +48,12 @@ const {
   getClosestSupernodePastelIDFromList,
   getClosestSupernodeToPastelIDURL,
 } = require("./utility_functions");
-const { getCurrentPastelIdAndPassphrase } = require("./storage");
+const globals = require('./globals');
 
 async function checkForNewIncomingMessages() {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
 
     if (!pastelID || !passphrase) {
@@ -110,7 +113,8 @@ async function sendMessageAndCheckForNewIncomingMessages(
   messageBody
 ) {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
     const { validMasternodeListFullDF } = await checkSupernodeList();
 
@@ -185,7 +189,8 @@ async function handleCreditPackTicketEndToEnd(
   maximumPerCreditPriceInPSL
 ) {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
     if (!pastelID || !passphrase) {
       throw new Error("PastelID or passphrase is not set");
     }
@@ -272,7 +277,7 @@ async function handleCreditPackTicketEndToEnd(
       burnAddress,
       Math.round(
         signedCreditPackTicket.proposed_total_cost_of_credit_pack_in_psl *
-          100000
+        100000
       ) / 100000,
       "Burn transaction for credit pack ticket"
     );
@@ -382,8 +387,7 @@ async function handleCreditPackTicketEndToEnd(
         break;
       } catch (error) {
         logger.error(
-          `Error checking status of credit purchase request with Supernode ${
-            i + 1
+          `Error checking status of credit purchase request with Supernode ${i + 1
           }: ${error.message}`
         );
         if (i === closestSupernodes.length - 1) {
@@ -504,7 +508,11 @@ async function handleCreditPackTicketEndToEnd(
 
 async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
+    if (!pastelID || !passphrase) {
+      throw new Error("PastelID or passphrase is not set");
+    }
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
     const { validMasternodeListFullDF } = await checkSupernodeList();
     const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
@@ -543,31 +551,70 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 }
 
 async function getMyValidCreditPackTicketsEndToEnd() {
+  const minimumNumberOfResponses = 3; // Minimum number of valid responses needed
+  const retryLimit = 1; // Number of retries per supernode
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
+    if (!pastelID || !passphrase) {
+      throw new Error("PastelID or passphrase is not set");
+    }
+
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
     const { validMasternodeListFullDF } = await checkSupernodeList();
-    const { url: supernodeURL } = await getClosestSupernodeToPastelIDURL(
+
+    const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
+      60,
       pastelID,
       validMasternodeListFullDF
     );
-    if (!supernodeURL) {
-      throw new Error("Supernode URL is undefined");
-    }
-    logger.info(
-      `Getting credit pack ticket data from Supernode URL: ${supernodeURL}...`
-    );
-    const validCreditPackTickets =
-      await inferenceClient.getValidCreditPackTicketsForPastelID(
-        supernodeURL,
-        pastelID
-      );
-    return validCreditPackTickets || [];
+    let validResponses = [];
+
+    // Custom promise to collect a specified minimum number of valid responses
+    await new Promise((resolve, reject) => {
+      let completedRequests = 0;
+      closestSupernodes.forEach(({ url }) => {
+        retryPromise(() => inferenceClient.getValidCreditPackTicketsForPastelID(url), retryLimit)
+          .then(response => {
+            logger.info(`Successful response received from supernode at ${url}`);
+            validResponses.push({ response, url });
+            // Resolve promise when minimum number of valid responses are collected
+            if (validResponses.length >= minimumNumberOfResponses) {
+              resolve();
+            }
+          })
+          .catch(error => {
+            logger.error(`Error querying supernode at ${url}: ${error.message}`);
+            completedRequests++;
+            // Check if it's still possible to get the minimum number of valid responses
+            if (completedRequests > closestSupernodes.length - minimumNumberOfResponses + validResponses.length) {
+              reject(new Error("Insufficient valid responses received from supernodes"));
+            }
+          });
+      });
+    });
+
+    // Determine the largest/longest response
+    const largestResponse = validResponses.reduce((prev, current) => {
+      return current.response.length > prev.response.length ? current : prev;
+    }).response;
+
+    return largestResponse || [];
   } catch (error) {
-    logger.error(
-      `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`
-    );
+    logger.error(`Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`);
     return [];
+  }
+}
+
+async function retryPromise(promiseFunc, limit, count = 0) {
+  try {
+    return await promiseFunc();
+  } catch (error) {
+    if (count < limit) {
+      return retryPromise(promiseFunc, limit, count + 1);
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -576,7 +623,11 @@ async function estimateCreditPackCostEndToEnd(
   creditPriceCushionPercentage
 ) {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
+    if (!pastelID || !passphrase) {
+      throw new Error("PastelID or passphrase is not set");
+    }
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
     const estimatedTotalCostOfTicket =
       await inferenceClient.internalEstimateOfCreditPackTicketCostInPSL(
@@ -600,7 +651,11 @@ async function handleInferenceRequestEndToEnd(
   burnAddress
 ) {
   try {
-    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    const pastelID = globals.getPastelId();
+    const passphrase = globals.getPassphrase();
+    if (!pastelID || !passphrase) {
+      throw new Error("PastelID or passphrase is not set");
+    }
     const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
     const modelParametersJSON = safeStringify(modelParameters);
     const {
@@ -611,6 +666,12 @@ async function handleInferenceRequestEndToEnd(
       modelInferenceTypeString,
       modelParametersJSON
     );
+    if (!closestSupportingSupernodeURL) {
+      logger.error(
+        `No supporting supernode found with adequate performance for the desired model: ${requestedModelCanonicalString} with inference type: ${modelInferenceTypeString}`
+      );
+      return null;
+    }
     const supernodeURL = closestSupportingSupernodeURL;
     const supernodePastelID = closestSupportingSupernodePastelID;
 
@@ -695,8 +756,7 @@ async function handleInferenceRequestEndToEnd(
 
     if (trackingAddressBalance < creditUsageTrackingAmountInPSL) {
       logger.error(
-        `Insufficient balance in tracking address: ${creditUsageTrackingPSLAddress}; amount needed: ${creditUsageTrackingAmountInPSL}; current balance: ${trackingAddressBalance}; shortfall: ${
-          creditUsageTrackingAmountInPSL - trackingAddressBalance
+        `Insufficient balance in tracking address: ${creditUsageTrackingPSLAddress}; amount needed: ${creditUsageTrackingAmountInPSL}; current balance: ${trackingAddressBalance}; shortfall: ${creditUsageTrackingAmountInPSL - trackingAddressBalance
         }`
       );
       return null;
@@ -739,8 +799,7 @@ async function handleInferenceRequestEndToEnd(
           logger.info(
             `Waiting for the inference results for ${Math.round(
               waitTimeInSeconds
-            )} seconds... (Attempt ${
-              cnt + 1
+            )} seconds... (Attempt ${cnt + 1
             }/${maxTriesToGetConfirmation}); Checking with Supernode URL: ${supernodeURL}`
           );
 

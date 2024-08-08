@@ -5,10 +5,7 @@ const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
-const {
-  getCurrentPastelIdAndPassphrase,
-  setPastelIdAndPassphrase,
-} = require("./storage");
+const { getCurrentPastelIdAndPassphrase, setPastelIdAndPassphrase } = require('./storage');
 const { PastelInferenceClient } = require("./pastel_inference_client");
 
 const {
@@ -51,7 +48,7 @@ const {
   getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
 } = require("./utility_functions");
-
+const globals = require('./globals');
 let MY_LOCAL_PASTELID = "";
 let MY_PASTELID_PASSPHRASE = "";
 
@@ -116,19 +113,48 @@ wss.on("connection", (ws) => {
   });
 });
 
+async function initializeServer() {
+  try {
+    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    if (pastelID && passphrase) {
+      // Set global variables
+      globals.setPastelIdAndPassphrase(pastelID, passphrase);
+
+      // Set local variables
+      MY_LOCAL_PASTELID = pastelID;
+      MY_PASTELID_PASSPHRASE = passphrase;
+
+      logger.info(`Successfully set global and local PastelID`);
+    } else {
+      logger.warn(`Failed to set global and local PastelID and passphrase from storage`);
+    }
+
+    // Rest of your server initialization code...
+  } catch (error) {
+    logger.error(`Error initializing server: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 let rpcport;
 let network;
 
 (async () => {
   try {
     await initializeRPCConnection();
+    await initializeServer();
     const rpcSettings = await getLocalRPCSettings();
     rpcport = rpcSettings.rpcport;
     network = getNetworkInfo(rpcport).network;
 
-    const pastelData = await getCurrentPastelIdAndPassphrase();
-    MY_LOCAL_PASTELID = pastelData.pastelID;
-    MY_PASTELID_PASSPHRASE = pastelData.passphrase;
+    const { pastelID, passphrase } = await getCurrentPastelIdAndPassphrase();
+    if (pastelID && passphrase) {
+      MY_LOCAL_PASTELID = pastelID;
+      MY_PASTELID_PASSPHRASE = passphrase;
+      logger.info(`Successfully set global PastelID`);
+    } else {
+      logger.warn(`Failed to set global PastelID and passphrase from storage`);
+    }
 
     const { validMasternodeListFullDF } = await checkSupernodeList();
     if (!validMasternodeListFullDF) {
@@ -553,19 +579,26 @@ let network;
     app.post("/set-pastel-id-passphrase", async (req, res) => {
       const { pastelID, passphrase } = req.body;
       try {
+        // Update storage
         await setPastelIdAndPassphrase(pastelID, passphrase);
+
+        // Update global variables
+        globals.setPastelIdAndPassphrase(pastelID, passphrase);
+
+        // Update local variables
         MY_LOCAL_PASTELID = pastelID;
         MY_PASTELID_PASSPHRASE = passphrase;
+
         res.json({ success: true });
+
+        // Emit the event as before
         app.emit("pastelIDAndPassphraseSet");
       } catch (error) {
         console.error("Error setting PastelID and passphrase:", error);
-        res
-          .status(500)
-          .json({
-            success: false,
-            message: "Failed to set PastelID and passphrase",
-          });
+        res.status(500).json({
+          success: false,
+          message: "Failed to set PastelID and passphrase",
+        });
       }
     });
 
