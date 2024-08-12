@@ -243,9 +243,7 @@ let network;
           MY_LOCAL_PASTELID,
           MY_PASTELID_PASSPHRASE
         );
-        const modelMenu = await pastelInferenceClient.getModelMenu(
-          supernodeURL
-        );
+        const modelMenu = await pastelInferenceClient.getModelMenu();
         res.json({ success: true, modelMenu });
       } catch (error) {
         logger.error(`Error in getInferenceModelMenu: ${safeStringify(error)}`);

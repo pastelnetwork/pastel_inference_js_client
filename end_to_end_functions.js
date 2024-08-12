@@ -551,8 +551,10 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 }
 
 async function getMyValidCreditPackTicketsEndToEnd() {
-  const minimumNumberOfResponses = 5; // Minimum number of valid responses needed
+  const initialMinimumNumberOfResponses = 5; // Initial minimum number of valid responses needed
+  const increasedMinimumNumberOfResponses = 10; // Increased minimum if all initial responses are empty
   const retryLimit = 1; // Number of retries per supernode
+
   try {
     const pastelID = globals.getPastelId();
     const passphrase = globals.getPassphrase();
@@ -568,28 +570,41 @@ async function getMyValidCreditPackTicketsEndToEnd() {
       pastelID,
       validMasternodeListFullDF
     );
+
     let validResponses = [];
+    let requiredResponses = initialMinimumNumberOfResponses;
 
     // Custom promise to collect a specified minimum number of valid responses
     await new Promise((resolve, reject) => {
       let completedRequests = 0;
+
+      const handleResponse = () => {
+        if (validResponses.length >= requiredResponses) {
+          // Check if all responses are empty and increase the required number of responses if needed
+          if (validResponses.every(resp => resp.response.length === 0)) {
+            requiredResponses = increasedMinimumNumberOfResponses;
+            if (validResponses.length >= requiredResponses) {
+              resolve();
+            }
+          } else {
+            resolve();
+          }
+        } else if (completedRequests >= closestSupernodes.length) {
+          reject(new Error("Insufficient valid responses received from supernodes"));
+        }
+      };
+
       closestSupernodes.forEach(({ url }) => {
         retryPromise(() => inferenceClient.getValidCreditPackTicketsForPastelID(url), retryLimit)
           .then(response => {
             logger.info(`Successful response received from supernode at ${url}`);
             validResponses.push({ response, url });
-            // Resolve promise when minimum number of valid responses are collected
-            if (validResponses.length >= minimumNumberOfResponses) {
-              resolve();
-            }
+            handleResponse();
           })
           .catch(error => {
             logger.error(`Error querying supernode at ${url}: ${error.message}`);
             completedRequests++;
-            // Check if it's still possible to get the minimum number of valid responses
-            if (completedRequests > closestSupernodes.length - minimumNumberOfResponses + validResponses.length) {
-              reject(new Error("Insufficient valid responses received from supernodes"));
-            }
+            handleResponse();
           });
       });
     });
