@@ -551,7 +551,7 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 }
 
 async function getMyValidCreditPackTicketsEndToEnd() {
-  const minimumNumberOfResponses = 3; // Minimum number of valid responses needed
+  const minimumNumberOfResponses = 5; // Minimum number of valid responses needed
   const retryLimit = 1; // Number of retries per supernode
   try {
     const pastelID = globals.getPastelId();
