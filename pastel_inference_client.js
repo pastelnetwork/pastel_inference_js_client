@@ -57,6 +57,7 @@ const {
   transformCreditPackPurchaseRequestResponse,
 } = require("./utility_functions");
 
+
 const MESSAGING_TIMEOUT_IN_SECONDS = process.env.MESSAGING_TIMEOUT_IN_SECONDS;
 
 function getIsoStringWithMicroseconds() {
@@ -168,7 +169,55 @@ class PastelInferenceClient {
     }
   }
 
-  async getModelMenu(supernodeURL) {
+  async getModelMenu() {
+    const minimumNumberOfResponses = 5; // Minimum number of valid responses needed
+    const retryLimit = 1; // Number of retries per supernode
+    try {
+      const { validMasternodeListFullDF } = await checkSupernodeList();
+      const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
+        60,
+        this.pastelID,
+        validMasternodeListFullDF
+      );
+      let validResponses = [];
+
+      // Custom promise to collect a specified minimum number of valid responses
+      await new Promise((resolve, reject) => {
+        let completedRequests = 0;
+        closestSupernodes.forEach(({ url }) => {
+          this.retryPromise(() => this.getModelMenuFromSupernode(url), retryLimit)
+            .then(response => {
+              logger.info(`Successful model menu response received from supernode at ${url}`);
+              validResponses.push({ response, url });
+              // Resolve promise when minimum number of valid responses are collected
+              if (validResponses.length >= minimumNumberOfResponses) {
+                resolve();
+              }
+            })
+            .catch(error => {
+              logger.error(`Error querying supernode at ${url}: ${error.message}`);
+              completedRequests++;
+              // Check if it's still possible to get the minimum number of valid responses
+              if (completedRequests > closestSupernodes.length - minimumNumberOfResponses + validResponses.length) {
+                reject(new Error("Insufficient valid responses received from supernodes"));
+              }
+            });
+        });
+      });
+
+      // Determine the largest/longest response
+      const largestResponse = validResponses.reduce((prev, current) => {
+        return JSON.stringify(current.response).length > JSON.stringify(prev.response).length ? current : prev;
+      }).response;
+
+      return largestResponse;
+    } catch (error) {
+      logger.error(`Error in getModelMenu: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getModelMenuFromSupernode(supernodeURL) {
     try {
       const response = await axios.get(
         `${supernodeURL}/get_inference_model_menu`,
@@ -187,6 +236,17 @@ class PastelInferenceClient {
     }
   }
 
+  async retryPromise(promiseFunc, limit, count = 0) {
+    try {
+      return await promiseFunc();
+    } catch (error) {
+      if (count < limit) {
+        return this.retryPromise(promiseFunc, limit, count + 1);
+      } else {
+        throw error;
+      }
+    }
+  }
   async getValidCreditPackTicketsForPastelID(supernodeURL) {
     // supernodeURL = 'http://167.86.69.188:7123';
     const useVerbose = false;
