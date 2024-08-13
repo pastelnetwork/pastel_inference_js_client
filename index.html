@@ -901,6 +901,40 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
+      function pollWalletAndPastelIDStatus(pastelID) {
+        const pollInterval = 30000; // 30 seconds
+        const maxAttempts = 20; // 10 minutes total
+        let attempts = 0;
+
+        const poll = async () => {
+          try {
+            const walletResponse = await axios.get("/get-wallet-info");
+            const walletBalance = walletResponse.data.result.balance;
+
+            const pastelIDResponse = await axios.get(`/check-pastel-id-status/${pastelID}`);
+            const isRegistered = pastelIDResponse.data.registered;
+
+            if (walletBalance > 0 && isRegistered) {
+              displayMessage("Your wallet has been funded and PastelID has been registered. The page will refresh shortly.", true);
+              setTimeout(() => location.reload(), 5000);
+            } else {
+              attempts++;
+              if (attempts < maxAttempts) {
+                displayMessage(`Please wait while your wallet is being funded and PastelID is being registered. This may take 5-10 minutes. (Attempt ${attempts}/${maxAttempts})`, true);
+                setTimeout(poll, pollInterval);
+              } else {
+                displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
+              }
+            }
+          } catch (error) {
+            console.error("Error polling wallet and PastelID status:", error);
+            displayMessage("An error occurred while checking your wallet and PastelID status. Please refresh the page in a few minutes.", false);
+          }
+        };
+
+        poll();
+      }
+
       function formatAndHighlightMessage(message) {
         const parts = message.split(/(\{[\s\S]*?\})/);
         return parts
@@ -1310,7 +1344,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           "createTicketStatusContainer"
         );
         const statusContent = document.getElementById("createTicketStatus");
-        const loaderContainer = document.getElementById("loaderContainer"); // Get the loader container
+        const loaderContainer = document.getElementById("loaderContainer");
 
         if (!statusContainer || !statusContent || !loaderContainer) {
           console.error(
@@ -1319,13 +1353,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           return;
         }
 
-        statusContent.innerHTML = ""; // Clear previous logs
-        loaderContainer.innerHTML = ""; // Clear previous loader if any
+        statusContent.innerHTML = "";
+        loaderContainer.innerHTML = "";
 
         let creditPackLoader = document.createElement("div");
         creditPackLoader.className = "btn is-loading";
         creditPackLoader.innerText = "Loading...";
-        loaderContainer.appendChild(creditPackLoader); // Append to loader container
+        loaderContainer.appendChild(creditPackLoader);
 
         const newTicketDetailsContainer = document.getElementById(
           "newCreditPackTicketDetailsContainer"
@@ -1440,27 +1474,30 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             );
 
             newTicketDetails.innerHTML = `
-                      <tr>
-                        <td class="truncate">
-                          <a href="${getTxidURL(
+        <tr>
+          <td class="truncate">
+            <a href="${getTxidURL(
               creditUsageTrackingPSLAddress,
               result.pastel_api_credit_pack_ticket_registration_txid
             )}" target="_blank">
-                            ${result.pastel_api_credit_pack_ticket_registration_txid
-              }
-                          </a>
-                        </td>
-                        <td class="truncate">${result.sha3_256_hash_of_credit_pack_purchase_request_fields
-              }</td>
-                        <td class="truncate">${result.responding_supernode_pastelid
-              }</td>
-                        <td class="truncate">${result.credit_pack_confirmation_outcome_string
-              }</td>
-                      </tr>
-                    `;
+              ${result.pastel_api_credit_pack_ticket_registration_txid}
+            </a>
+          </td>
+          <td class="truncate">${result.sha3_256_hash_of_credit_pack_purchase_request_fields}</td>
+          <td class="truncate">${result.responding_supernode_pastelid}</td>
+          <td class="truncate">${result.credit_pack_confirmation_outcome_string}</td>
+        </tr>
+      `;
 
             newTicketDetailsContainer.style.display = "block";
-            document.getElementById("refreshButton").click(); // Simulate click to refresh tickets
+
+            logCreateTicketStatusMessage(
+              "Credit pack ticket created. Waiting for blockchain confirmation...",
+              statusContent
+            );
+
+            pollCreditPackStatus(result.pastel_api_credit_pack_ticket_registration_txid);
+
             return result;
           } else {
             throw new Error("Failed to create new credit pack ticket");
@@ -1478,6 +1515,51 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           creditPackLoader.remove();
           displayCreateTicketLoggerMessages = false;
         }
+      }
+
+      function pollCreditPackStatus(txid) {
+        const pollInterval = 30000; // 30 seconds
+        const maxAttempts = 20; // 10 minutes total
+        let attempts = 0;
+
+        const checkStatus = async () => {
+          try {
+            const response = await axios.get(`/credit-pack-status/${txid}`);
+            if (response.data.confirmed) {
+              logCreateTicketStatusMessage(
+                "Credit pack ticket has been confirmed. Refreshing the table...",
+                document.getElementById("createTicketStatus")
+              );
+              await getMyValidCreditPacks(true);
+              logCreateTicketStatusMessage(
+                "Credit pack ticket is now available for use.",
+                document.getElementById("createTicketStatus")
+              );
+            } else {
+              attempts++;
+              if (attempts < maxAttempts) {
+                logCreateTicketStatusMessage(
+                  `Waiting for credit pack ticket confirmation... (Attempt ${attempts}/${maxAttempts})`,
+                  document.getElementById("createTicketStatus")
+                );
+                setTimeout(checkStatus, pollInterval);
+              } else {
+                logCreateTicketStatusMessage(
+                  "Credit pack ticket confirmation is taking longer than expected. It should appear soon. You can manually refresh the table to check.",
+                  document.getElementById("createTicketStatus")
+                );
+              }
+            }
+          } catch (error) {
+            console.error("Error checking credit pack status:", error);
+            logCreateTicketStatusMessage(
+              "An error occurred while checking the credit pack status. Please try refreshing the table manually.",
+              document.getElementById("createTicketStatus")
+            );
+          }
+        };
+
+        checkStatus();
       }
 
       // Handle inference request stuff:
@@ -1686,82 +1768,63 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
         createPastelIDForm.addEventListener("submit", async (event) => {
           event.preventDefault();
-          const passphrase = document.getElementById(
-            "newPastelIDPassphrase"
-          ).value;
+          const passphrase = document.getElementById("newPastelIDPassphrase").value;
           if (passphrase.length < 6) {
-            displayMessage(
-              "Passphrase must be at least 6 characters long.",
-              false
-            );
+            displayMessage("Passphrase must be at least 6 characters long.", false);
             return;
           }
           try {
             displayLoading(true);
-            const response = await axios.post(
-              "/create-and-register-pastel-id",
-              {
-                passphraseForNewPastelID: passphrase,
-              }
-            );
+            const response = await axios.post("/create-and-register-pastel-id", {
+              passphraseForNewPastelID: passphrase,
+            });
             displayLoading(false);
             if (response.data.success) {
-              displayMessage(
-                `PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`,
-                true
-              );
+              displayMessage(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`, true);
               localStorage.setItem(response.data.PastelID, btoa(passphrase));
-              await checkPastelIDRegistrationStatus(response.data.PastelID);
+              checkPastelIDRegistrationStatus(response.data.PastelID);
             } else {
               displayMessage(response.data.message, false);
             }
           } catch (error) {
             displayLoading(false);
             console.error("Error creating PastelID:", error);
-            displayMessage(
-              "Failed to create PastelID. Please try again.",
-              false
-            );
+            displayMessage("Failed to create PastelID. Please try again.", false);
           }
         });
 
         async function checkPastelIDRegistrationStatus(pastelID) {
+          const pollInterval = 30000; // 30 seconds
+          const maxAttempts = 20; // 10 minutes total
           let attempts = 0;
-          const maxAttempts = 60; // 5 minutes (5 * 60 seconds / 5 seconds per attempt)
-          const checkInterval = 5000; // 5 seconds
 
           const checkStatus = async () => {
             try {
-              const response = await axios.get(
-                `/check-pastel-id-status/${pastelID}`
-              );
-              if (response.data.registered) {
-                displayMessage(
-                  "PastelID successfully registered! The page will now reload.",
-                  true
-                );
-                setTimeout(() => location.reload(), 3000);
+              const response = await axios.get(`/check-pastel-id-status/${pastelID}`);
+              const walletResponse = await axios.get("/get-wallet-info");
+              const walletBalance = walletResponse.data.result.balance;
+
+              if (response.data.registered && walletBalance > 0) {
+                displayMessage("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.", true);
+                setTimeout(() => location.reload(), 5000);
               } else {
                 attempts++;
                 if (attempts < maxAttempts) {
-                  displayMessage(
-                    `PastelID registration in progress... (Attempt ${attempts}/${maxAttempts})`,
-                    true
-                  );
-                  setTimeout(checkStatus, checkInterval);
+                  let message = "PastelID registration and wallet funding in progress...";
+                  if (response.data.registered) {
+                    message = "PastelID registered. Waiting for wallet to be funded...";
+                  } else if (walletBalance > 0) {
+                    message = "Wallet funded. Waiting for PastelID registration...";
+                  }
+                  displayMessage(`${message} (Attempt ${attempts}/${maxAttempts})`, true);
+                  setTimeout(checkStatus, pollInterval);
                 } else {
-                  displayMessage(
-                    "PastelID registration is taking longer than expected. Please check back later or contact support if the issue persists.",
-                    false
-                  );
+                  displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
                 }
               }
             } catch (error) {
-              console.error("Error checking PastelID status:", error);
-              displayMessage(
-                "Error checking PastelID registration status. Please try again later.",
-                false
-              );
+              console.error("Error checking PastelID and wallet status:", error);
+              displayMessage("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.", false);
             }
           };
 
@@ -1818,8 +1881,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
 
         function displayMessage(message, isSuccess) {
-          messageContainer.innerHTML = `<p class="${isSuccess ? "text-green-600" : "text-red-600"
-            }">${message}</p>`;
+          const messageContainer = document.getElementById("messageContainer");
+          messageContainer.innerHTML = `<p class="${isSuccess ? "text-green-600" : "text-red-600"} font-bold text-lg">${message}</p>`;
+          messageContainer.scrollIntoView({ behavior: "smooth" });
         }
 
         async function getNetworkInfo() {

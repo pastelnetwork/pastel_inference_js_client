@@ -561,7 +561,7 @@ async function sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferen
       amounts,
       0,
       "Confirmation tracking transaction for inference request with request_id " +
-        inferenceRequestId,
+      inferenceRequestId,
       creditUsageTrackingPSLAddress
     );
     if (txid) {
@@ -1388,6 +1388,16 @@ async function createAndRegisterNewPastelID(passphraseForNewPastelID) {
   }
 }
 
+async function isCreditPackConfirmed(txid) {
+  try {
+    const ticket = await getPastelTicket(txid);
+    return ticket && ticket.height > 0;
+  } catch (error) {
+    logger.error(`Error checking if credit pack is confirmed: ${safeStringify(error)}`);
+    return false;
+  }
+}
+
 module.exports = {
   safeStringify,
   getLocalRPCSettings,
@@ -1440,4 +1450,5 @@ module.exports = {
   stopPastelDaemon,
   startPastelDaemon,
   getMyPslAddressWithLargestBalance,
+  isCreditPackConfirmed,
 };

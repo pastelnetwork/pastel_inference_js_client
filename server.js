@@ -40,7 +40,9 @@ const {
   createAndRegisterNewPastelID,
   stopPastelDaemon,
   startPastelDaemon,
-  getMyPslAddressWithLargestBalance
+  getMyPslAddressWithLargestBalance,
+  isPastelIDRegistered,
+  isCreditPackConfirmed
 } = require("./rpc_functions");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -304,7 +306,12 @@ let network;
         );
         res.json({ success: true, result });
       } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error("Error in create-credit-pack-ticket:", error);
+        res.status(500).json({
+          success: false,
+          error: error.message,
+          details: error.details || "No additional details available"
+        });
       }
     });
 
@@ -551,6 +558,17 @@ let network;
       }
     );
 
+    app.get("/credit-pack-status/:txid", async (req, res) => {
+      try {
+        const txid = req.params.txid;
+        const confirmed = await isCreditPackConfirmed(txid);
+        res.json({ confirmed });
+      } catch (error) {
+        console.error("Error checking credit pack status:", error);
+        res.status(500).json({ error: "Failed to check credit pack status" });
+      }
+    });
+
     app.post("/create-and-register-pastel-id", async (req, res) => {
       const { passphraseForNewPastelID } = req.body;
       try {
@@ -571,6 +589,17 @@ let network;
           `Error in create-and-register-pastel-id: ${safeStringify(error)}`
         );
         res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    app.get("/check-pastel-id-status/:pastelID", async (req, res) => {
+      try {
+        const pastelID = req.params.pastelID;
+        const isRegistered = await isPastelIDRegistered(pastelID);
+        res.json({ registered: isRegistered });
+      } catch (error) {
+        console.error("Error checking PastelID status:", error);
+        res.status(500).json({ error: "Failed to check PastelID status" });
       }
     });
 
