@@ -551,8 +551,8 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 }
 
 async function getMyValidCreditPackTicketsEndToEnd() {
-  const initialMinimumNumberOfResponses = 3; // Initial minimum number of valid responses needed
-  const increasedMinimumNumberOfResponses = 9; // Increased minimum if all initial responses are empty
+  const initialMinimumNumberOfResponses = 5; // Initial minimum number of valid responses needed
+  const increasedMinimumNumberOfResponses = 12; // Increased minimum if all initial responses are empty
   const retryLimit = 1; // Number of retries per supernode
 
   try {
@@ -566,7 +566,7 @@ async function getMyValidCreditPackTicketsEndToEnd() {
     const { validMasternodeListFullDF } = await checkSupernodeList();
 
     const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
-      60,
+      90,
       pastelID,
       validMasternodeListFullDF
     );
