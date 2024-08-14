@@ -1755,121 +1755,113 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         );
       }
 
-      document.addEventListener("DOMContentLoaded", async () => {
-        const noPastelIDContainer = document.getElementById(
-          "noPastelIDContainer"
-        );
-        const createPastelIDForm =
-          document.getElementById("createPastelIDForm");
-        const importPastelIDButton = document.getElementById(
-          "importPastelIDButton"
-        );
-        const messageContainer = document.getElementById("messageContainer");
 
-        createPastelIDForm.addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const passphrase = document.getElementById("newPastelIDPassphrase").value;
-          if (passphrase.length < 6) {
-            displayMessage("Passphrase must be at least 6 characters long.", false);
-            return;
-          }
+      async function pollWalletAndPastelIDStatus(pastelID) {
+        const pollInterval = 30000; // 30 seconds
+        const maxAttempts = 20; // 10 minutes total
+        let attempts = 0;
+
+        const checkStatus = async () => {
           try {
-            displayLoading(true);
-            const response = await axios.post("/create-and-register-pastel-id", {
-              passphraseForNewPastelID: passphrase,
-            });
-            displayLoading(false);
-            if (response.data.success) {
-              displayMessage(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`, true);
-              localStorage.setItem(response.data.PastelID, btoa(passphrase));
-              checkPastelIDRegistrationStatus(response.data.PastelID);
+            const response = await axios.get(`/check-pastel-id-status/${pastelID}`);
+            const walletResponse = await axios.get("/get-wallet-info");
+            const walletBalance = walletResponse.data.result.balance;
+
+            if (response.data.registered && walletBalance > 0) {
+              displayMessage("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.", true);
+              setTimeout(() => location.reload(), 5000);
             } else {
-              displayMessage(response.data.message, false);
-            }
-          } catch (error) {
-            displayLoading(false);
-            console.error("Error creating PastelID:", error);
-            displayMessage("Failed to create PastelID. Please try again.", false);
-          }
-        });
-
-        async function checkPastelIDRegistrationStatus(pastelID) {
-          const pollInterval = 30000; // 30 seconds
-          const maxAttempts = 20; // 10 minutes total
-          let attempts = 0;
-
-          const checkStatus = async () => {
-            try {
-              const response = await axios.get(`/check-pastel-id-status/${pastelID}`);
-              const walletResponse = await axios.get("/get-wallet-info");
-              const walletBalance = walletResponse.data.result.balance;
-
-              if (response.data.registered && walletBalance > 0) {
-                displayMessage("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.", true);
-                setTimeout(() => location.reload(), 5000);
-              } else {
-                attempts++;
-                if (attempts < maxAttempts) {
-                  let message = "PastelID registration and wallet funding in progress...";
-                  if (response.data.registered) {
-                    message = "PastelID registered. Waiting for wallet to be funded...";
-                  } else if (walletBalance > 0) {
-                    message = "Wallet funded. Waiting for PastelID registration...";
-                  }
-                  displayMessage(`${message} (Attempt ${attempts}/${maxAttempts})`, true);
-                  setTimeout(checkStatus, pollInterval);
-                } else {
-                  displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
+              attempts++;
+              if (attempts < maxAttempts) {
+                let message = "PastelID registration and wallet funding in progress...";
+                if (response.data.registered) {
+                  message = "PastelID registered. Waiting for wallet to be funded...";
+                } else if (walletBalance > 0) {
+                  message = "Wallet funded. Waiting for PastelID registration...";
                 }
+                displayMessage(`${message} (Attempt ${attempts}/${maxAttempts})`, true);
+                setTimeout(checkStatus, pollInterval);
+              } else {
+                displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
               }
-            } catch (error) {
-              console.error("Error checking PastelID and wallet status:", error);
-              displayMessage("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.", false);
-            }
-          };
-
-          checkStatus();
-        }
-
-        importPastelIDButton.addEventListener("click", async () => {
-          const pastelIDFile =
-            document.getElementById("importPastelIDFile").files[0];
-          if (!pastelIDFile) {
-            displayMessage("Please select a PastelID file to import.", false);
-            return;
-          }
-          const formData = new FormData();
-          formData.append("pastelIDFile", pastelIDFile);
-          try {
-            const { network } = await getNetworkInfo();
-            const response = await axios.post(
-              `/import-pastel-id?network=${network}`,
-              formData
-            );
-            if (response.data.success) {
-              displayMessage("PastelID imported successfully!", true);
-              location.reload(); // Refresh the page to update the UI
-            } else {
-              displayMessage(response.data.message, false);
             }
           } catch (error) {
-            console.error("Error importing PastelID:", error);
-            displayMessage(
-              "Failed to import PastelID. Please try again.",
-              false
-            );
+            console.error("Error checking PastelID and wallet status:", error);
+            displayMessage("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.", false);
           }
-        });
+        };
 
-        function displayLoading(show) {
-          const loader = document.getElementById("loaderContainer");
-          if (show) {
-            loader.innerHTML = '<div class="btn is-loading">Loading...</div>';
-          } else {
-            loader.innerHTML = "";
-          }
+        checkStatus();
+      }
+
+      createPastelIDForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const passphrase = document.getElementById("newPastelIDPassphrase").value;
+        if (passphrase.length < 6) {
+          displayMessage("Passphrase must be at least 6 characters long.", false);
+          return;
         }
+        try {
+          displayLoading(true);
+          const response = await axios.post("/create-and-register-pastel-id", {
+            passphraseForNewPastelID: passphrase,
+          });
+          displayLoading(false);
+          if (response.data.success) {
+            displayMessage(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`, true);
+            localStorage.setItem(response.data.PastelID, btoa(passphrase));
+            pollWalletAndPastelIDStatus(response.data.PastelID);
+          } else {
+            displayMessage(response.data.message, false);
+          }
+        } catch (error) {
+          displayLoading(false);
+          console.error("Error creating PastelID:", error);
+          displayMessage("Failed to create PastelID. Please try again.", false);
+        }
+      });
 
+
+      importPastelIDButton.addEventListener("click", async () => {
+        const pastelIDFile =
+          document.getElementById("importPastelIDFile").files[0];
+        if (!pastelIDFile) {
+          displayMessage("Please select a PastelID file to import.", false);
+          return;
+        }
+        const formData = new FormData();
+        formData.append("pastelIDFile", pastelIDFile);
+        try {
+          const { network } = await getNetworkInfo();
+          const response = await axios.post(
+            `/import-pastel-id?network=${network}`,
+            formData
+          );
+          if (response.data.success) {
+            displayMessage("PastelID imported successfully!", true);
+            location.reload(); // Refresh the page to update the UI
+          } else {
+            displayMessage(response.data.message, false);
+          }
+        } catch (error) {
+          console.error("Error importing PastelID:", error);
+          displayMessage(
+            "Failed to import PastelID. Please try again.",
+            false
+          );
+        }
+      });
+
+      function displayLoading(show) {
+        const loader = document.getElementById("loaderContainer");
+        if (show) {
+          loader.innerHTML = '<div class="btn is-loading">Loading...</div>';
+        } else {
+          loader.innerHTML = "";
+        }
+      }
+
+      (async function () {
         try {
           const myPslAddress = await getMyPslAddressWithLargestBalance();
           document.getElementById("myPslAddress").textContent = myPslAddress;
@@ -1879,32 +1871,38 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             error
           );
         }
+      })();
 
-        function displayMessage(message, isSuccess) {
-          const messageContainer = document.getElementById("messageContainer");
-          messageContainer.innerHTML = `<p class="${isSuccess ? "text-green-600" : "text-red-600"} font-bold text-lg">${message}</p>`;
-          messageContainer.scrollIntoView({ behavior: "smooth" });
-        }
+      function displayMessage(message, isSuccess) {
+        const messageContainer = document.getElementById("messageContainer");
+        messageContainer.innerHTML = `<p class="${isSuccess ? "text-green-600" : "text-red-600"} font-bold text-lg">${message}</p>`;
+        messageContainer.scrollIntoView({ behavior: "smooth" });
+      }
 
-        async function getNetworkInfo() {
-          const response = await axios.get("/get-network-info");
-          return response.data;
-        }
+      async function getNetworkInfo() {
+        const response = await axios.get("/get-network-info");
+        return response.data;
+      }
 
-        // Check if there are any PastelIDs on initial load
-        const pastelIDTickets = await listPastelIDTickets();
-        if (pastelIDTickets.length === 0) {
-          document
-            .getElementById("pastelIDDropdownContainer")
-            .classList.add("hidden");
-          noPastelIDContainer.classList.remove("hidden");
-        } else {
-          noPastelIDContainer.classList.add("hidden");
-          document
-            .getElementById("pastelIDDropdownContainer")
-            .classList.remove("hidden");
+      (async function () {
+        try {
+          // Check if there are any PastelIDs on initial load
+          const pastelIDTickets = await listPastelIDTickets();
+          if (pastelIDTickets.length === 0) {
+            document
+              .getElementById("pastelIDDropdownContainer")
+              .classList.add("hidden");
+            noPastelIDContainer.classList.remove("hidden");
+          } else {
+            noPastelIDContainer.classList.add("hidden");
+            document
+              .getElementById("pastelIDDropdownContainer")
+              .classList.remove("hidden");
+          }
+        } catch (error) {
+          console.error("Error checking PastelIDs:", error);
         }
-      });
+      })();
 
       document.addEventListener("DOMContentLoaded", async () => {
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");

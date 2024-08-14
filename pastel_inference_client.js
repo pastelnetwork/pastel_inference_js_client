@@ -1521,7 +1521,7 @@ class PastelInferenceClient {
       const response = await axios.get(
         `${supernodeURL}/get_inference_model_menu`,
         {
-          timeout: 4 * 1000,
+          timeout: 8 * 1000,
         }
       );
 

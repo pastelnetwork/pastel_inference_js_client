@@ -552,7 +552,7 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 
 async function getMyValidCreditPackTicketsEndToEnd() {
   const initialMinimumNumberOfResponses = 4; // Initial minimum number of valid responses needed
-  const increasedMinimumNumberOfResponses = 12; // Increased minimum if all initial responses are empty
+  const increasedMinimumNumberOfResponses = 9; // Increased minimum if all initial responses are empty
   const retryLimit = 1; // Number of retries per supernode
 
   try {
