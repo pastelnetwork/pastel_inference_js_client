@@ -309,7 +309,15 @@
       </h1>
       <input id="theme-toggle" class="switch success lg" data-content="☀" type="checkbox" onchange="toggleDarkMode()" />
     </div>
-
+    <div class="fixed z-20 top-0 left-0 w-screen h-screen hidden" id="createPastelIDLoading">
+      <div class="position z-10 bg-slate-400 top-0 left-0 w-screen h-screen opacity-95"></div>
+      <div class="absolute z-20 w-screen h-screen flex items-center justify-center top-0 left-0">
+        <div class="text-center max-w-3xl px-4">
+          <div class="btn is-loading">Loading...</div>
+          <div class="text-lg font-bold" id="createPastelIDLoadingText"></div>
+        </div>
+      </div>
+    </div>
     <div class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
       <div class="col-span-full">
@@ -899,40 +907,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           console.error("Error retrieving Pastel ID tickets:", error);
           return [];
         }
-      }
-
-      function pollWalletAndPastelIDStatus(pastelID) {
-        const pollInterval = 30000; // 30 seconds
-        const maxAttempts = 20; // 10 minutes total
-        let attempts = 0;
-
-        const poll = async () => {
-          try {
-            const walletResponse = await axios.get("/get-wallet-info");
-            const walletBalance = walletResponse.data.result.balance;
-
-            const pastelIDResponse = await axios.get(`/check-pastel-id-status/${pastelID}`);
-            const isRegistered = pastelIDResponse.data.registered;
-
-            if (walletBalance > 0 && isRegistered) {
-              displayMessage("Your wallet has been funded and PastelID has been registered. The page will refresh shortly.", true);
-              setTimeout(() => location.reload(), 5000);
-            } else {
-              attempts++;
-              if (attempts < maxAttempts) {
-                displayMessage(`Please wait while your wallet is being funded and PastelID is being registered. This may take 5-10 minutes. (Attempt ${attempts}/${maxAttempts})`, true);
-                setTimeout(poll, pollInterval);
-              } else {
-                displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
-              }
-            }
-          } catch (error) {
-            console.error("Error polling wallet and PastelID status:", error);
-            displayMessage("An error occurred while checking your wallet and PastelID status. Please refresh the page in a few minutes.", false);
-          }
-        };
-
-        poll();
       }
 
       function formatAndHighlightMessage(message) {
@@ -1755,7 +1729,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         );
       }
 
-
       async function pollWalletAndPastelIDStatus(pastelID) {
         const pollInterval = 30000; // 30 seconds
         const maxAttempts = 20; // 10 minutes total
@@ -1766,9 +1739,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const response = await axios.get(`/check-pastel-id-status/${pastelID}`);
             const walletResponse = await axios.get("/get-wallet-info");
             const walletBalance = walletResponse.data.result.balance;
-
             if (response.data.registered && walletBalance > 0) {
-              displayMessage("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.", true);
+              updateCreatePastelIDStatus("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.");
               setTimeout(() => location.reload(), 5000);
             } else {
               attempts++;
@@ -1779,19 +1751,24 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 } else if (walletBalance > 0) {
                   message = "Wallet funded. Waiting for PastelID registration...";
                 }
-                displayMessage(`${message} (Attempt ${attempts}/${maxAttempts})`, true);
+                updateCreatePastelIDStatus(`${message} (Attempt ${attempts}/${maxAttempts})`);
                 setTimeout(checkStatus, pollInterval);
               } else {
-                displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false);
+                updateCreatePastelIDStatus("The process is taking longer than expected. Please refresh the page in a few minutes.");
               }
             }
           } catch (error) {
             console.error("Error checking PastelID and wallet status:", error);
-            displayMessage("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.", false);
+            updateCreatePastelIDStatus("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.");
           }
         };
 
         checkStatus();
+      }
+
+      function updateCreatePastelIDStatus(content) {
+        const createPastelIDLoadingText = document.querySelector('#createPastelIDLoadingText');
+        createPastelIDLoadingText.innerHTML = content;
       }
 
       createPastelIDForm.addEventListener("submit", async (event) => {
@@ -1803,12 +1780,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
         try {
           displayLoading(true);
+          const createPastelIDLoading = document.querySelector('#createPastelIDLoading');
+          createPastelIDLoading.classList.remove('hidden');
+          updateCreatePastelIDStatus("Start create and register PastelID.");
           const response = await axios.post("/create-and-register-pastel-id", {
             passphraseForNewPastelID: passphrase,
           });
           displayLoading(false);
           if (response.data.success) {
-            displayMessage(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`, true);
+            updateCreatePastelIDStatus(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`);
             localStorage.setItem(response.data.PastelID, btoa(passphrase));
             pollWalletAndPastelIDStatus(response.data.PastelID);
           } else {

@@ -1283,7 +1283,7 @@ async function isPastelIDRegistered(pastelID) {
       "id",
       pastelID
     );
-    return ticketFindResult.length > 0;
+    return !!ticketFindResult?.ticket?.pastelID
   } catch (error) {
     logger.error(
       `Error checking if Pastel ID is registered: ${safeStringify(error)}`
