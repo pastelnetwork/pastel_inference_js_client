@@ -203,6 +203,14 @@ let network;
       res.sendFile(path.join(__dirname, "favicon.ico"));
     });
 
+    app.get("/pastel-logo.svg", (req, res) => {
+      res.sendFile(path.join(__dirname, "pastel-logo.svg"));
+    });
+
+    app.get("/pastel-logo-white.svg", (req, res) => {
+      res.sendFile(path.join(__dirname, "pastel-logo-white.svg"));
+    });
+
     app.get("/get-network-info", async (req, res) => {
       try {
         res.json({ network });
