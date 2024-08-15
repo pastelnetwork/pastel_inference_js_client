@@ -236,11 +236,26 @@
       vertical-align: middle;
     }
 
+    .credit-pack-details-container {
+      width: 100%;
+    }
+
     .new-ticket-table {
-      width: auto;
-      /* Change to auto to fit content */
+      width: 100%;
       table-layout: auto;
-      /* Use auto layout to fit column content */
+    }
+
+    .new-ticket-table th,
+    .new-ticket-table td {
+      padding: 8px;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .new-ticket-table th {
+      width: 25%;
+      /* As we have 4 columns, each gets 25% width */
     }
 
     .tooltip-icon {
@@ -450,19 +465,16 @@
             </div>
           </div>
         </div>
-
-        <div id="newCreditPackTicketDetailsContainer" style="display: none">
+        <div class="credit-pack-details-container" id="newCreditPackTicketDetailsContainer" style="display: none">
           <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
-          <div class="table-responsive new-ticket-table">
+          <div class="table-responsive">
             <table class="table bordered bw new-ticket-table">
               <thead>
                 <tr>
-                  <th class="registration-txid-column">Registration TXID</th>
-                  <th class="sha3256-hash-of-credit-pack-column">
-                    SHA3-256 Hash of Credit Pack Purchase Request Fields
-                  </th>
-                  <th class="responding-supernode-pastelid-column">Responding Supernode PastelID</th>
-                  <th class="outcome-column">Outcome</th>
+                  <th>Registration TXID</th>
+                  <th>SHA3-256 Hash of Credit Pack Purchase Request Fields</th>
+                  <th>Responding Supernode PastelID</th>
+                  <th>Outcome</th>
                 </tr>
               </thead>
               <tbody id="newCreditPackTicketDetails">

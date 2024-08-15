@@ -551,9 +551,9 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
 }
 
 async function getMyValidCreditPackTicketsEndToEnd() {
-  const initialMinimumNumberOfResponses = 4; // Initial minimum number of valid responses needed
-  const increasedMinimumNumberOfResponses = 9; // Increased minimum if all initial responses are empty
-  const retryLimit = 1; // Number of retries per supernode
+  const initialMinimumNonEmptyResponses = 5;
+  const maxTotalResponsesIfAllEmpty = 20;
+  const retryLimit = 1;
 
   try {
     const pastelID = globals.getPastelId();
@@ -566,42 +566,54 @@ async function getMyValidCreditPackTicketsEndToEnd() {
     const { validMasternodeListFullDF } = await checkSupernodeList();
 
     const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
-      90,
+      120,
       pastelID,
       validMasternodeListFullDF
     );
 
-    let validResponses = [];
-    let requiredResponses = initialMinimumNumberOfResponses;
+    let allResponses = [];
+    let nonEmptyResponses = [];
+    let isResolved = false;
 
-    // Custom promise to collect a specified minimum number of valid responses
     await new Promise((resolve, reject) => {
       let completedRequests = 0;
 
       const handleResponse = () => {
-        if (validResponses.length >= requiredResponses) {
-          // Check if all responses are empty and increase the required number of responses if needed
-          if (validResponses.every(resp => resp.response.length === 0)) {
-            requiredResponses = increasedMinimumNumberOfResponses;
-            if (validResponses.length >= requiredResponses) {
-              resolve();
-            }
-          } else {
-            resolve();
-          }
+        if (isResolved) return;
+
+        if (nonEmptyResponses.length >= initialMinimumNonEmptyResponses) {
+          logger.info(`Received ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`);
+          isResolved = true;
+          resolve();
+        } else if (allResponses.length >= maxTotalResponsesIfAllEmpty) {
+          logger.info(`Reached maximum total responses (${maxTotalResponsesIfAllEmpty}) with ${nonEmptyResponses.length} non-empty responses`);
+          isResolved = true;
+          resolve();
         } else if (completedRequests >= closestSupernodes.length) {
-          reject(new Error("Insufficient valid responses received from supernodes"));
+          logger.warn(`Queried all available supernodes. Got ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`);
+          isResolved = true;
+          resolve();
         }
       };
 
       closestSupernodes.forEach(({ url }) => {
+        if (isResolved) return;
+
         retryPromise(() => inferenceClient.getValidCreditPackTicketsForPastelID(url), retryLimit)
           .then(response => {
-            logger.info(`Successful response received from supernode at ${url}`);
-            validResponses.push({ response, url });
+            if (isResolved) return;
+
+            logger.info(`Response received from supernode at ${url}; response length: ${response.length}`);
+            allResponses.push({ response, url });
+            if (response.length > 0) {
+              nonEmptyResponses.push({ response, url });
+            }
+            completedRequests++;
             handleResponse();
           })
           .catch(error => {
+            if (isResolved) return;
+
             logger.error(`Error querying supernode at ${url}: ${error.message}`);
             completedRequests++;
             handleResponse();
@@ -609,12 +621,17 @@ async function getMyValidCreditPackTicketsEndToEnd() {
       });
     });
 
-    // Determine the largest/longest response
-    const largestResponse = validResponses.reduce((prev, current) => {
-      return current.response.length > prev.response.length ? current : prev;
-    }).response;
-
-    return largestResponse || [];
+    if (nonEmptyResponses.length > 0) {
+      // Return the longest non-empty response
+      const longestResponse = nonEmptyResponses.reduce((prev, current) => {
+        return current.response.length > prev.response.length ? current : prev;
+      }).response;
+      logger.info(`Returning longest non-empty response with length: ${longestResponse.length}`);
+      return longestResponse;
+    } else {
+      logger.info("All responses were empty. Returning empty list.");
+      return [];
+    }
   } catch (error) {
     logger.error(`Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`);
     return [];

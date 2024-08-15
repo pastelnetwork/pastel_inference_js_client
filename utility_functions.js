@@ -1050,10 +1050,10 @@ function validateInferenceData(inferenceResultDict, auditResults) {
 }
 async function filterSupernodes(
   supernodeList,
-  maxResponseTimeInMilliseconds = 700,
-  minPerformanceRatio = 0.6,
-  maxSupernodes = 10,
-  totalTimeoutMs = 1000
+  maxResponseTimeInMilliseconds = 800,
+  minPerformanceRatio = 0.45,
+  maxSupernodes = 130,
+  totalTimeoutMs = 950
 ) {
   const cacheKey = "filteredSupernodes";
 
