@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pastel Inference Client UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sira-ui/tailwind/dist/css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
@@ -348,7 +350,7 @@
       color: #777e90;
     }
     .site-name {
-      font-size: 19.5px;
+      font-size: 12.5px;
     }
     .button-contained {
       position: relative;
@@ -487,558 +489,655 @@
       outline: 2px solid transparent;
       outline-offset: 2px;
     }
+    .sub-menu {
+      display: none;
+      width: 320px;
+      top: 100%;
+    }
+    .main-menu-item:hover {
+      color: #7850C8;
+    }
+    .main-menu-item:hover .sub-menu {
+      display: block;
+    }
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 4px;
+      border-radius: 100%;
+      border: 1px solid rgb(45, 55, 72);
+      transition: 0.5s;
+      font-size: 16px;
+    }
+    .social-link svg {
+      max-width: 100%;
+      fill: rgb(45, 55, 72);
+      transition: 0.5s;
+    }
+    .social-link:hover {
+      border-color: #7850C8;
+      background: none;
+    }
+    .social-link:hover svg {
+      fill: #7850C8;
+    }
+    .main-logo {
+      height: 25px;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 65px;
+      z-index: 9999;
+    }
+    * {
+        scroll-margin-top: 65px;
+    }
   </style>
 </head>
 
 <body class="flex flex-col transition-all duration-300 bg-bw-50 overflow-x-hidden">
   <div class="block w-full h-full">
-    <div class="flex">
-      <div class="bg-gray-50 w-72px pt-2 lg:pt-0 lg:w-64 grow-0 min-h-screen shadow flex flex-col">
-        <div class="p-3 lg:p-4 flex-grow">
-          <div class="mt-0 lg:mt-5 mr-0 lg:mr-2 ml-0 lg:ml-2 mb-1 flex justify-between items-center w-full">
-            <a href="/" class="w-full">
-              <img src="/pastel-logo.svg" alt="Pastel Inference Client" class="dark-logo w-full" />
-              <img src="/pastel-logo-white.svg" alt="Pastel Inference Client" class="light-logo w-full" />
-              <span class="text-right block site-name">Inference Client</span>
-            </a>
-          </div>
-          <hr class="mb-3 lg:mb-5 border-gray-250 mt-3 lg:mt-5" />
-          <ul class="space-y-2 lg:space-y-3">
-            <li>
-              <a href="#userInformation" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>User Information</span>
-              </a>
+    <div class="flex-1 bg-white">
+      <header class="py-2 p-20px bg-white flex justify-between items-center shadow-lg">
+        <div class="">
+          <a href="/" class="w-full flex items-end gap-2">
+            <img src="/pastel-logo.svg" alt="Pastel Inference Client" class="main-logo dark-logo w-full" />
+            <img src="/pastel-logo-white.svg" alt="Pastel Inference Client" class="main-logo light-logo w-full" />
+            <span class="text-right block site-name text-base whitespace-nowrap leading-none">Inference Client</span>
+          </a>
+        </div>
+        <div class="flex items-center gap-4">
+          <ul class="flex items-center gap-4">
+            <li class="main-menu-item">
+              <a href="https://github.com/pastelnetwork/pastel_inference_js_client?tab=readme-ov-file#pastel-inference-javascript-client" target="_blank" rel="noopener">What is the Pastel Inference Client?</a>
             </li>
-            <li>
-              <a href="#createNewCreditPackTicket" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Create New Credit Pack Ticket</span>
+            <li class="main-menu-item inline-flex relative">
+              <a href="#" class="inline-flex items-center gap-1 text-base">
+                User Information
+                <img src="./caret-down.svg" alt="Other" class="ml-1" />
               </a>
-            </li>
-            <li>
-              <a href="#creditPackTicket" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Credit Pack Ticket</span>
-              </a>
-            </li>
-            <li>
-              <a href="#createNewInferenceRequest" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Create New Inference Request</span>
-              </a>
-            </li>
-            <li>
-              <a href="#inferenceRequests" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>View Previous Inference Requests</span>
-              </a>
-            </li>
-            <li>
-              <a href="#sendAndReceiveMessages" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Send and Receive Messages</span>
-              </a>
-            </li>
-            <li>
-              <a href="#manageWallet" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Manage Wallet</span>
-              </a>
-            </li>
-            <li>
-              <a href="#terminal" class="menu-item flex items-center gap-1.5 block py-3 lg:py-3 px-3 lg:px-4 text-neutrals-600 rounded-lg font-normal">
-                <span>Terminal</span>
-              </a>
+              <ul class="space-y-1 sub-menu origin-top-right absolute border shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-20 right-1 rounded-lg">
+                <li>
+                  <a href="#userInformation" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>User Information</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#createNewCreditPackTicket" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Create New Credit Pack Ticket</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#creditPackTicket" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Credit Pack Ticket</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#createNewInferenceRequest" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Create New Inference Request</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#inferenceRequests" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>View Previous Inference Requests</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#sendAndReceiveMessages" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Send and Receive Messages</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#manageWallet" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Manage Wallet</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#terminal" class="menu-item flex items-center gap-1.5 block p-3 text-neutrals-600 font-normal">
+                    <span>Terminal</span>
+                  </a>
+                </li>
+              </ul>
             </li>
           </ul>
-        </div>
-      </div>
-      <div class="flex-1 bg-white">
-        <header class="py-2 p-20px bg-white flex justify-end items-center">
-          <div class="w-auto">
+          <div class="w-auto flex items-center">
             <input id="theme-toggle" class="switch success lg" data-content="☀" type="checkbox" onchange="toggleDarkMode()" />
           </div>
-        </header>
-        <main class="py-2 p-20px mt-3 main-content">
-          <div class="fixed z-20 top-0 left-0 w-screen h-screen hidden" id="createPastelIDLoading">
-            <div class="position z-10 bg-slate-400 top-0 left-0 w-screen h-screen opacity-95"></div>
-            <div class="absolute z-20 w-screen h-screen flex items-center justify-center top-0 left-0">
-              <div class="text-center max-w-3xl px-4">
-                <div class="btn is-loading">Loading...</div>
-                <div class="text-lg font-bold" id="createPastelIDLoadingText"></div>
-              </div>
+          <div class="w-auto">
+            <ul class="w-auto flex gap-2">
+                <li class="">
+                    <a class="social-link" tabindex="0" target="_blank" href="https://t.me/PastelNetwork">
+                        <svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M22.9977 3.1448C22.6238 2.83952 22.0366 2.79584 21.4295 3.03056H21.4285C20.79 3.27728 3.35378 10.4792 2.64398 10.7734C2.51487 10.8166 1.38735 11.2218 1.5035 12.1242C1.60718 12.9378 2.51338 13.2747 2.62404 13.3136L7.05686 14.7752C7.35095 15.7179 8.4351 19.196 8.67486 19.939C8.8244 20.4022 9.06815 21.0109 9.49533 21.1362C9.87017 21.2754 10.243 21.1482 10.4843 20.9658L13.1944 18.5451L17.5694 21.8307L17.6736 21.8907C17.9707 22.0174 18.2553 22.0808 18.527 22.0808C18.7368 22.0808 18.9382 22.0429 19.1306 21.967C19.7861 21.7078 20.0483 21.1064 20.0757 21.0382L23.3436 4.68128C23.543 3.80768 23.2658 3.3632 22.9977 3.1448ZM10.9663 15.3598L9.4709 19.1998L7.97552 14.3998L19.4401 6.23984L10.9663 15.3598Z"
+                            ></path>
+                        </svg>
+                    </a>
+                </li>
+                <li class="">
+                    <a class="social-link" tabindex="0" target="_blank" href="https://twitter.com/pastelnetwork">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_3535_1221)">
+                                <path
+                                    d="M24.0298 5.01102C23.1429 5.40477 22.1923 5.66914 21.1929 5.78914C22.2129 5.17789 22.9967 4.21039 23.3642 3.05914C22.4117 3.62352 21.3523 4.03414 20.2292 4.25539C19.3292 3.29539 18.0467 2.69727 16.6273 2.69727C13.9011 2.69727 11.6904 4.90602 11.6904 7.63227C11.6904 8.01852 11.7354 8.39539 11.8198 8.75727C7.71731 8.55102 4.08168 6.58602 1.64605 3.59914C1.22043 4.33039 0.978555 5.17789 0.978555 6.08164C0.978555 7.79352 1.84855 9.30477 3.17418 10.1916C2.36418 10.1654 1.60293 9.94227 0.937305 9.57289C0.937305 9.59352 0.937305 9.61414 0.937305 9.63477C0.937305 12.0273 2.6398 14.0204 4.89543 14.476C4.48293 14.5885 4.04605 14.6485 3.59606 14.6485C3.2773 14.6485 2.96793 14.6185 2.66605 14.5585C3.29606 16.5179 5.11856 17.9485 7.27668 17.9879C5.58918 19.3116 3.46106 20.0991 1.1473 20.0991C0.74793 20.0991 0.356055 20.0766 -0.0283203 20.0298C2.15418 21.4323 4.74918 22.2479 7.5373 22.2479C16.6161 22.2479 21.5811 14.7273 21.5811 8.20602C21.5811 7.99227 21.5754 7.77664 21.5679 7.56664C22.5317 6.87102 23.3679 6.00102 24.0298 5.01102Z"
+                                ></path>
+                            </g>
+                        </svg>
+                    </a>
+                </li>
+                <li class="">
+                    <a class="social-link" tabindex="0" target="_blank" href="https://discord.com/invite/qudewKS3kp">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M19.98 5.16924C18.0693 3.63174 15.0468 3.37111 14.9175 3.36174C14.7168 3.34486 14.5256 3.45736 14.4431 3.64299C14.4356 3.65424 14.37 3.80611 14.2968 4.04236C15.5606 4.25611 17.1131 4.68549 18.5175 5.55736C18.7425 5.69611 18.8118 5.99236 18.6731 6.21736C18.5812 6.36549 18.4256 6.44611 18.2643 6.44611C18.1781 6.44611 18.09 6.42174 18.0112 6.37299C15.5962 4.87486 12.5812 4.79986 12 4.79986C11.4187 4.79986 8.40184 4.87486 5.98871 6.37299C5.76371 6.51361 5.46746 6.44424 5.32871 6.21924C5.18809 5.99236 5.25746 5.69799 5.48246 5.55736C6.88684 4.68736 8.43934 4.25611 9.70309 4.04424C9.62996 3.80611 9.56433 3.65611 9.55871 3.64299C9.47433 3.45736 9.28496 3.34111 9.08246 3.36174C8.95309 3.37111 5.93059 3.63174 3.99371 5.18986C2.98309 6.12549 0.959961 11.593 0.959961 16.3199C0.959961 16.4042 0.982461 16.4849 1.02371 16.558C2.41871 19.0105 6.22684 19.6517 7.09496 19.6799C7.09871 19.6799 7.10434 19.6799 7.10996 19.6799C7.26371 19.6799 7.40809 19.6067 7.49809 19.483L8.37559 18.2755C6.00746 17.6642 4.79809 16.6255 4.72871 16.5636C4.52996 16.3892 4.51121 16.0855 4.68746 15.8867C4.86184 15.688 5.16559 15.6692 5.36434 15.8436C5.39246 15.8699 7.61996 17.7599 12 17.7599C16.3875 17.7599 18.615 15.8624 18.6375 15.8436C18.8362 15.6711 19.1381 15.688 19.3143 15.8886C19.4887 16.0874 19.47 16.3892 19.2712 16.5636C19.2018 16.6255 17.9925 17.6642 15.6243 18.2755L16.5018 19.483C16.5918 19.6067 16.7362 19.6799 16.89 19.6799C16.8956 19.6799 16.9012 19.6799 16.905 19.6799C17.7731 19.6517 21.5812 19.0105 22.9762 16.558C23.0175 16.4849 23.04 16.4042 23.04 16.3199C23.04 11.593 21.0168 6.12549 19.98 5.16924ZM8.87996 14.3999C7.95184 14.3999 7.19996 13.5411 7.19996 12.4799C7.19996 11.4186 7.95184 10.5599 8.87996 10.5599C9.80809 10.5599 10.56 11.4186 10.56 12.4799C10.56 13.5411 9.80809 14.3999 8.87996 14.3999ZM15.12 14.3999C14.1918 14.3999 13.44 13.5411 13.44 12.4799C13.44 11.4186 14.1918 10.5599 15.12 10.5599C16.0481 10.5599 16.8 11.4186 16.8 12.4799C16.8 13.5411 16.0481 14.3999 15.12 14.3999Z"
+                            ></path>
+                        </svg>
+                    </a>
+                </li>
+                <li class="">
+                    <a class="social-link" tabindex="0" target="_blank" href="https://medium.com/pastelnetwork">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M1.43998 2.88086L3.35998 5.32492V16.9377L0.47998 20.6409H7.19998L4.31998 16.9377V6.60086L10.56 20.6409L10.559 20.6474L16.32 6.50242V18.7209L14.4 20.6409H22.56L20.64 18.7209L20.6269 5.04273L22.4944 2.88742H16.7259L12.2906 13.798L7.43811 2.88086H1.43998Z"
+                            ></path>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+          </div>
+        </div>
+      </header>
+      <main class="py-2 p-20px mt-3 main-content">
+        <div class="fixed z-20 top-0 left-0 w-screen h-screen hidden" id="createPastelIDLoading">
+          <div class="position z-10 bg-slate-400 top-0 left-0 w-screen h-screen opacity-95"></div>
+          <div class="absolute z-20 w-screen h-screen flex items-center justify-center top-0 left-0">
+            <div class="text-center max-w-3xl px-4">
+              <div class="btn is-loading">Loading...</div>
+              <div class="text-lg font-bold" id="createPastelIDLoadingText"></div>
             </div>
           </div>
+        </div>
 
-          <div class="grid gap-4 grid-cols-2">
-            <!--User Information-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="userInformation">
-              <h2 class="text-lg font-bold text-bw-800">User Information</h2>
-              <div class="col-span-full mt-3">
-                <div>
-                  <label class="label">Wallet Balance (PSL):</label>
-                  <span id="walletBalance" class="text-base text-bw-700">
-                    Loading...
-                    <script>
-                      document.addEventListener("DOMContentLoaded", async () => {
-                        try {
-                          const walletInfoResponse = await axios.get(
-                            "/get-wallet-info"
-                          );
-                          const walletInfo = walletInfoResponse.data.result;
-                          const formattedWalletBalance =
-                            walletInfo.balance.toLocaleString(undefined, {
-                              minimumFractionDigits: 1,
-                              maximumFractionDigits: 1,
-                            });
-                          document.getElementById(
-                            "walletBalance"
-                          ).textContent = `${formattedWalletBalance} PSL`;
-                        } catch (error) {
-                          console.error("Error retrieving wallet info:", error);
-                          document.getElementById("walletBalance").textContent =
-                            "Failed to load balance";
-                        }
-                      });
-                    </script>
-                  </span>
-                </div>
-        
-                <div class="mt-4">
-                  <label class="label">My PSL Address:</label>
-                  <span id="myPslAddress" class="text-base text-bw-700"></span>
-                  <button id="copyAddressButton" class="ml-2 tooltip" data-tooltip="Copy address to clipboard">
-                    📋
-                  </button>
-                </div>
-
-                <div class="mt-4" id="">
-                  <label class="label">Your Currently Selected PastelID:</label>
-                  <span id="userPastelID" class="text-base text-bw-700 truncate block max-w-full">Loading...</span>
-                </div>
-                <div class="mt-4">
-                  <div id="pastelIDDropdownContainer" class="mt-4 hidden">
-                    <label class="label">Select Existing PastelID to Use:</label>
-                    <select id="pastelIDDropdown" class="custom-select w-full">
-                      <!-- Options will be dynamically populated -->
-                    </select>
-                  </div>
-                  <div class="mt-4">
-                    <button id="changePastelIDButton" class="button-contained" onclick="togglePastelIDDropdown()">
-                      Switch to a Different PastelID
-                    </button>
-                  </div>
-                </div>
-                <div id="noPastelIDContainer" class="hidden mt-8">
-                  <p class="text-bw-700 text-base font-bold">
-                    No PastelID found. Would you like to create a new one for 1,000
-                    PSL?
-                  </p>
-                  <form id="createPastelIDForm" class="box mt-4">
-                    <label class="label" for="newPastelIDPassphrase">
-                      Enter Passphrase (min 6 characters):
-                    </label>
-                    <input id="newPastelIDPassphrase" class="text-box w-full" type="password" placeholder="Enter passphrase"
-                      minlength="6" required />
-                    <button type="submit" class="button-contained mt-4">
-                      Create PastelID
-                    </button>
-                  </form>
-                  <div class="mt-4 box">
-                    <p class="label">
-                      Already have an existing PastelID? Import the file here:
-                    </p>
-                    <input id="importPastelIDFile" class="text-box w-full" type="file" />
-                    <button id="importPastelIDButton" class="button-contained mt-4">
-                      Import PastelID
-                    </button>
-                  </div>
-                </div>
-                <div class="mt-4 hidden" id="passphraseContainer">
-                  <label class="block text-bw-700 font-bold mb-2" for="pastelIDPassphrase">Enter Passphrase:</label>
-                  <input id="pastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
-                    minlength="6" required />
-                  <div class="mt-2">
-                    <input type="checkbox" id="rememberPassphrase" />
-                    <label for="rememberPassphrase" class="text-bw-700">Remember password?</label>
-                  </div>
-                  <button id="submitPassphraseButton" class="btn success outline mt-4">
-                    Submit
-                  </button>
-                  <div id="messageContainer" class="my-4"></div>
-                  <!-- Container for messages -->
-                </div>
-                <button id="createPastelIDButton" class="btn success outline m-4 hidden">
-                  Create a PastelID so you can make inference requests? (Costs 1,000
-                  PSL)
-                </button>
-              </div>
-            </div>
-
-            <!--Create New Credit Pack Ticket-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="createNewCreditPackTicket">
-              <h2 class="text-lg font-bold text-bw-800">Create New Credit Pack Ticket</h2>
-              <form id="createTicketForm" class="mt-3">
-                <div class="grid gap-4 grid-cols-2">
-                  <div>
-                    <label class="label" for="numCredits">Number of Credits</label>
-                    <input class="text-box" id="numCredits" type="text" placeholder="Enter number of credits" value="1500"
-                      data-raw-value="1500" />
-                  </div>
-                  <div>
-                    <label class="label" for="maxTotalPrice">Maximum Total Price (PSL)</label>
-                    <input class="text-box" id="maxTotalPrice" type="text" placeholder="Enter maximum total price"
-                      value="150000" data-raw-value="150000" />
-                  </div>
-                </div>
-                <div class="grid gap-4 grid-cols-2 mt-4">
-                  <div class="">
-                    <label class="label" for="maxPerCreditPrice">Maximum Per Credit Price (PSL)</label>
-                    <input class="text-box" id="maxPerCreditPrice" type="text" placeholder="Enter maximum per credit price"
-                      value="100.0" data-raw-value="100.0" />
-                  </div>
-                </div>
-                <div class="mt-4">
-                  <button class="button-contained" type="submit" id="createCreditPackButton">
-                    Create Credit Pack
-                  </button>
-                  <div id="loaderContainer" class="text-center"></div>
-                </div>
-                <!-- Add this div for the loader -->
-                <div class="prompt success xs mt-4" id="createTicketStatusContainer">
-                  <label class="text-bw-800 font-bold mb-4" for="createTicketStatus">Current Status:</label>
-                  <div class="content p-2" id="createTicketStatus"></div>
-                </div>
-                <div class="credit-pack-details-container" id="newCreditPackTicketDetailsContainer" style="display: none">
-                  <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
-                  <div class="table-responsive">
-                    <table class="table bordered bw new-ticket-table">
-                      <thead>
-                        <tr>
-                          <th>Registration TXID</th>
-                          <th>SHA3-256 Hash of Credit Pack Purchase Request Fields</th>
-                          <th>Responding Supernode PastelID</th>
-                          <th>Outcome</th>
-                        </tr>
-                      </thead>
-                      <tbody id="newCreditPackTicketDetails">
-                        <!-- New ticket details will be dynamically populated here -->
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <div class="grid gap-4 grid-cols-1 mt-4">
-            <!--Select Existing Credit Pack Ticket-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="creditPackTicket">
-              <h2 class="text-lg font-bold text-bw-800">Select Existing Credit Pack Ticket</h2>
-              <div class="relative text-bw-700 table-responsive mt-3">
-                <table class="table bordered bw">
-                  <thead>
-                    <tr>
-                      <th class="select-column">Select</th>
-                      <th class="initial-credits-column">Initial Credits in Pack</th>
-                      <th class="current-credit-balance-column">
-                        Current Credit Balance
-                      </th>
-                      <th class="tracking-address-column">Tracking Address</th>
-                      <th>Blockheight Registered</th>
-                      <th>Credit Pack Registration TXID</th>
-                    </tr>
-                  </thead>
-                  <tbody id="creditPackTicketTableBody">
-                    <!-- Rows will be dynamically populated here -->
-                  </tbody>
-                </table>
-                <div class="flex items-center gap-4 mt-4">
-                  <button id="refreshButton" class="btn success outline p-4 relative">
-                    Manually Refresh Credit Pack Tickets
-                    <span class="loader hidden absolute inset-0 flex items-center justify-center">
-                      <div class="is-loading"></div>
-                    </span>
-                  </button>
-                  <div class="btn is-loading hidden" id="loadingMessage">
-                    Loading...
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid gap-4 grid-cols-2 mt-4">
-            <!--Create New Inference Request-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="createNewInferenceRequest">
-              <h2 class="text-lg font-bold text-bw-800">Create New Inference Request</h2>
-              <form id="inferenceRequestForm" class="grid grid-cols-2 gap-4 mt-3">
-                <div>
-                  <label class="block text-bw-700 font-bold mb-2" for="inferenceType">Inference Type</label>
-                  <div class="relative text-bw-700">
-                    <select id="inferenceType" class="select w-full">
-                      <option value="">Select an inference type</option>
-                      <option value="text_completion">Text Completion</option>
-                      <option value="ask_question_about_an_image">
-                        Ask a Question About an Image
-                      </option>
-                      <option value="text_to_image">Image Generation</option>
-                      <option value="embedding_document">Embedding Document</option>
-                      <option value="embedding_audio">
-                        Audio Transcript and Embedding
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-bw-700 font-bold mb-2" for="model">Model/Service</label>
-                  <div class="relative text-bw-700">
-                    <select id="model" class="select w-full">
-                      <option value="">Select a model/service</option>
-                      <option value="groq-llama3-70b-8192" selected></option>
-                      <option value="claude3-opus">Claude3-Opus</option>
-                    </select>
-                  </div>
-                </div>
-        
-                <div id="textCompletionSettings" class="col-span-full">
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="prompt">Prompt</label>
-                    <textarea class="input w-full" id="prompt" rows="5" placeholder="Enter your prompt">
-        Write me a Shakespeare-style sonnet about Pastel Network and how it's really decentralized and powerful. </textarea>
-                  </div>
-                </div>
-                <div id="modelParametersContainer" class="col-span-full"></div>
-        
-                <div id="imageGenerationSettings" class="col-span-full" style="display: none">
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="imagePrompt">Image Prompt</label>
-                    <textarea class="input w-full" id="imagePrompt" rows="5" placeholder="Enter your image prompt">
-        A picture of a clown holding a sign that says PASTEL</textarea>
-                  </div>
-                </div>
-        
-                <div id="embeddingDocumentSettings" class="col-span-full" style="display: none">
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="embeddingDocumentFile">Document to Embed</label>
-                    <input type="file" class="input w-full" id="embeddingDocumentFile" accept=".pdf,.doc,.docx,.txt" />
-                  </div>
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="document_semantic_query_string">Semantic Query String
-                      (Optional):</label>
-                    <input class="input w-full" id="document_semantic_query_string" type="text"
-                      placeholder="Enter your query" />
-                  </div>
-                </div>
-        
-                <div id="embeddingAudioSettings" class="col-span-full" style="display: none">
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="embeddingAudioFile">Audio File to Transcribe and
-                      Embed</label>
-                    <input type="file" class="input w-full" id="embeddingAudioFile" accept="audio/*" />
-                  </div>
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="audio_semantic_query_string">Semantic Query String
-                      (Optional):</label>
-                    <input class="input w-full" id="audio_semantic_query_string" type="text" placeholder="Enter your query" />
-                  </div>
-                </div>
-        
-                <div id="askQuestionAboutImageSettings" class="col-span-full" style="display: none">
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="imageFile">Image File</label>
-                    <input type="file" class="input w-full" id="imageFile" accept="image/*" />
-                  </div>
-                  <div class="mb-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="question">Question</label>
-                    <input class="input w-full" id="question" type="text" placeholder="Enter your question" />
-                  </div>
-                </div>
-        
-                <div class="mb-4">
-                  <label class="block text-bw-700 font-bold mb-2" for="maxCost">Maximum Cost (Credits)</label>
-                  <input class="input w-full" id="maxCost" type="text" placeholder="Enter maximum cost" value="200"
-                    data-raw-value="200" />
-                  <span id="maxCostFormatted" class="text-bw-700"></span>
-                </div>
-        
-                <div class="col-span-full flex justify-between">
-                  <div class="flex gap-4 items-center" style="width: 100%">
-                    <button class="btn success outline" type="submit">
-                      Create Inference Request
-                    </button>
-                    <div class="prompt success xs" id="currentStatusContainer">
-                      <label class="text-bw-800 font-bold mb-4" for="currentStatus">Current Status:</label>
-                      <div class="content p-2" id="currentStatus"></div>
-                    </div>
-                  </div>
-                </div>
-        
-                <div id="inferenceRequestResult"></div>
-              </form>
-            </div>
-
-            <!--View Previous Inference Requests-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white"
-              style="height: 1000px; overflow-y: auto" id="inferenceRequests">
-              <div class="lg:col-span-1 flex flex-col">
-                <h2 class="text-lg font-bold text-bw-800">
-                  View Previous Inference Requests
-                </h2>
-                <div id="previousRequestsList" class="bg-gray-100 p-4 rounded-lg overflow-y-auto flex-grow mt-3"
-                  style="max-height: 1200px">
-                  <!-- List of previous inference requests will be dynamically populated here -->
-                </div>
-                <button id="exportRequestsButton" class="btn success outline mt-4 flex items-center self-start">
-                  💾 Export all Saved Inference Requests
-                </button>
-              </div>
-              <div id="requestPreview" class="lg:col-span-2 bg-gray-50 p-4 rounded-lg">
-                <!-- Preview of selected inference request will be shown here -->
-              </div>
-            </div>
-          </div>
-
-          <div class="grid gap-4 grid-cols-2 mt-4">
-            <!--Send and Receive Messages using PastelIDs-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="sendAndReceiveMessages">
+        <div class="grid gap-4 grid-cols-2">
+          <!--User Information-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="userInformation">
+            <h2 class="text-xl font-bold text-bw-800">User Information</h2>
+            <div class="col-span-full mt-3">
               <div>
-                <h2 class="text-lg font-bold text-bw-800">
-                  Send and Receive Messages using PastelIDs
-                </h2>
-                <form id="sendMessageForm" class="grid grid-cols-1 gap-4 mt-3">
-                  <div>
-                    <label class="block text-bw-700 font-bold mb-2" for="toPastelID">Recipient Pastel ID</label>
-                    <input class="input w-full" id="toPastelID" type="text" placeholder="Enter recipient Pastel ID"
-                      value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr" />
-                  </div>
-                  <div>
-                    <label class="block text-bw-700 font-bold mb-2" for="messageBody">Message Body</label>
-                    <textarea class="input w-full" id="messageBody" rows="5" placeholder="Enter your message">
-        Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
-                  </div>
-                  <div class="flex justify-between">
-                    <button class="btn success outline" type="submit">
-                      Send Message
-                    </button>
-                  </div>
+                <label class="label">Wallet Balance (PSL):</label>
+                <span id="walletBalance" class="text-base text-bw-700">
+                  Loading...
+                  <script>
+                    document.addEventListener("DOMContentLoaded", async () => {
+                      try {
+                        const walletInfoResponse = await axios.get(
+                          "/get-wallet-info"
+                        );
+                        const walletInfo = walletInfoResponse.data.result;
+                        const formattedWalletBalance =
+                          walletInfo.balance.toLocaleString(undefined, {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          });
+                        document.getElementById(
+                          "walletBalance"
+                        ).textContent = `${formattedWalletBalance} PSL`;
+                      } catch (error) {
+                        console.error("Error retrieving wallet info:", error);
+                        document.getElementById("walletBalance").textContent =
+                          "Failed to load balance";
+                      }
+                    });
+                  </script>
+                </span>
+              </div>
+      
+              <div class="mt-4">
+                <label class="label">My PSL Address:</label>
+                <span id="myPslAddress" class="text-base text-bw-700"></span>
+                <button id="copyAddressButton" class="ml-2 tooltip" data-tooltip="Copy address to clipboard">
+                  📋
+                </button>
+              </div>
+
+              <div class="mt-4" id="">
+                <label class="label">Your Currently Selected PastelID:</label>
+                <span id="userPastelID" class="text-base text-bw-700 truncate block max-w-full">Loading...</span>
+              </div>
+              <div class="mt-4">
+                <div id="pastelIDDropdownContainer" class="mt-4 hidden">
+                  <label class="label">Select Existing PastelID to Use:</label>
+                  <select id="pastelIDDropdown" class="custom-select w-full">
+                    <!-- Options will be dynamically populated -->
+                  </select>
+                </div>
+                <div class="mt-4">
+                  <button id="changePastelIDButton" class="button-contained" onclick="togglePastelIDDropdown()">
+                    Switch to a Different PastelID
+                  </button>
+                </div>
+              </div>
+              <div id="noPastelIDContainer" class="hidden mt-8">
+                <p class="text-bw-700 text-base font-bold">
+                  No PastelID found. Would you like to create a new one for 1,000
+                  PSL?
+                </p>
+                <form id="createPastelIDForm" class="box mt-4">
+                  <label class="label" for="newPastelIDPassphrase">
+                    Enter Passphrase (min 6 characters):
+                  </label>
+                  <input id="newPastelIDPassphrase" class="text-box w-full" type="password" placeholder="Enter passphrase"
+                    minlength="6" required />
+                  <button type="submit" class="button-contained mt-4">
+                    Create PastelID
+                  </button>
                 </form>
+                <div class="mt-4 box">
+                  <p class="label">
+                    Already have an existing PastelID? Import the file here:
+                  </p>
+                  <input id="importPastelIDFile" class="text-box w-full" type="file" />
+                  <button id="importPastelIDButton" class="button-contained mt-4">
+                    Import PastelID
+                  </button>
+                </div>
               </div>
-              <div class="mt-5">
-                <h2 class="text-lg font-bold text-bw-800">Received Messages</h2>
-                <div id="receivedMessages" class="bg-bw-50 p-4 rounded-xl">
-                  <!-- Received messages will be dynamically populated here -->
+              <div class="mt-4 hidden" id="passphraseContainer">
+                <label class="block text-bw-700 font-bold mb-2" for="pastelIDPassphrase">Enter Passphrase:</label>
+                <input id="pastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
+                  minlength="6" required />
+                <div class="mt-2">
+                  <input type="checkbox" id="rememberPassphrase" />
+                  <label for="rememberPassphrase" class="text-bw-700">Remember password?</label>
+                </div>
+                <button id="submitPassphraseButton" class="btn success outline mt-4">
+                  Submit
+                </button>
+                <div id="messageContainer" class="my-4"></div>
+                <!-- Container for messages -->
+              </div>
+              <button id="createPastelIDButton" class="btn success outline m-4 hidden">
+                Create a PastelID so you can make inference requests? (Costs 1,000
+                PSL)
+              </button>
+            </div>
+          </div>
+
+          <!--Create New Credit Pack Ticket-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="createNewCreditPackTicket">
+            <h2 class="text-xl font-bold text-bw-800">Create New Credit Pack Ticket</h2>
+            <form id="createTicketForm" class="mt-3">
+              <div class="grid gap-4 grid-cols-2">
+                <div>
+                  <label class="label" for="numCredits">Number of Credits</label>
+                  <input class="text-box" id="numCredits" type="text" placeholder="Enter number of credits" value="1500"
+                    data-raw-value="1500" />
+                </div>
+                <div>
+                  <label class="label" for="maxTotalPrice">Maximum Total Price (PSL)</label>
+                  <input class="text-box" id="maxTotalPrice" type="text" placeholder="Enter maximum total price"
+                    value="150000" data-raw-value="150000" />
+                </div>
+              </div>
+              <div class="grid gap-4 grid-cols-2 mt-4">
+                <div class="">
+                  <label class="label" for="maxPerCreditPrice">Maximum Per Credit Price (PSL)</label>
+                  <input class="text-box" id="maxPerCreditPrice" type="text" placeholder="Enter maximum per credit price"
+                    value="100.0" data-raw-value="100.0" />
+                </div>
+              </div>
+              <div class="mt-4">
+                <button class="button-contained" type="submit" id="createCreditPackButton">
+                  Create Credit Pack
+                </button>
+                <div id="loaderContainer" class="text-center"></div>
+              </div>
+              <!-- Add this div for the loader -->
+              <div class="prompt success xs mt-4" id="createTicketStatusContainer">
+                <label class="text-bw-800 font-bold mb-4" for="createTicketStatus">Current Status:</label>
+                <div class="content p-2" id="createTicketStatus"></div>
+              </div>
+              <div class="credit-pack-details-container" id="newCreditPackTicketDetailsContainer" style="display: none">
+                <h3 class="text-xl text-bw-800">New Credit Pack Ticket Details</h3>
+                <div class="table-responsive">
+                  <table class="table bordered bw new-ticket-table">
+                    <thead>
+                      <tr>
+                        <th>Registration TXID</th>
+                        <th>SHA3-256 Hash of Credit Pack Purchase Request Fields</th>
+                        <th>Responding Supernode PastelID</th>
+                        <th>Outcome</th>
+                      </tr>
+                    </thead>
+                    <tbody id="newCreditPackTicketDetails">
+                      <!-- New ticket details will be dynamically populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="grid gap-4 grid-cols-1 mt-4">
+          <!--Select Existing Credit Pack Ticket-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="creditPackTicket">
+            <h2 class="text-xl font-bold text-bw-800">Select Existing Credit Pack Ticket</h2>
+            <div class="relative text-bw-700 table-responsive mt-3">
+              <table class="table bordered bw">
+                <thead>
+                  <tr>
+                    <th class="select-column">Select</th>
+                    <th class="initial-credits-column">Initial Credits in Pack</th>
+                    <th class="current-credit-balance-column">
+                      Current Credit Balance
+                    </th>
+                    <th class="tracking-address-column">Tracking Address</th>
+                    <th>Blockheight Registered</th>
+                    <th>Credit Pack Registration TXID</th>
+                  </tr>
+                </thead>
+                <tbody id="creditPackTicketTableBody">
+                  <!-- Rows will be dynamically populated here -->
+                </tbody>
+              </table>
+              <div class="flex items-center gap-4 mt-4">
+                <button id="refreshButton" class="btn success outline p-4 relative">
+                  Manually Refresh Credit Pack Tickets
+                  <span class="loader hidden absolute inset-0 flex items-center justify-center">
+                    <div class="is-loading"></div>
+                  </span>
+                </button>
+                <div class="btn is-loading hidden" id="loadingMessage">
+                  Loading...
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!--Manage Wallet-->
-            <div class="border-color p-6 rounded-2xl shadow-xl bg-white" id="manageWallet">
-              <h2 class="text-lg font-bold text-bw-800">Manage Wallet</h2>
-              <div class="mb-4">
-                <label class="block text-bw-700 font-bold mb-2" for="importPrivKey">
-                  Import Private Key
-                  <span class="tooltip" data-tooltip="Import a private key into your wallet.">&#9432;</span>
-                </label>
-                <input id="importPrivKey" class="input w-full" type="text" placeholder="Enter private key" />
-                <button id="importPrivKeyButton" class="btn success outline mt-2">
-                  Import Private Key
-                </button>
+        <div class="grid gap-4 grid-cols-2 mt-4">
+          <!--Create New Inference Request-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="createNewInferenceRequest">
+            <h2 class="text-xl font-bold text-bw-800">Create New Inference Request</h2>
+            <form id="inferenceRequestForm" class="grid grid-cols-2 gap-4 mt-3">
+              <div>
+                <label class="block text-bw-700 font-bold mb-2" for="inferenceType">Inference Type</label>
+                <div class="relative text-bw-700">
+                  <select id="inferenceType" class="select w-full">
+                    <option value="">Select an inference type</option>
+                    <option value="text_completion">Text Completion</option>
+                    <option value="ask_question_about_an_image">
+                      Ask a Question About an Image
+                    </option>
+                    <option value="text_to_image">Image Generation</option>
+                    <option value="embedding_document">Embedding Document</option>
+                    <option value="embedding_audio">
+                      Audio Transcript and Embedding
+                    </option>
+                  </select>
+                </div>
               </div>
-              <div class="mb-4">
-                <label class="block text-bw-700 font-bold mb-2" for="importWallet">
-                  Import Wallet
-                  <span class="tooltip" data-tooltip="Import a wallet file into your wallet.">&#9432;</span>
-                </label>
-                <input id="importWallet" class="input w-full" type="file" accept=".dat" />
-                <button id="importWalletButton" class="btn success outline mt-2">
-                  Import Wallet
-                </button>
+              <div>
+                <label class="block text-bw-700 font-bold mb-2" for="model">Model/Service</label>
+                <div class="relative text-bw-700">
+                  <select id="model" class="select w-full">
+                    <option value="">Select a model/service</option>
+                    <option value="groq-llama3-70b-8192" selected></option>
+                    <option value="claude3-opus">Claude3-Opus</option>
+                  </select>
+                </div>
               </div>
-              <label class="block text-bw-700 font-bold mb-2" for="listAddressAmountsButton">
-                Misc Functions:
+      
+              <div id="textCompletionSettings" class="col-span-full">
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="prompt">Prompt</label>
+                  <textarea class="input w-full" id="prompt" rows="5" placeholder="Enter your prompt">
+      Write me a Shakespeare-style sonnet about Pastel Network and how it's really decentralized and powerful. </textarea>
+                </div>
+              </div>
+              <div id="modelParametersContainer" class="col-span-full"></div>
+      
+              <div id="imageGenerationSettings" class="col-span-full" style="display: none">
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="imagePrompt">Image Prompt</label>
+                  <textarea class="input w-full" id="imagePrompt" rows="5" placeholder="Enter your image prompt">
+      A picture of a clown holding a sign that says PASTEL</textarea>
+                </div>
+              </div>
+      
+              <div id="embeddingDocumentSettings" class="col-span-full" style="display: none">
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="embeddingDocumentFile">Document to Embed</label>
+                  <input type="file" class="input w-full" id="embeddingDocumentFile" accept=".pdf,.doc,.docx,.txt" />
+                </div>
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="document_semantic_query_string">Semantic Query String
+                    (Optional):</label>
+                  <input class="input w-full" id="document_semantic_query_string" type="text"
+                    placeholder="Enter your query" />
+                </div>
+              </div>
+      
+              <div id="embeddingAudioSettings" class="col-span-full" style="display: none">
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="embeddingAudioFile">Audio File to Transcribe and
+                    Embed</label>
+                  <input type="file" class="input w-full" id="embeddingAudioFile" accept="audio/*" />
+                </div>
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="audio_semantic_query_string">Semantic Query String
+                    (Optional):</label>
+                  <input class="input w-full" id="audio_semantic_query_string" type="text" placeholder="Enter your query" />
+                </div>
+              </div>
+      
+              <div id="askQuestionAboutImageSettings" class="col-span-full" style="display: none">
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="imageFile">Image File</label>
+                  <input type="file" class="input w-full" id="imageFile" accept="image/*" />
+                </div>
+                <div class="mb-4">
+                  <label class="block text-bw-700 font-bold mb-2" for="question">Question</label>
+                  <input class="input w-full" id="question" type="text" placeholder="Enter your question" />
+                </div>
+              </div>
+      
+              <div class="mb-4">
+                <label class="block text-bw-700 font-bold mb-2" for="maxCost">Maximum Cost (Credits)</label>
+                <input class="input w-full" id="maxCost" type="text" placeholder="Enter maximum cost" value="200"
+                  data-raw-value="200" />
+                <span id="maxCostFormatted" class="text-bw-700"></span>
+              </div>
+      
+              <div class="col-span-full flex justify-between">
+                <div class="flex gap-4 items-center" style="width: 100%">
+                  <button class="btn success outline" type="submit">
+                    Create Inference Request
+                  </button>
+                  <div class="prompt success xs" id="currentStatusContainer">
+                    <label class="text-bw-800 font-bold mb-4" for="currentStatus">Current Status:</label>
+                    <div class="content p-2" id="currentStatus"></div>
+                  </div>
+                </div>
+              </div>
+      
+              <div id="inferenceRequestResult"></div>
+            </form>
+          </div>
+
+          <!--View Previous Inference Requests-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white"
+            style="height: 1000px; overflow-y: auto" id="inferenceRequests">
+            <div class="lg:col-span-1 flex flex-col">
+              <h2 class="text-xl font-bold text-bw-800">
+                View Previous Inference Requests
+              </h2>
+              <div id="previousRequestsList" class="bg-gray-100 p-4 rounded-lg overflow-y-auto flex-grow mt-3"
+                style="max-height: 1200px">
+                <!-- List of previous inference requests will be dynamically populated here -->
+              </div>
+              <button id="exportRequestsButton" class="btn success outline mt-4 flex items-center self-start">
+                💾 Export all Saved Inference Requests
+              </button>
+            </div>
+            <div id="requestPreview" class="lg:col-span-2 bg-gray-50 p-4 rounded-lg">
+              <!-- Preview of selected inference request will be shown here -->
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-4 grid-cols-2 mt-4">
+          <!--Send and Receive Messages using PastelIDs-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="sendAndReceiveMessages">
+            <div>
+              <h2 class="text-xl font-bold text-bw-800">
+                Send and Receive Messages using PastelIDs
+              </h2>
+              <form id="sendMessageForm" class="grid grid-cols-1 gap-4 mt-3">
+                <div>
+                  <label class="block text-bw-700 font-bold mb-2" for="toPastelID">Recipient Pastel ID</label>
+                  <input class="input w-full" id="toPastelID" type="text" placeholder="Enter recipient Pastel ID"
+                    value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr" />
+                </div>
+                <div>
+                  <label class="block text-bw-700 font-bold mb-2" for="messageBody">Message Body</label>
+                  <textarea class="input w-full" id="messageBody" rows="5" placeholder="Enter your message">
+      Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
+                </div>
+                <div class="flex justify-between">
+                  <button class="btn success outline" type="submit">
+                    Send Message
+                  </button>
+                </div>
+              </form>
+            </div>
+            <div class="mt-5">
+              <h2 class="text-xl font-bold text-bw-800">Received Messages</h2>
+              <div id="receivedMessages" class="bg-bw-50 p-4 rounded-xl">
+                <!-- Received messages will be dynamically populated here -->
+              </div>
+            </div>
+          </div>
+
+          <!--Manage Wallet-->
+          <div class="border-color p-6 rounded-2xl shadow-xl bg-white" id="manageWallet">
+            <h2 class="text-xl font-bold text-bw-800">Manage Wallet</h2>
+            <div class="mb-4">
+              <label class="block text-bw-700 font-bold mb-2" for="importPrivKey">
+                Import Private Key
+                <span class="tooltip" data-tooltip="Import a private key into your wallet.">&#9432;</span>
               </label>
-        
-              <div class="mb-4">
-                <button id="listAddressAmountsButton" class="btn success outline">
-                  List Address Amounts
-                  <span class="tooltip" data-tooltip="List the amounts associated with each address in your wallet.">
-                    &#9432;
-                  </span>
+              <input id="importPrivKey" class="input w-full" type="text" placeholder="Enter private key" />
+              <button id="importPrivKeyButton" class="btn success outline mt-2">
+                Import Private Key
+              </button>
+            </div>
+            <div class="mb-4">
+              <label class="block text-bw-700 font-bold mb-2" for="importWallet">
+                Import Wallet
+                <span class="tooltip" data-tooltip="Import a wallet file into your wallet.">&#9432;</span>
+              </label>
+              <input id="importWallet" class="input w-full" type="file" accept=".dat" />
+              <button id="importWalletButton" class="btn success outline mt-2">
+                Import Wallet
+              </button>
+            </div>
+            <label class="block text-bw-700 font-bold mb-2" for="listAddressAmountsButton">
+              Misc Functions:
+            </label>
+      
+            <div class="mb-4">
+              <button id="listAddressAmountsButton" class="btn success outline">
+                List Address Amounts
+                <span class="tooltip" data-tooltip="List the amounts associated with each address in your wallet.">
+                  &#9432;
+                </span>
+              </button>
+      
+              <div id="addressAmountsContainer" class="mt-4" style="display: none; position: relative">
+                <h2 class="text-2xl text-bw-800">Address Amounts:</h2>
+                <button id="copyAddressAmountsButton" class="btn success outline" style="
+                      position: absolute;
+                      top: -1.5rem;
+                      right: 0.5rem;
+                      display: none;
+                    ">
+                  📋
                 </button>
-        
-                <div id="addressAmountsContainer" class="mt-4" style="display: none; position: relative">
-                  <h2 class="text-2xl text-bw-800">Address Amounts:</h2>
-                  <button id="copyAddressAmountsButton" class="btn success outline" style="
-                        position: absolute;
-                        top: -1.5rem;
-                        right: 0.5rem;
-                        display: none;
-                      ">
-                    📋
-                  </button>
-                  <div class="table-responsive">
-                    <table id="addressAmountsTable" class="table bordered bw"></table>
-                  </div>
+                <div class="table-responsive">
+                  <table id="addressAmountsTable" class="table bordered bw"></table>
                 </div>
-              </div>
-        
-              <div class="mb-4">
-                <button id="getWalletInfoButton" class="btn success outline">
-                  Get Wallet Info
-                  <span class="tooltip" data-tooltip="Retrieve information about your wallet.">
-                    &#9432;
-                  </span>
-                </button>
-        
-                <div id="walletInfoContainer" class="mt-4" style="display: none; position: relative">
-                  <h2 class="text-2xl text-bw-800">Wallet Info:</h2>
-                  <button id="copyWalletInfoButton" class="btn success outline" style="
-                        position: absolute;
-                        top: -1.5rem;
-                        right: 0.5rem;
-                        display: none;
-                      ">
-                    📋
-                  </button>
-                  <div class="table-responsive">
-                    <table id="walletInfoTable" class="table bordered bw"></table>
-                  </div>
-                </div>
-              </div>
-        
-              <div class="mb-4">
-                <button id="clearLocalStorageButton" class="btn success outline">
-                  Clear Inference Client Local Storage
-                  <span class="tooltip" data-tooltip="Clear all local storage data for this page.">
-                    &#9432;
-                  </span>
-                </button>
               </div>
             </div>
+      
+            <div class="mb-4">
+              <button id="getWalletInfoButton" class="btn success outline">
+                Get Wallet Info
+                <span class="tooltip" data-tooltip="Retrieve information about your wallet.">
+                  &#9432;
+                </span>
+              </button>
+      
+              <div id="walletInfoContainer" class="mt-4" style="display: none; position: relative">
+                <h2 class="text-2xl text-bw-800">Wallet Info:</h2>
+                <button id="copyWalletInfoButton" class="btn success outline" style="
+                      position: absolute;
+                      top: -1.5rem;
+                      right: 0.5rem;
+                      display: none;
+                    ">
+                  📋
+                </button>
+                <div class="table-responsive">
+                  <table id="walletInfoTable" class="table bordered bw"></table>
+                </div>
+              </div>
+            </div>
+      
+            <div class="mb-4">
+              <button id="clearLocalStorageButton" class="btn success outline">
+                Clear Inference Client Local Storage
+                <span class="tooltip" data-tooltip="Clear all local storage data for this page.">
+                  &#9432;
+                </span>
+              </button>
+            </div>
           </div>
+        </div>
 
-          <div class="grid gap-4 grid-cols-1 mt-4">
-            <!--Terminal-->
-            <div class="border-color p-20px rounded-2xl shadow-xl bg-white">
-              <div class="flex justify-between item-center">
-                <h2 class="text-lg font-bold text-bw-800">Terminal</h2>
-                <div class="flex justify-center">
-                  <div class="inline-flex items-center gap-2">
-                    <input class="switch success lg" data-content=" " type="checkbox" onchange="toggleTerminal()" />
-                    <span class="label mb-0">Toggle Terminal</span>
-                  </div>
+        <div class="grid gap-4 grid-cols-1 mt-4">
+          <!--Terminal-->
+          <div class="border-color p-20px rounded-2xl shadow-xl bg-white">
+            <div class="flex justify-between item-center">
+              <h2 class="text-xl font-bold text-bw-800">Terminal</h2>
+              <div class="flex justify-center">
+                <div class="inline-flex items-center gap-2">
+                  <input class="switch success lg" data-content=" " type="checkbox" onchange="toggleTerminal()" />
+                  <span class="label mb-0">Toggle Terminal</span>
                 </div>
               </div>
-              <div id="terminal" class="bg-gray-900 text-white p-4 mt-3"></div>
-              <div class="flex justify-end mt-2">
-                <button id="exportTerminalButton" class="button-contained ml-2 w-auto">
-                  Export Terminal Session Text
-                </button>
-              </div>
+            </div>
+            <div id="terminal" class="bg-gray-900 text-white p-4 mt-3"></div>
+            <div class="flex justify-end mt-2">
+              <button id="exportTerminalButton" class="button-contained ml-2 w-auto">
+                Export Terminal Session Text
+              </button>
             </div>
           </div>
-        </main>
-        <footer class="py-4 p-20px bg-white flex justify-center items-center">
-          <p class="text-center">
-            &copy; 2024 Pastel Inference Client UI. All rights reserved.
-          </p>
-        </footer>
-      </div>
+        </div>
+      </main>
+      <footer class="py-4 p-20px bg-gray-50 flex justify-center items-center">
+        <p class="text-center">
+          &copy; 2024 Pastel Inference Client UI. All rights reserved.
+        </p>
+      </footer>
     </div>
   </div>
 
