@@ -385,6 +385,11 @@
       outline: 2px solid transparent;
       outline-offset: 2px;
     }
+    .button-contained:disabled,
+    .button-outlined:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
     .button-outlined {
       position: relative;
       display: inline-flex;
@@ -418,7 +423,6 @@
       --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
       box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
     }
-
     .button-outlined:focus {
       outline: 2px solid transparent;
       outline-offset: 2px;
@@ -458,6 +462,30 @@
     }
     .p-20px {
       padding: 20px;
+    }
+    .box {
+      padding: 16px;
+      background: #E1D2F5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .custom-select {
+      background-image: url(./caret-down.svg);
+      background-position: right 6px center;
+      background-repeat: no-repeat;
+      background-color: #f4f5f6;
+      background-size: 16px 16px;
+      padding: 5px 26px 5px 10px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      appearance: none;
+      font-size: 14px;
+      border-radius: 8px;
+      --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
+      box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+      outline: 2px solid transparent;
+      outline-offset: 2px;
     }
   </style>
 </head>
@@ -541,62 +569,9 @@
             <div class="border-color p-20px rounded-2xl shadow-xl bg-white" id="userInformation">
               <h2 class="text-lg font-bold text-bw-800">User Information</h2>
               <div class="col-span-full mt-3">
-                <div id="noPastelIDContainer" class="hidden">
-                  <p class="text-bw-700">
-                    No PastelID found. Would you like to create a new one for 1,000
-                    PSL?
-                  </p>
-                  <form id="createPastelIDForm" class="mt-4">
-                    <label class="block text-bw-700 font-bold mb-2" for="newPastelIDPassphrase">
-                      Enter Passphrase (min 6 characters):
-                    </label>
-                    <input id="newPastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
-                      minlength="6" required />
-                    <button type="submit" class="btn success outline mt-4">
-                      Create PastelID
-                    </button>
-                    <div id="messageContainer" class="my-4"></div>
-                    <!-- Container for messages -->
-                  </form>
-                  <p class="mt-4">
-                    Already have an existing PastelID? Import the file here:
-                  </p>
-                  <input id="importPastelIDFile" class="input w-full" type="file" />
-                  <button id="importPastelIDButton" class="btn outline success m-2">
-                    Import PastelID
-                  </button>
-                </div>
-        
-                <button id="changePastelIDButton" class="btn outline success" onclick="togglePastelIDDropdown()">
-                  Switch to a Different PastelID
-                </button>
-                <div id="pastelIDDropdownContainer" class="mt-4 hidden">
-                  <label class="block text-bw-700 font-bold mb-2">Select Existing PastelID to Use:</label>
-                  <select id="pastelIDDropdown" class="select w-full">
-                    <!-- Options will be dynamically populated -->
-                  </select>
-                </div>
-                <div class="mt-4 hidden" id="passphraseContainer">
-                  <label class="block text-bw-700 font-bold mb-2" for="pastelIDPassphrase">Enter Passphrase:</label>
-                  <input id="pastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
-                    minlength="6" required />
-                  <div class="mt-2">
-                    <input type="checkbox" id="rememberPassphrase" />
-                    <label for="rememberPassphrase" class="text-bw-700">Remember password?</label>
-                  </div>
-                  <button id="submitPassphraseButton" class="btn success outline mt-4">
-                    Submit
-                  </button>
-                  <div id="messageContainer" class="my-4"></div>
-                  <!-- Container for messages -->
-                </div>
-                <div class="mt-4">
-                  <label class="block text-bw-700 font-bold mb-2">Your Currently Selected PastelID:</label>
-                  <span id="userPastelID" class="text-bw-700">Loading...</span>
-                </div>
-                <div class="mt-4">
-                  <label class="block text-bw-700 font-bold mb-2">Wallet Balance (PSL):</label>
-                  <span id="walletBalance" class="text-bw-700">
+                <div>
+                  <label class="label">Wallet Balance (PSL):</label>
+                  <span id="walletBalance" class="text-base text-bw-700">
                     Loading...
                     <script>
                       document.addEventListener("DOMContentLoaded", async () => {
@@ -623,14 +598,70 @@
                   </span>
                 </div>
         
-                <div class="mt-4 flex items-center">
-                  <label class="block text-bw-700 font-bold mb-2">My PSL Address:</label>
-                  <span id="myPslAddress" class="text-bw-700 ml-2"></span>
+                <div class="mt-4">
+                  <label class="label">My PSL Address:</label>
+                  <span id="myPslAddress" class="text-base text-bw-700"></span>
                   <button id="copyAddressButton" class="ml-2 tooltip" data-tooltip="Copy address to clipboard">
                     📋
                   </button>
                 </div>
-        
+
+                <div class="mt-4" id="">
+                  <label class="label">Your Currently Selected PastelID:</label>
+                  <span id="userPastelID" class="text-base text-bw-700 truncate block max-w-full">Loading...</span>
+                </div>
+                <div class="mt-4">
+                  <div id="pastelIDDropdownContainer" class="mt-4 hidden">
+                    <label class="label">Select Existing PastelID to Use:</label>
+                    <select id="pastelIDDropdown" class="custom-select w-full">
+                      <!-- Options will be dynamically populated -->
+                    </select>
+                  </div>
+                  <div class="mt-4">
+                    <button id="changePastelIDButton" class="button-contained" onclick="togglePastelIDDropdown()">
+                      Switch to a Different PastelID
+                    </button>
+                  </div>
+                </div>
+                <div id="noPastelIDContainer" class="hidden mt-8">
+                  <p class="text-bw-700 text-base font-bold">
+                    No PastelID found. Would you like to create a new one for 1,000
+                    PSL?
+                  </p>
+                  <form id="createPastelIDForm" class="box mt-4">
+                    <label class="label" for="newPastelIDPassphrase">
+                      Enter Passphrase (min 6 characters):
+                    </label>
+                    <input id="newPastelIDPassphrase" class="text-box w-full" type="password" placeholder="Enter passphrase"
+                      minlength="6" required />
+                    <button type="submit" class="button-contained mt-4">
+                      Create PastelID
+                    </button>
+                  </form>
+                  <div class="mt-4 box">
+                    <p class="label">
+                      Already have an existing PastelID? Import the file here:
+                    </p>
+                    <input id="importPastelIDFile" class="text-box w-full" type="file" />
+                    <button id="importPastelIDButton" class="button-contained mt-4">
+                      Import PastelID
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-4 hidden" id="passphraseContainer">
+                  <label class="block text-bw-700 font-bold mb-2" for="pastelIDPassphrase">Enter Passphrase:</label>
+                  <input id="pastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
+                    minlength="6" required />
+                  <div class="mt-2">
+                    <input type="checkbox" id="rememberPassphrase" />
+                    <label for="rememberPassphrase" class="text-bw-700">Remember password?</label>
+                  </div>
+                  <button id="submitPassphraseButton" class="btn success outline mt-4">
+                    Submit
+                  </button>
+                  <div id="messageContainer" class="my-4"></div>
+                  <!-- Container for messages -->
+                </div>
                 <button id="createPastelIDButton" class="btn success outline m-4 hidden">
                   Create a PastelID so you can make inference requests? (Costs 1,000
                   PSL)
@@ -1287,7 +1318,9 @@
 
     function togglePastelIDDropdown() {
       const dropdown = document.getElementById("pastelIDDropdown");
+      const dropdownContainer = document.getElementById("pastelIDDropdownContainer");
       dropdown.classList.toggle("hidden");
+      dropdownContainer.classList.toggle("hidden");
     }
 
     function updatePastelIDSelection() {
@@ -2120,6 +2153,15 @@
             .getElementById("pastelIDDropdownContainer")
             .classList.remove("hidden");
         }
+        if (pastelIDTickets.length < 2) {
+          document
+              .getElementById("changePastelIDButton")
+              .setAttribute("disabled", true);
+        } else {
+          document
+              .getElementById("changePastelIDButton")
+              .removeAttribute("disabled");
+        }
       } catch (error) {
         console.error("Error checking PastelIDs:", error);
       }
@@ -2223,6 +2265,15 @@
         document
           .getElementById("pastelIDDropdownContainer")
           .classList.remove("hidden");
+      }
+      if (validPastelIDs.length < 2) {
+        document
+            .getElementById("changePastelIDButton")
+            .setAttribute("disabled", true);
+      } else {
+        document
+            .getElementById("changePastelIDButton")
+            .removeAttribute("disabled");
       }
 
       // Call setSelectedPastelIDAndPassphrase based on the number of PastelIDs

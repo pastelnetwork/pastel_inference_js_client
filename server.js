@@ -211,6 +211,10 @@ let network;
       res.sendFile(path.join(__dirname, "pastel-logo-white.svg"));
     });
 
+    app.get("/caret-down.svg", (req, res) => {
+      res.sendFile(path.join(__dirname, "caret-down.svg"));
+    });
+
     app.get("/get-network-info", async (req, res) => {
       try {
         res.json({ network });
