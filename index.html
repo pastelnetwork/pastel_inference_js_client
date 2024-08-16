@@ -308,13 +308,15 @@
     .responding-supernode-pastelid-column {
       width: 30%;
     }
-
     .outcome-column {
       width: 15%;
     }
+    .btn.is-loading:before {
+      display: inline-block;
+      vertical-align: middle;
+    }
   </style>
 </head>
-
 <body class="flex flex-col gap-6 transition-all duration-300 bg-bw-50">
   <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
     <div class="flex gap-6 items-center sticky top-0 p-4 bg-bw-50 z-10 ground-glass shadow-md" id="title">
@@ -357,9 +359,12 @@
             Already have an existing PastelID? Import the file here:
           </p>
           <input id="importPastelIDFile" class="input w-full" type="file" />
-          <button id="importPastelIDButton" class="btn outline success m-2">
-            Import PastelID
-          </button>
+          <div class="flex items-center gap-2 m-2 ml-0">
+            <button id="importPastelIDButton" class="btn outline success">
+              Import PastelID
+            </button>
+            <div class="hidden" id="importPastelIDBLoading"></div>
+          </div>
         </div>
 
         <button id="changePastelIDButton" class="btn outline success" onclick="togglePastelIDDropdown()">
@@ -439,17 +444,17 @@
         <div>
           <label class="block text-bw-700 font-bold mb-2" for="numCredits">Number of Credits</label>
           <input class="input w-full" id="numCredits" type="text" placeholder="Enter number of credits" value="1500"
-            data-raw-value="1500" />
+            data-raw-value="1500" required />
         </div>
         <div>
           <label class="block text-bw-700 font-bold mb-2" for="maxTotalPrice">Maximum Total Price (PSL)</label>
           <input class="input w-full" id="maxTotalPrice" type="text" placeholder="Enter maximum total price"
-            value="150000" data-raw-value="150000" />
+            value="150000" data-raw-value="150000" required />
         </div>
         <div>
           <label class="block text-bw-700 font-bold mb-2" for="maxPerCreditPrice">Maximum Per Credit Price (PSL)</label>
           <input class="input w-full" id="maxPerCreditPrice" type="text" placeholder="Enter maximum per credit price"
-            value="100.0" data-raw-value="100.0" />
+            value="100.0" data-raw-value="100.0" required />
         </div>
 
         <div class="col-span-full flex justify-between">
@@ -614,9 +619,12 @@ A picture of a clown holding a sign that says PASTEL</textarea>
 
         <div class="col-span-full flex justify-between">
           <div class="flex gap-4 items-center" style="width: 100%">
-            <button class="btn success outline" type="submit">
-              Create Inference Request
-            </button>
+            <div class="flex items-center gap-2">
+              <button class="btn success outline" type="submit" style="width: 180px">
+                Create Inference Request
+              </button>
+              <div class="hidden" id="createInferenceRequestLoading"></div>
+            </div>
             <div class="prompt success xs" id="currentStatusContainer">
               <label class="text-bw-800 font-bold mb-4" for="currentStatus">Current Status:</label>
               <div class="content p-2" id="currentStatus"></div>
@@ -656,11 +664,11 @@ A picture of a clown holding a sign that says PASTEL</textarea>
           <div>
             <label class="block text-bw-700 font-bold mb-2" for="toPastelID">Recipient Pastel ID</label>
             <input class="input w-full" id="toPastelID" type="text" placeholder="Enter recipient Pastel ID"
-              value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr" />
+              value="jXXiVgtFzLto4eYziePHjjb1hj3c6eXdABej5ndnQ62B8ouv1GYveJaD5QUMfainQM3b4MTieQuzFEmJexw8Cr" required />
           </div>
           <div>
             <label class="block text-bw-700 font-bold mb-2" for="messageBody">Message Body</label>
-            <textarea class="input w-full" id="messageBody" rows="5" placeholder="Enter your message">
+            <textarea class="input w-full" id="messageBody" rows="5" placeholder="Enter your message" required>
 Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           </div>
           <div class="flex justify-between">
@@ -686,9 +694,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           <span class="tooltip" data-tooltip="Import a private key into your wallet.">&#9432;</span>
         </label>
         <input id="importPrivKey" class="input w-full" type="text" placeholder="Enter private key" />
-        <button id="importPrivKeyButton" class="btn success outline mt-2">
-          Import Private Key
-        </button>
+        <div class="flex items-center gap-2 mt-2">
+          <button id="importPrivKeyButton" class="btn success outline">
+            Import Private Key
+          </button>
+          <div class="hidden" id="importPrivKeyLoading"></div>
+        </div>
       </div>
       <div class="mb-4">
         <label class="block text-bw-700 font-bold mb-2" for="importWallet">
@@ -696,21 +707,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           <span class="tooltip" data-tooltip="Import a wallet file into your wallet.">&#9432;</span>
         </label>
         <input id="importWallet" class="input w-full" type="file" accept=".dat" />
-        <button id="importWalletButton" class="btn success outline mt-2">
-          Import Wallet
-        </button>
+        <div class="flex items-center gap-2 mt-2">
+          <button id="importWalletButton" class="btn success outline mt-2">
+            Import Wallet
+          </button>
+          <div class="hidden" id="importWalletLoading"></div>
+        </div>
       </div>
       <label class="block text-bw-700 font-bold mb-2" for="listAddressAmountsButton">
         Misc Functions:
       </label>
 
       <div class="mb-4">
-        <button id="listAddressAmountsButton" class="btn success outline">
-          List Address Amounts
-          <span class="tooltip" data-tooltip="List the amounts associated with each address in your wallet.">
-            &#9432;
-          </span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="listAddressAmountsButton" class="btn success outline">
+            List Address Amounts
+            <span class="tooltip" data-tooltip="List the amounts associated with each address in your wallet.">
+              &#9432;
+            </span>
+          </button>
+          <div class="hidden" id="listAddressAmountsLoading"></div>
+        </div>
 
         <div id="addressAmountsContainer" class="mt-4" style="display: none; position: relative">
           <h2 class="text-2xl text-bw-800">Address Amounts:</h2>
@@ -729,12 +746,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       </div>
 
       <div class="mb-4">
-        <button id="getWalletInfoButton" class="btn success outline">
-          Get Wallet Info
-          <span class="tooltip" data-tooltip="Retrieve information about your wallet.">
-            &#9432;
-          </span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="getWalletInfoButton" class="btn success outline">
+            Get Wallet Info
+            <span class="tooltip" data-tooltip="Retrieve information about your wallet.">
+              &#9432;
+            </span>
+          </button>
+          <div class="hidden" id="getWalletInfoLoading"></div>
+        </div>
 
         <div id="walletInfoContainer" class="mt-4" style="display: none; position: relative">
           <h2 class="text-2xl text-bw-800">Wallet Info:</h2>
@@ -998,7 +1018,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
                 <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
                 <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
-                <input type="password" id="passphraseInput" style="margin-bottom: 10px; padding: 5px; width: 100%;">
+                <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
                 <div>
                   <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
                 </div>
@@ -1059,6 +1079,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       function togglePastelIDDropdown() {
         const dropdown = document.getElementById("pastelIDDropdown");
         dropdown.classList.toggle("hidden");
+        document.getElementById("pastelIDDropdownContainer").classList.toggle("hidden");
       }
 
       function updatePastelIDSelection() {
@@ -1154,17 +1175,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           "creditPackTicketTableBody"
         );
         loadingMessage.style.display = "block";
-
         try {
           let validCreditPackTickets = [];
           const now = new Date().getTime();
-
           if (!forceRefresh) {
             const savedData = localStorage.getItem(STORAGE_KEY);
             const savedTimestamp = localStorage.getItem(
               STORAGE_TIMESTAMP_KEY
             );
-
             if (
               savedData &&
               savedTimestamp &&
@@ -1189,7 +1207,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             );
             localStorage.setItem(STORAGE_TIMESTAMP_KEY, now);
           }
-
           // Fetch wallet addresses
           const walletResponse = await axios.get("/list-address-amounts");
           const walletAddresses = Object.keys(walletResponse.data.result);
@@ -1208,7 +1225,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           validCreditPackTickets = validCreditPackTickets.filter(
             (ticket) => ticket.credit_pack_current_credit_balance > 0
           );
-
           // Find the credit pack with the highest current credit balance
           let highestBalanceTicket = validCreditPackTickets[0];
           for (const ticket of validCreditPackTickets) {
@@ -1219,7 +1235,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               highestBalanceTicket = ticket;
             }
           }
-
           for (const ticket of validCreditPackTickets) {
             const row = document.createElement("tr");
 
@@ -1289,7 +1304,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               row.classList.add("bg-gray-200", "selected-row");
             }
           }
-
           handleCreditPackSelection(); // Re-apply event listeners
           if (validCreditPackTickets.length > 0) {
             let highestBalanceTicket = validCreditPackTickets[0];
@@ -1319,6 +1333,33 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         } finally {
           loadingMessage.style.display = "none";
         }
+      }
+
+      function showLoading(id) {
+        if (!id) {
+          return;
+        }
+        const loaderContainer = document.getElementById(id);
+        if (!loaderContainer) {
+          return;
+        }
+        loaderContainer.innerHTML = "";
+        let creditPackLoader = document.createElement("div");
+        creditPackLoader.className = "btn is-loading";
+        creditPackLoader.innerText = "Loading...";
+        loaderContainer.appendChild(creditPackLoader);
+        loaderContainer.classList.remove('hidden');
+      }
+
+      function hideLoading(id) {
+        if (!id) {
+          return;
+        }
+        const loaderContainer = document.getElementById(id);
+        if (!loaderContainer) {
+          return;
+        }
+        loaderContainer.classList.add('hidden');
       }
 
       async function createNewCreditPackTicket(
@@ -1821,6 +1862,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           displayMessage("Please select a PastelID file to import.", false);
           return;
         }
+        showLoading("importPastelIDBLoading");
         const formData = new FormData();
         formData.append("pastelIDFile", pastelIDFile);
         try {
@@ -1842,6 +1884,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             false
           );
         }
+        hideLoading("importPastelIDBLoading")
       });
 
       function displayLoading(show) {
@@ -1884,11 +1927,17 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             document
               .getElementById("pastelIDDropdownContainer")
               .classList.add("hidden");
+            document
+              .getElementById("changePastelIDButton")
+              .classList.add("hidden");
             noPastelIDContainer.classList.remove("hidden");
           } else {
             noPastelIDContainer.classList.add("hidden");
             document
               .getElementById("pastelIDDropdownContainer")
+              .classList.remove("hidden");
+            document
+              .getElementById("changePastelIDButton")
               .classList.remove("hidden");
           }
         } catch (error) {
@@ -1988,11 +2037,17 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           document
             .getElementById("pastelIDDropdownContainer")
             .classList.add("hidden");
+          document
+            .getElementById("changePastelIDButton")
+            .classList.add("hidden");
           noPastelIDContainer.classList.remove("hidden");
         } else {
           noPastelIDContainer.classList.add("hidden");
           document
             .getElementById("pastelIDDropdownContainer")
+            .classList.remove("hidden");
+          document
+            .getElementById("changePastelIDButton")
             .classList.remove("hidden");
         }
 
@@ -2937,12 +2992,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         .getElementById("importPrivKeyButton")
         .addEventListener("click", async () => {
           const privKey = document.getElementById("importPrivKey").value;
+          if (!privKey) {
+            alert("Please enter private key!");
+            return;
+          }
+          showLoading("importPrivKeyLoading");
           try {
             await axios.post("/import-priv-key", { zcashPrivKey: privKey });
             alert("Private key imported successfully!");
           } catch (error) {
             console.error("Error importing private key:", error);
           }
+          hideLoading("importPrivKeyLoading");
         });
 
       // Handle import wallet form submission
@@ -2950,6 +3011,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         .getElementById("importWalletButton")
         .addEventListener("click", async () => {
           const walletFile = document.getElementById("importWallet").files[0];
+          if (!walletFile) {
+            alert("Please select a Wallet file to import.");
+            return;
+          }
+          showLoading("importWalletLoading");
           const formData = new FormData();
           formData.append("walletFile", walletFile);
           try {
@@ -2958,12 +3024,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           } catch (error) {
             console.error("Error importing wallet:", error);
           }
+          hideLoading("importWalletLoading");
         });
 
       // Handle list address amounts button click
       document
         .getElementById("listAddressAmountsButton")
         .addEventListener("click", async () => {
+          showLoading("listAddressAmountsLoading");
           try {
             const response = await axios.get("/list-address-amounts");
             const addressAmounts = response.data.result;
@@ -3009,11 +3077,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           } catch (error) {
             console.error("Error retrieving address amounts:", error);
           }
+          hideLoading("listAddressAmountsLoading");
         });
       // Handle get wallet info button click
       document
         .getElementById("getWalletInfoButton")
         .addEventListener("click", async () => {
+          showLoading("getWalletInfoLoading")
           try {
             const response = await axios.get("/get-wallet-info");
             const walletInfo = response.data.result;
@@ -3064,6 +3134,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           } catch (error) {
             console.error("Error retrieving wallet info:", error);
           }
+          hideLoading("getWalletInfoLoading")
         });
 
       document
@@ -3362,7 +3433,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const maxCost = parseFloat(
               document.querySelector("#maxCost").dataset.rawValue
             );
-
             const encodeToBase64 = (str) => {
               return btoa(unescape(encodeURIComponent(str)));
             };
@@ -3462,7 +3532,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 JSON.stringify({ [inputPromptKey]: inputPromptValue })
               );
             }
-
+            if (!maxCost) {
+              alert("Maximum Cost (Credits) cannot be empty.");
+              return;
+            }
+            showLoading("createInferenceRequestLoading")
             await createNewInferenceRequest(
               selectedCreditPackTicketId,
               selectedInferenceType,
@@ -3477,6 +3551,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             // Refresh the credit pack tickets to reflect the updated balance
             await getMyValidCreditPacks(true);
+            hideLoading("createInferenceRequestLoading")
           });
 
         // Attach debounced input and blur event listeners to all relevant input elements
