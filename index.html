@@ -623,7 +623,6 @@ A picture of a clown holding a sign that says PASTEL</textarea>
               <button class="btn success outline" type="submit" style="width: 180px">
                 Create Inference Request
               </button>
-              <div class="hidden" id="createInferenceRequestLoading"></div>
             </div>
             <div class="prompt success xs" id="currentStatusContainer">
               <label class="text-bw-800 font-bold mb-4" for="currentStatus">Current Status:</label>
@@ -3536,7 +3535,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               alert("Maximum Cost (Credits) cannot be empty.");
               return;
             }
-            showLoading("createInferenceRequestLoading")
             await createNewInferenceRequest(
               selectedCreditPackTicketId,
               selectedInferenceType,
@@ -3551,7 +3549,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             // Refresh the credit pack tickets to reflect the updated balance
             await getMyValidCreditPacks(true);
-            hideLoading("createInferenceRequestLoading")
           });
 
         // Attach debounced input and blur event listeners to all relevant input elements
