@@ -315,6 +315,9 @@
       display: inline-block;
       vertical-align: middle;
     }
+    * {
+      scroll-margin-top: 72px;
+    }
   </style>
 </head>
 <body class="flex flex-col gap-6 transition-all duration-300 bg-bw-50">
@@ -325,15 +328,6 @@
         <span id="networkName" class="text-xl font-normal align-middle"></span>
       </h1>
       <input id="theme-toggle" class="switch success lg" data-content="☀" type="checkbox" onchange="toggleDarkMode()" />
-    </div>
-    <div class="fixed z-20 top-0 left-0 w-screen h-screen hidden" id="createPastelIDLoading">
-      <div class="position z-10 bg-slate-400 top-0 left-0 w-screen h-screen opacity-95"></div>
-      <div class="absolute z-20 w-screen h-screen flex items-center justify-center top-0 left-0">
-        <div class="text-center max-w-3xl px-4">
-          <div class="btn is-loading">Loading...</div>
-          <div class="text-lg font-bold" id="createPastelIDLoadingText"></div>
-        </div>
-      </div>
     </div>
     <div class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
@@ -349,10 +343,13 @@
             </label>
             <input id="newPastelIDPassphrase" class="input w-full" type="password" placeholder="Enter passphrase"
               minlength="6" required />
-            <button type="submit" class="btn success outline mt-4">
-              Create PastelID
-            </button>
-            <div id="messageContainer" class="my-4"></div>
+            <div class="flex items-center gap-3">
+              <button type="submit" class="btn success outline mt-4">
+                Create PastelID
+              </button>
+              <div id="createPastelIDLoading"></div>
+            </div>
+            <div id="createPastelIDMessageContainer" class="my-4"></div>
             <!-- Container for messages -->
           </form>
           <p class="mt-4">
@@ -1792,7 +1789,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const walletResponse = await axios.get("/get-wallet-info");
             const walletBalance = walletResponse.data.result.balance;
             if (response.data.registered && walletBalance > 0) {
-              updateCreatePastelIDStatus("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.");
+              displayMessage("Your PastelID has been registered and your wallet has been funded. The page will refresh shortly.", false, 'createPastelIDMessageContainer');
               setTimeout(() => location.reload(), 5000);
             } else {
               attempts++;
@@ -1803,53 +1800,44 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 } else if (walletBalance > 0) {
                   message = "Wallet funded. Waiting for PastelID registration...";
                 }
-                updateCreatePastelIDStatus(`${message} (Attempt ${attempts}/${maxAttempts})`);
+                displayMessage(`${message} (Attempt ${attempts}/${maxAttempts})`, false, 'createPastelIDMessageContainer');
                 setTimeout(checkStatus, pollInterval);
               } else {
-                updateCreatePastelIDStatus("The process is taking longer than expected. Please refresh the page in a few minutes.");
+                displayMessage("The process is taking longer than expected. Please refresh the page in a few minutes.", false, 'createPastelIDMessageContainer');
               }
             }
           } catch (error) {
             console.error("Error checking PastelID and wallet status:", error);
-            updateCreatePastelIDStatus("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.");
+            displayMessage("An error occurred while checking your PastelID and wallet status. Please refresh the page in a few minutes.", false, 'createPastelIDMessageContainer');
           }
         };
 
         checkStatus();
       }
-
-      function updateCreatePastelIDStatus(content) {
-        const createPastelIDLoadingText = document.querySelector('#createPastelIDLoadingText');
-        createPastelIDLoadingText.innerHTML = content;
-      }
-
       createPastelIDForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const passphrase = document.getElementById("newPastelIDPassphrase").value;
         if (passphrase.length < 6) {
-          displayMessage("Passphrase must be at least 6 characters long.", false);
+          displayMessage("Passphrase must be at least 6 characters long.", false, 'createPastelIDMessageContainer');
           return;
         }
         try {
-          displayLoading(true);
-          const createPastelIDLoading = document.querySelector('#createPastelIDLoading');
-          createPastelIDLoading.classList.remove('hidden');
-          updateCreatePastelIDStatus("Start create and register PastelID.");
+          displayLoading(true, 'createPastelIDLoading');
           const response = await axios.post("/create-and-register-pastel-id", {
             passphraseForNewPastelID: passphrase,
           });
-          displayLoading(false);
+          displayLoading(false, 'createPastelIDLoading');
           if (response.data.success) {
-            updateCreatePastelIDStatus(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`);
+            displayMessage(`PastelID creation initiated. Your new PastelID is ${response.data.PastelID}. Please wait while it's being registered on the blockchain...`, true, 'createPastelIDMessageContainer');
             localStorage.setItem(response.data.PastelID, btoa(passphrase));
             pollWalletAndPastelIDStatus(response.data.PastelID);
           } else {
-            displayMessage(response.data.message, false);
+            displayMessage(response.data.message, false, 'createPastelIDMessageContainer');
           }
         } catch (error) {
-          displayLoading(false);
+          displayLoading(false, 'createPastelIDLoading');
           console.error("Error creating PastelID:", error);
-          displayMessage("Failed to create PastelID. Please try again.", false);
+          displayMessage("Failed to create PastelID. Please try again.", false, 'createPastelIDMessageContainer');
         }
       });
 
@@ -1886,8 +1874,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         hideLoading("importPastelIDBLoading")
       });
 
-      function displayLoading(show) {
-        const loader = document.getElementById("loaderContainer");
+      function displayLoading(show, id = null) {
+        const loader = document.getElementById(id || "loaderContainer");
         if (show) {
           loader.innerHTML = '<div class="btn is-loading">Loading...</div>';
         } else {
@@ -1907,8 +1895,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       })();
 
-      function displayMessage(message, isSuccess) {
-        const messageContainer = document.getElementById("messageContainer");
+      function displayMessage(message, isSuccess, id = null) {
+        const messageContainer = document.getElementById(id || "messageContainer");
         messageContainer.innerHTML = `<p class="${isSuccess ? "text-green-600" : "text-red-600"} font-bold text-lg">${message}</p>`;
         messageContainer.scrollIntoView({ behavior: "smooth" });
       }
