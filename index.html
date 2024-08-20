@@ -1929,6 +1929,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               .classList.add("hidden");
             noPastelIDContainer.classList.remove("hidden");
           } else {
+            const validPastelIDs = await fetchValidPastelIDs();
+            const storedPastelIDs = Object.keys(localStorage);
+            let hasPastelID = false;
+            storedPastelIDs.forEach((pastelID) => {
+              if (validPastelIDs.includes(pastelID)) {
+                hasPastelID = true;
+              }
+            });
+            if (!hasPastelID) {
+              await setSelectedPastelIDAndPassphrase(pastelIDTickets[0].ticket.pastelID);
+              location.reload();
+            }
             noPastelIDContainer.classList.add("hidden");
             document
               .getElementById("pastelIDDropdownContainer")
