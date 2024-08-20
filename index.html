@@ -830,6 +830,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
         const rawValue = inputElement.value.replace(/,/g, "");
         inputElement.setAttribute("data-raw-value", rawValue);
+
+        if (['numCredits', 'maxPerCreditPrice'].includes(inputElement.id)) {
+          const numCredits = Number(document.getElementById('numCredits').value.replace(/,/g, ""));
+          const maxPerCreditPrice = Number(document.getElementById('maxPerCreditPrice').value.replace(/,/g, ""));
+          let maxTotalPrice = numCredits * maxPerCreditPrice;
+          maxTotalPrice = isNaN(maxTotalPrice) ? 0 : formatNumberWithCommas(maxTotalPrice);
+          const elMaxTotalPrice = document.getElementById('maxTotalPrice')
+          elMaxTotalPrice.value = maxTotalPrice;
+          elMaxTotalPrice.setAttribute("data-raw-value", maxTotalPrice.replace(/,/g, ""));
+        }
       }
 
       function handleInputBlur(event) {
