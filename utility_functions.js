@@ -30,7 +30,6 @@ const MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS = parseInt(
   process.env.MAXIMUM_LOCAL_PASTEL_BLOCK_HEIGHT_DIFFERENCE_IN_BLOCKS
 );
 
-
 async function initializeSupernodeCacheStorage() {
   await supernodeCacheStorage.init({ dir: "./supernode-cache" });
   await clearOldCache();
@@ -1048,12 +1047,13 @@ function validateInferenceData(inferenceResultDict, auditResults) {
 
   return validationResults;
 }
+
 async function filterSupernodes(
   supernodeList,
   maxResponseTimeInMilliseconds = 800,
   minPerformanceRatio = 0.45,
   maxSupernodes = 130,
-  totalTimeoutMs = 950
+  totalTimeoutMs = 1100
 ) {
   const cacheKey = "filteredSupernodes";
 

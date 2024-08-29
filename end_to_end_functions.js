@@ -1,7 +1,7 @@
 require("dotenv").config();
 const crypto = require("crypto");
 const fs = require("fs");
-const path = require('path');
+const path = require("path");
 const {
   UserMessage,
   CreditPackPurchaseRequest,
@@ -48,7 +48,7 @@ const {
   getClosestSupernodePastelIDFromList,
   getClosestSupernodeToPastelIDURL,
 } = require("./utility_functions");
-const globals = require('./globals');
+const globals = require("./globals");
 
 async function checkForNewIncomingMessages() {
   try {
@@ -225,9 +225,9 @@ async function handleCreditPackTicketEndToEnd(
         passphrase
       );
 
-    // Get the 5 closest supernodes
+    // Get the 12 closest supernodes
     const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(
-      5,
+      12,
       pastelID,
       validMasternodeListFullDF
     );
@@ -239,8 +239,8 @@ async function handleCreditPackTicketEndToEnd(
     // Select one of the closest supernodes at random
     const randomIndex = Math.floor(Math.random() * closestSupernodes.length);
     const selectedSupernode = closestSupernodes[randomIndex];
-    const highestRankedSupernodeURL = selectedSupernode.url;
-    // const highestRankedSupernodeURL = "http://167.86.69.188:7123"; //selectedSupernode.url; #TODO: Restore this
+    // const highestRankedSupernodeURL = selectedSupernode.url;
+    const highestRankedSupernodeURL = "http://38.242.159.95:7123"; //selectedSupernode.url; #TODO: Restore this
 
     logger.info(
       `Selected supernode URL for credit pack request: ${highestRankedSupernodeURL}`
@@ -347,54 +347,52 @@ async function handleCreditPackTicketEndToEnd(
       return null;
     }
 
-    await Promise.all(
-      JSON.parse(
-        signedCreditPackTicket.list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms
-      ).map(async (supernodePastelID) => {
+    // First check with the supernode that was actually used to create the credit pack ticket
+    let creditPackPurchaseRequestStatus;
+    try {
+      creditPackPurchaseRequestStatus =
+        await inferenceClient.checkStatusOfCreditPurchaseRequest(
+          highestRankedSupernodeURL,
+          creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields
+        );
+      logger.info(
+        `Credit pack purchase request status from the original supernode: ${prettyJSON(
+          creditPackPurchaseRequestStatus
+        )}`
+      );
+    } catch (error) {
+      logger.error(
+        `Error checking status of credit purchase request with the original Supernode: ${error.message}`
+      );
+    }
+
+    // If the request status check fails or is not completed, then try with the closest supernodes
+    if (!creditPackPurchaseRequestStatus || creditPackPurchaseRequestStatus.status !== "completed") {
+      logger.info("Checking status with other closest supernodes...");
+      for (let i = 0; i < closestSupernodes.length; i++) {
         try {
-          if (checkIfPastelIDIsValid(supernodePastelID)) {
-            const supernodeURL = await getSupernodeUrlFromPastelID(
-              supernodePastelID,
-              validMasternodeListFullDF
-            );
-            await inferenceClient.creditPackPurchaseCompletionAnnouncement(
+          const supernodeURL = closestSupernodes[i].url;
+          creditPackPurchaseRequestStatus =
+            await inferenceClient.checkStatusOfCreditPurchaseRequest(
               supernodeURL,
-              creditPackPurchaseRequestConfirmation
+              creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields
             );
-          }
+          logger.info(
+            `Credit pack purchase request status: ${prettyJSON(
+              creditPackPurchaseRequestStatus
+            )}`
+          );
+          break;
         } catch (error) {
           logger.error(
-            `Error getting Supernode URL for PastelID: ${supernodePastelID}: ${error.message}`
+            `Error checking status of credit purchase request with Supernode ${i + 1}: ${error.message}`
           );
-        }
-      })
-    );
-
-    let creditPackPurchaseRequestStatus;
-    for (let i = 0; i < closestSupernodes.length; i++) {
-      try {
-        const supernodeURL = closestSupernodes[i].url;
-        creditPackPurchaseRequestStatus =
-          await inferenceClient.checkStatusOfCreditPurchaseRequest(
-            supernodeURL,
-            creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields
-          );
-        logger.info(
-          `Credit pack purchase request status: ${prettyJSON(
-            creditPackPurchaseRequestStatus
-          )}`
-        );
-        break;
-      } catch (error) {
-        logger.error(
-          `Error checking status of credit purchase request with Supernode ${i + 1
-          }: ${error.message}`
-        );
-        if (i === closestSupernodes.length - 1) {
-          logger.error(
-            "Failed to check status of credit purchase request with all Supernodes"
-          );
-          return null;
+          if (i === closestSupernodes.length - 1) {
+            logger.error(
+              "Failed to check status of credit purchase request with all Supernodes"
+            );
+            return null;
+          }
         }
       }
     }
@@ -582,15 +580,21 @@ async function getMyValidCreditPackTicketsEndToEnd() {
         if (isResolved) return;
 
         if (nonEmptyResponses.length >= initialMinimumNonEmptyResponses) {
-          logger.info(`Received ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`);
+          logger.info(
+            `Received ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`
+          );
           isResolved = true;
           resolve();
         } else if (allResponses.length >= maxTotalResponsesIfAllEmpty) {
-          logger.info(`Reached maximum total responses (${maxTotalResponsesIfAllEmpty}) with ${nonEmptyResponses.length} non-empty responses`);
+          logger.info(
+            `Reached maximum total responses (${maxTotalResponsesIfAllEmpty}) with ${nonEmptyResponses.length} non-empty responses`
+          );
           isResolved = true;
           resolve();
         } else if (completedRequests >= closestSupernodes.length) {
-          logger.warn(`Queried all available supernodes. Got ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`);
+          logger.warn(
+            `Queried all available supernodes. Got ${nonEmptyResponses.length} non-empty responses out of ${allResponses.length} total responses`
+          );
           isResolved = true;
           resolve();
         }
@@ -599,11 +603,16 @@ async function getMyValidCreditPackTicketsEndToEnd() {
       closestSupernodes.forEach(({ url }) => {
         if (isResolved) return;
 
-        retryPromise(() => inferenceClient.getValidCreditPackTicketsForPastelID(url), retryLimit)
-          .then(response => {
+        retryPromise(
+          () => inferenceClient.getValidCreditPackTicketsForPastelID(url),
+          retryLimit
+        )
+          .then((response) => {
             if (isResolved) return;
 
-            logger.info(`Response received from supernode at ${url}; response length: ${response.length}`);
+            logger.info(
+              `Response received from supernode at ${url}; response length: ${response.length}`
+            );
             allResponses.push({ response, url });
             if (response.length > 0) {
               nonEmptyResponses.push({ response, url });
@@ -611,10 +620,12 @@ async function getMyValidCreditPackTicketsEndToEnd() {
             completedRequests++;
             handleResponse();
           })
-          .catch(error => {
+          .catch((error) => {
             if (isResolved) return;
 
-            logger.error(`Error querying supernode at ${url}: ${error.message}`);
+            logger.error(
+              `Error querying supernode at ${url}: ${error.message}`
+            );
             completedRequests++;
             handleResponse();
           });
@@ -626,14 +637,18 @@ async function getMyValidCreditPackTicketsEndToEnd() {
       const longestResponse = nonEmptyResponses.reduce((prev, current) => {
         return current.response.length > prev.response.length ? current : prev;
       }).response;
-      logger.info(`Returning longest non-empty response with length: ${longestResponse.length}`);
+      logger.info(
+        `Returning longest non-empty response with length: ${longestResponse.length}`
+      );
       return longestResponse;
     } else {
       logger.info("All responses were empty. Returning empty list.");
       return [];
     }
   } catch (error) {
-    logger.error(`Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`);
+    logger.error(
+      `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`
+    );
     return [];
   }
 }

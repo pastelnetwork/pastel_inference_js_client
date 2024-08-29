@@ -143,3 +143,4 @@ dist
 
 /supernode-cache
 .node-persist/
+bun.lockb
