@@ -81,7 +81,7 @@ class PastelInferenceClient {
       const response = await axios.get(
         `${supernodeURL}/request_challenge/${this.pastelID}`,
         {
-          timeout: 6000,
+          timeout: 12000,
         }
       );
       const { challenge, challenge_id } = response.data;

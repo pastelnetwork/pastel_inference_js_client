@@ -1050,8 +1050,8 @@ function validateInferenceData(inferenceResultDict, auditResults) {
 
 async function filterSupernodes(
   supernodeList,
-  maxResponseTimeInMilliseconds = 800,
-  minPerformanceRatio = 0.45,
+  maxResponseTimeInMilliseconds = 700,
+  minPerformanceRatio = 0.75,
   maxSupernodes = 130,
   totalTimeoutMs = 1100
 ) {
