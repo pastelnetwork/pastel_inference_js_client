@@ -81,7 +81,7 @@ class PastelInferenceClient {
       const response = await axios.get(
         `${supernodeURL}/request_challenge/${this.pastelID}`,
         {
-          timeout: 3000,
+          timeout: 6000,
         }
       );
       const { challenge, challenge_id } = response.data;
@@ -247,8 +247,8 @@ class PastelInferenceClient {
       }
     }
   }
+
   async getValidCreditPackTicketsForPastelID(supernodeURL) {
-    // supernodeURL = 'http://167.86.69.188:7123';
     const useVerbose = false;
     try {
       if (!this.pastelID) {
@@ -288,7 +288,23 @@ class PastelInferenceClient {
           `Received ${validCreditPackTickets.length} valid credit pack tickets for PastelID ${this.pastelID}`
         );
       }
-      return validCreditPackTickets;
+
+      // Process the new format of returned results
+      const processedTickets = validCreditPackTickets.map(ticket => ({
+        credit_pack_registration_txid: ticket.credit_pack_registration_txid,
+        credit_purchase_request_confirmation_pastel_block_height: ticket.credit_purchase_request_confirmation_pastel_block_height,
+        requesting_end_user_pastelid: ticket.requesting_end_user_pastelid,
+        ticket_input_data_fully_parsed_sha3_256_hash: ticket.ticket_input_data_fully_parsed_sha3_256_hash,
+        txid_of_credit_purchase_burn_transaction: ticket.txid_of_credit_purchase_burn_transaction,
+        credit_usage_tracking_psl_address: ticket.credit_usage_tracking_psl_address,
+        psl_cost_per_credit: ticket.psl_cost_per_credit,
+        requested_initial_credits_in_credit_pack: ticket.requested_initial_credits_in_credit_pack,
+        credit_pack_current_credit_balance: ticket.credit_pack_current_credit_balance,
+        balance_as_of_datetime: ticket.balance_as_of_datetime,
+        number_of_confirmation_transactions: ticket.number_of_confirmation_transactions
+      }));
+
+      return processedTickets;
     } catch (error) {
       if (useVerbose) {
         logger.error(

@@ -239,8 +239,8 @@ async function handleCreditPackTicketEndToEnd(
     // Select one of the closest supernodes at random
     const randomIndex = Math.floor(Math.random() * closestSupernodes.length);
     const selectedSupernode = closestSupernodes[randomIndex];
-    // const highestRankedSupernodeURL = selectedSupernode.url;
-    const highestRankedSupernodeURL = "http://38.242.159.95:7123"; //selectedSupernode.url; #TODO: Restore this
+    const highestRankedSupernodeURL = selectedSupernode.url;
+    // const highestRankedSupernodeURL = "http://38.242.159.95:7123"; //selectedSupernode.url; #TODO: Restore this
 
     logger.info(
       `Selected supernode URL for credit pack request: ${highestRankedSupernodeURL}`

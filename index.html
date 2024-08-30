@@ -308,18 +308,22 @@
     .responding-supernode-pastelid-column {
       width: 30%;
     }
+
     .outcome-column {
       width: 15%;
     }
+
     .btn.is-loading:before {
       display: inline-block;
       vertical-align: middle;
     }
+
     * {
       scroll-margin-top: 72px;
     }
   </style>
 </head>
+
 <body class="flex flex-col gap-6 transition-all duration-300 bg-bw-50">
   <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
     <div class="flex gap-6 items-center sticky top-0 p-4 bg-bw-50 z-10 ground-glass shadow-md" id="title">
@@ -1176,90 +1180,125 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       async function getMyValidCreditPacks(forceRefresh = false) {
+        console.log("getMyValidCreditPacks function called with forceRefresh:", forceRefresh);
         const loadingMessage = document.getElementById("loadingMessage");
-        const tableBody = document.getElementById(
-          "creditPackTicketTableBody"
-        );
+        const tableBody = document.getElementById("creditPackTicketTableBody");
         loadingMessage.style.display = "block";
+
+        let tooltip = document.getElementById('credit-pack-tooltip');
+        if (!tooltip) {
+          tooltip = document.createElement('div');
+          tooltip.id = 'credit-pack-tooltip';
+          tooltip.className = 'hidden fixed z-50 p-3 bg-white text-black rounded-lg shadow-lg border border-gray-300 transition-opacity duration-300 opacity-0 max-w-5xl text-xs';
+          tooltip.style.pointerEvents = 'none';
+          document.body.appendChild(tooltip);
+        }
+
         try {
           let validCreditPackTickets = [];
           const now = new Date().getTime();
+
           if (!forceRefresh) {
-            const savedData = localStorage.getItem(STORAGE_KEY);
-            const savedTimestamp = localStorage.getItem(
-              STORAGE_TIMESTAMP_KEY
-            );
-            if (
-              savedData &&
-              savedTimestamp &&
-              now - savedTimestamp < REFRESH_INTERVAL
-            ) {
+            const savedData = localStorage.getItem("validCreditPackTickets");
+            const savedTimestamp = localStorage.getItem("validCreditPackTicketsTimestamp");
+
+            if (savedData && savedTimestamp && now - savedTimestamp < 300000) {
               validCreditPackTickets = JSON.parse(savedData);
             } else {
               const response = await axios.get("/get-my-valid-credit-packs");
-              validCreditPackTickets = response.data.result;
-              localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify(validCreditPackTickets)
-              );
-              localStorage.setItem(STORAGE_TIMESTAMP_KEY, now);
+              validCreditPackTickets = response.data.success ? response.data.result : [];
+              localStorage.setItem("validCreditPackTickets", JSON.stringify(validCreditPackTickets));
+              localStorage.setItem("validCreditPackTicketsTimestamp", now);
             }
           } else {
             const response = await axios.get("/get-my-valid-credit-packs");
-            validCreditPackTickets = response.data.result;
-            localStorage.setItem(
-              STORAGE_KEY,
-              JSON.stringify(validCreditPackTickets)
-            );
-            localStorage.setItem(STORAGE_TIMESTAMP_KEY, now);
+            validCreditPackTickets = response.data.success ? response.data.result : [];
+            localStorage.setItem("validCreditPackTickets", JSON.stringify(validCreditPackTickets));
+            localStorage.setItem("validCreditPackTicketsTimestamp", now);
           }
-          // Fetch wallet addresses
-          const walletResponse = await axios.get("/list-address-amounts");
-          const walletAddresses = Object.keys(walletResponse.data.result);
 
-          // Filter valid credit pack tickets based on tracking addresses
-          validCreditPackTickets = validCreditPackTickets.filter((ticket) =>
-            walletAddresses.includes(
-              ticket.credit_pack_purchase_request
-                .credit_usage_tracking_psl_address
-            )
+          validCreditPackTickets = validCreditPackTickets.filter(ticket =>
+            typeof ticket.credit_pack_current_credit_balance === 'number' && ticket.credit_pack_current_credit_balance > 0
           );
+
+          let highestBalanceTicket = validCreditPackTickets.reduce((max, ticket) =>
+            ticket.credit_pack_current_credit_balance > (max?.credit_pack_current_credit_balance || 0) ? ticket : max
+            , null);
 
           tableBody.innerHTML = "";
 
-          // Filter out credit packs with 0 or negative balance
-          validCreditPackTickets = validCreditPackTickets.filter(
-            (ticket) => ticket.credit_pack_current_credit_balance > 0
-          );
-          // Find the credit pack with the highest current credit balance
-          let highestBalanceTicket = validCreditPackTickets[0];
-          for (const ticket of validCreditPackTickets) {
-            if (
-              ticket.credit_pack_current_credit_balance >
-              highestBalanceTicket.credit_pack_current_credit_balance
-            ) {
-              highestBalanceTicket = ticket;
-            }
-          }
+          const displayedColumns = [
+            "credit_pack_registration_txid",
+            "requested_initial_credits_in_credit_pack",
+            "credit_pack_current_credit_balance",
+            "credit_usage_tracking_psl_address",
+            "credit_purchase_request_confirmation_pastel_block_height"
+          ];
+
           for (const ticket of validCreditPackTickets) {
             const row = document.createElement("tr");
+            row.className = "hover:bg-gray-100 transition-colors duration-200 cursor-pointer";
+
+            const tooltipContent = Object.entries(ticket)
+              .filter(([key]) => !displayedColumns.includes(key))
+              .map(([key, value]) => `
+          <div class="flex justify-between py-1">
+            <span class="font-semibold text-gray-800 mr-2 whitespace-nowrap">${key.replace(/_/g, ' ')}:</span>
+            <span class="text-gray-700">${value}</span>
+          </div>
+        `)
+              .join('');
+
+            let hoverTimeout;
+
+            row.addEventListener('mouseenter', (e) => {
+              hoverTimeout = setTimeout(() => {
+                tooltip.innerHTML = tooltipContent;
+
+                // Calculate position to keep tooltip within viewport and closer to the cursor
+                const tooltipRect = tooltip.getBoundingClientRect();
+                const xPos = Math.min(e.clientX + 15, window.innerWidth - tooltipRect.width - 10);
+                const yPos = Math.min(e.clientY + 15, window.innerHeight - tooltipRect.height - 10);
+
+                tooltip.style.left = `${xPos}px`;
+                tooltip.style.top = `${yPos}px`;
+                tooltip.classList.remove('hidden');
+                setTimeout(() => {
+                  tooltip.style.opacity = 1;
+                }, 50);
+              }, 300);
+            });
+
+            row.addEventListener('mousemove', (e) => {
+              const tooltipRect = tooltip.getBoundingClientRect();
+              const xPos = Math.min(e.clientX + 15, window.innerWidth - tooltipRect.width - 10);
+              const yPos = Math.min(e.clientY + 15, window.innerHeight - tooltipRect.height - 10);
+
+              tooltip.style.left = `${xPos}px`;
+              tooltip.style.top = `${yPos}px`;
+            });
+
+            row.addEventListener('mouseleave', () => {
+              clearTimeout(hoverTimeout);
+              tooltip.style.opacity = 0;
+              setTimeout(() => {
+                tooltip.classList.add('hidden');
+              }, 300);
+            });
 
             const radioCell = document.createElement("td");
             const radioInput = document.createElement("input");
             radioInput.type = "radio";
             radioInput.name = "creditPackTicket";
-            radioInput.value =
-              ticket.credit_pack_purchase_request.requesting_end_user_pastelid;
-            radioInput.dataset.txid =
-              ticket.credit_pack_purchase_request_confirmation.txid_of_credit_purchase_burn_transaction;
+            radioInput.value = ticket.requesting_end_user_pastelid;
+            radioInput.dataset.txid = ticket.credit_pack_registration_txid;
             radioCell.appendChild(radioInput);
             row.appendChild(radioCell);
 
             const initialCreditsCell = document.createElement("td");
             initialCreditsCell.classList.add("truncate");
             initialCreditsCell.textContent = formatNumberWithCommas(
-              ticket.credit_pack_purchase_request
-                .requested_initial_credits_in_credit_pack
+              ticket.requested_initial_credits_in_credit_pack
             );
             row.appendChild(initialCreditsCell);
 
@@ -1273,73 +1312,44 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const trackingAddressCell = document.createElement("td");
             trackingAddressCell.classList.add("truncate", "tracking-address");
             const addressLink = document.createElement("a");
-            addressLink.href = getAddressURL(
-              ticket.credit_pack_purchase_request
-                .credit_usage_tracking_psl_address
-            );
+            addressLink.href = `https://explorer.pastel.network/address/${ticket.credit_usage_tracking_psl_address}`;
             addressLink.target = "_blank";
-            addressLink.textContent =
-              ticket.credit_pack_purchase_request.credit_usage_tracking_psl_address;
+            addressLink.textContent = ticket.credit_usage_tracking_psl_address;
             trackingAddressCell.appendChild(addressLink);
             row.appendChild(trackingAddressCell);
 
             const blockheightCell = document.createElement("td");
             blockheightCell.classList.add("truncate");
             blockheightCell.textContent = formatNumberWithCommas(
-              ticket.credit_pack_purchase_request.request_pastel_block_height
+              ticket.credit_purchase_request_confirmation_pastel_block_height
             );
             row.appendChild(blockheightCell);
 
-            const creditPackRegistrationTxidCell =
-              document.createElement("td");
+            const creditPackRegistrationTxidCell = document.createElement("td");
             creditPackRegistrationTxidCell.classList.add("truncate");
             const txLink = document.createElement("a");
-            txLink.href = getTxidURL(
-              ticket.credit_pack_purchase_request
-                .credit_usage_tracking_psl_address,
-              ticket.credit_pack_registration_txid
-            );
+            txLink.href = `https://explorer.pastel.network/tx/${ticket.credit_pack_registration_txid}`;
             txLink.target = "_blank";
             txLink.textContent = ticket.credit_pack_registration_txid;
             creditPackRegistrationTxidCell.appendChild(txLink);
             row.appendChild(creditPackRegistrationTxidCell);
 
             tableBody.appendChild(row);
+
             if (ticket === highestBalanceTicket) {
               radioInput.checked = true;
               row.classList.add("bg-gray-200", "selected-row");
             }
           }
-          handleCreditPackSelection(); // Re-apply event listeners
-          if (validCreditPackTickets.length > 0) {
-            let highestBalanceTicket = validCreditPackTickets[0];
-            for (const ticket of validCreditPackTickets) {
-              if (
-                ticket.credit_pack_current_credit_balance >
-                highestBalanceTicket.credit_pack_current_credit_balance
-              ) {
-                highestBalanceTicket = ticket;
-              }
-            }
-            const highestBalanceRadioInput = Array.from(
-              tableBody.querySelectorAll('input[type="radio"]')
-            ).find(
-              (input) =>
-                input.value ===
-                highestBalanceTicket.credit_pack_purchase_request
-                  .requesting_end_user_pastelid
-            );
-            if (highestBalanceRadioInput) {
-              highestBalanceRadioInput.checked = true;
-              highestBalanceRadioInput.dispatchEvent(new Event("change"));
-            }
-          }
+
+          handleCreditPackSelection();
         } catch (error) {
           console.error("Error retrieving valid credit pack tickets:", error);
         } finally {
           loadingMessage.style.display = "none";
         }
       }
+
 
       function showLoading(id) {
         if (!id) {
