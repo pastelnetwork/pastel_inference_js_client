@@ -4060,9 +4060,51 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
           });
         });
 
-        // This function ensures that the tracking addresses have a minimum balance of 1 PSL
+        // This function ensures that the tracking addresses have a minimum balance of 1 PSL; only runs every 10 minutes to give time for a new block to be mined including the transactions
         document.addEventListener("DOMContentLoaded", function () {
           const refreshButton = document.getElementById("refreshButton");
+          let lastRunTime = 0;
+          const runInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
+
+          async function ensureMinimalPSLBalance() {
+            const currentTime = new Date().getTime();
+            if (currentTime - lastRunTime < runInterval) {
+              console.log(
+                "Skipping balance check: Less than 10 minutes since last run."
+              );
+              return; // Skip execution if not enough time has passed
+            }
+
+            try {
+              // Wait for the table to load with a timeout
+              await waitForTableLoad();
+
+              // Once the table is confirmed to be loaded, proceed to gather addresses
+              const table = document.getElementById(
+                "creditPackTicketTableBody"
+              );
+              const trackingAddresses = Array.from(
+                table.querySelectorAll("tr")
+              ).map((row) => {
+                return row.cells[3].textContent.trim(); // Assuming the tracking address is in the 4th column
+              });
+
+              const uniqueAddresses = [...new Set(trackingAddresses)];
+
+              const response = await axios.post("/ensure-minimal-psl-balance", {
+                addresses: uniqueAddresses,
+              });
+
+              if (response.data && response.data.success) {
+                console.log("Balance check and update initiated successfully.");
+                lastRunTime = currentTime; // Update last run time on successful execution
+              } else {
+                console.error("Failed to initiate balance check and update.");
+              }
+            } catch (error) {
+              console.error("Error ensuring minimal PSL balance:", error);
+            }
+          }
 
           async function waitForTableLoad(maxWaitTime = 25000, interval = 500) {
             const startTime = new Date().getTime();
@@ -4087,36 +4129,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea
             });
           }
 
-          refreshButton.addEventListener("click", async function () {
-            try {
-              // Wait for the table to load with a timeout
-              await waitForTableLoad();
+          // Event listener for manual refresh
+          refreshButton.addEventListener("click", ensureMinimalPSLBalance);
 
-              // Once the table is confirmed to be loaded, proceed to gather addresses
-              const table = document.getElementById(
-                "creditPackTicketTableBody"
-              );
-              const trackingAddresses = Array.from(
-                table.querySelectorAll("tr")
-              ).map((row) => {
-                return row.cells[3].textContent.trim(); // Assuming the tracking address is in the 4th column
-              });
-
-              const uniqueAddresses = [...new Set(trackingAddresses)];
-
-              const response = await axios.post("/ensure-minimal-psl-balance", {
-                addresses: uniqueAddresses,
-              });
-
-              if (response.data && response.data.success) {
-                console.log("Balance check and update initiated successfully.");
-              } else {
-                console.error("Failed to initiate balance check and update.");
-              }
-            } catch (error) {
-              console.error("Error ensuring minimal PSL balance:", error);
-            }
-          });
+          // Automatically trigger the balance check on initial page load
+          ensureMinimalPSLBalance().catch((error) =>
+            console.error("Error on initial load:", error)
+          );
         });
       </script>
       <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>

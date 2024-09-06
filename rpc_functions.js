@@ -732,11 +732,12 @@ async function createAndFundNewPSLCreditTrackingAddress(
     logger.error("RPC connection is not available. Cannot proceed.");
     return; // Stop the function if the connection is not available
   }
+  const extraCushion = 1.0; // Add an extra PSL to the funding address to ensure it has a minimum balance
   try {
     const newCreditTrackingAddress = await rpc_connection.getnewaddress();
     const sendResult = await sendToAddress(
       newCreditTrackingAddress,
-      amountOfPSLToFundAddressWith,
+      amountOfPSLToFundAddressWith + extraCushion,
       "Funding new credit tracking address",
       "",
       false
@@ -1436,11 +1437,11 @@ async function ensureTrackingAddressesHaveMinimalPSLBalance(
         );
         if (sendResult.success) {
           logger.info(
-            `Sent ${amountNeeded} PSL to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
+            `Sent ${amountNeeded} PSL from address ${fundingAddress} to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
           );
         } else {
           logger.error(
-            `Failed to send PSL to address ${address}: ${sendResult.message}`
+            `Failed to send PSL from address ${fundingAddress} to address ${address}: ${sendResult.message}`
           );
         }
       }
