@@ -5,7 +5,10 @@ const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
-const { getCurrentPastelIdAndPassphrase, setPastelIdAndPassphrase } = require('./storage');
+const {
+  getCurrentPastelIdAndPassphrase,
+  setPastelIdAndPassphrase,
+} = require("./storage");
 const { PastelInferenceClient } = require("./pastel_inference_client");
 
 const {
@@ -42,7 +45,8 @@ const {
   startPastelDaemon,
   getMyPslAddressWithLargestBalance,
   isPastelIDRegistered,
-  isCreditPackConfirmed
+  isCreditPackConfirmed,
+  ensureTrackingAddressesHaveMinimalPSLBalance,
 } = require("./rpc_functions");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -50,7 +54,7 @@ const {
   getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
 } = require("./utility_functions");
-const globals = require('./globals');
+const globals = require("./globals");
 let MY_LOCAL_PASTELID = "";
 let MY_PASTELID_PASSPHRASE = "";
 
@@ -128,7 +132,9 @@ async function initializeServer() {
 
       logger.info(`Successfully set global and local PastelID`);
     } else {
-      logger.warn(`Failed to set global and local PastelID and passphrase from storage`);
+      logger.warn(
+        `Failed to set global and local PastelID and passphrase from storage`
+      );
     }
 
     // Rest of your server initialization code...
@@ -234,12 +240,10 @@ let network;
     app.get("/get-inference-model-menu", async (req, res) => {
       try {
         if (!MY_LOCAL_PASTELID || !MY_PASTELID_PASSPHRASE) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: "Pastel ID and passphrase not set.",
-            });
+          return res.status(400).json({
+            success: false,
+            message: "Pastel ID and passphrase not set.",
+          });
         }
         const pastelInferenceClient = new PastelInferenceClient(
           MY_LOCAL_PASTELID,
@@ -310,7 +314,7 @@ let network;
         res.status(500).json({
           success: false,
           error: error.message,
-          details: error.details || "No additional details available"
+          details: error.details || "No additional details available",
         });
       }
     });
@@ -626,6 +630,40 @@ let network;
           success: false,
           message: "Failed to set PastelID and passphrase",
         });
+      }
+    });
+
+    app.post("/ensure-minimal-psl-balance", async (req, res) => {
+      try {
+        const { addresses } = req.body; // Expects a JSON body with an "addresses" array
+        await ensureTrackingAddressesHaveMinimalPSLBalance(addresses);
+        res.json({
+          success: true,
+          message: "Balance check and update process initiated.",
+        });
+      } catch (error) {
+        logger.error(
+          `Error in ensuring minimal PSL balance: ${safeStringify(error)}`
+        );
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.get("/ensure-minimal-psl-balance", async (req, res) => {
+      try {
+        await ensureTrackingAddressesHaveMinimalPSLBalance();
+        res.json({
+          success: true,
+          message:
+            "Balance check and update process initiated for all addresses.",
+        });
+      } catch (error) {
+        logger.error(
+          `Error in ensuring minimal PSL balance for all addresses: ${safeStringify(
+            error
+          )}`
+        );
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 

@@ -561,7 +561,7 @@ async function sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferen
       amounts,
       0,
       "Confirmation tracking transaction for inference request with request_id " +
-      inferenceRequestId,
+        inferenceRequestId,
       creditUsageTrackingPSLAddress
     );
     if (txid) {
@@ -1283,7 +1283,7 @@ async function isPastelIDRegistered(pastelID) {
       "id",
       pastelID
     );
-    return !!ticketFindResult?.ticket?.pastelID
+    return !!ticketFindResult?.ticket?.pastelID;
   } catch (error) {
     logger.error(
       `Error checking if Pastel ID is registered: ${safeStringify(error)}`
@@ -1393,8 +1393,65 @@ async function isCreditPackConfirmed(txid) {
     const ticket = await getPastelTicket(txid);
     return ticket && ticket.height > 0;
   } catch (error) {
-    logger.error(`Error checking if credit pack is confirmed: ${safeStringify(error)}`);
+    logger.error(
+      `Error checking if credit pack is confirmed: ${safeStringify(error)}`
+    );
     return false;
+  }
+}
+
+async function ensureTrackingAddressesHaveMinimalPSLBalance(
+  addressesList = null
+) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return; // Stop the function if the connection is not available
+    }
+    let addresses = addressesList;
+    if (!addresses) {
+      // If no address list is provided, retrieve all addresses and their balances
+      addresses = Object.keys(await rpc_connection.listaddressamounts());
+    }
+
+    // Get the address with the largest balance to use for sending PSL if needed
+    const fundingAddress = await getMyPslAddressWithLargestBalance();
+    if (!fundingAddress) {
+      logger.error("No address with sufficient funds to fund other addresses.");
+      return; // No address has sufficient funds
+    }
+
+    for (const address of addresses) {
+      const balance = await checkPSLAddressBalance(address); // Get balance for each address
+      if (balance < 1.0) {
+        // If balance is less than 1.0 PSL, send the needed amount
+        const amountNeeded = 1.0 - balance;
+        const sendResult = await sendToAddress(
+          address,
+          amountNeeded,
+          "Balancing PSL amount to ensure tracking address has a minimum balance of 1 PSL",
+          "",
+          true
+        );
+        if (sendResult.success) {
+          logger.info(
+            `Sent ${amountNeeded} PSL to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
+          );
+        } else {
+          logger.error(
+            `Failed to send PSL to address ${address}: ${sendResult.message}`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    logger.error(
+      `Error in ensureTrackingAddressesHaveMinimalPSLBalance: ${safeStringify(
+        error
+      )}`
+    );
+    throw error;
   }
 }
 
@@ -1451,4 +1508,5 @@ module.exports = {
   startPastelDaemon,
   getMyPslAddressWithLargestBalance,
   isCreditPackConfirmed,
+  ensureTrackingAddressesHaveMinimalPSLBalance,
 };

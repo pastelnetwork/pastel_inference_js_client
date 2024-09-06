@@ -61,7 +61,7 @@ async function main() {
   }
 
   if (useTestCreditPackTicketFunctionality && !creditPackTicketPastelTxid) {
-    const desiredNumberOfCredits = 1500;
+    const desiredNumberOfCredits = 250;
     const amountOfPSLForTrackingTransactions = 10.0;
     const creditPriceCushionPercentage = 0.15;
     const maximumTotalAmountOfPSLToFundInNewTrackingAddress = 150000.0;
