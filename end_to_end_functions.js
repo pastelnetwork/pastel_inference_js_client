@@ -722,6 +722,8 @@ async function handleInferenceRequestEndToEnd(
     const supernodeURL = closestSupportingSupernodeURL;
     const supernodePastelID = closestSupportingSupernodePastelID;
 
+    logger.info(`Submitting inference request to Supernode URL: ${supernodeURL}`);
+
     if (!supernodeURL) {
       logger.error(
         `Error! No supporting Supernode found for the desired model: ${requestedModelCanonicalString} with inference type: ${modelInferenceTypeString}`
