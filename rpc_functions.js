@@ -430,7 +430,7 @@ async function sendToAddress(
 
 async function sendMany(
   amounts,
-  minConf = 1,
+  minConf = 0,
   comment = "",
   changeAddress = ""
 ) {
@@ -561,7 +561,7 @@ async function sendTrackingAmountFromControlAddressToBurnAddressToConfirmInferen
       amounts,
       0,
       "Confirmation tracking transaction for inference request with request_id " +
-        inferenceRequestId,
+      inferenceRequestId,
       creditUsageTrackingPSLAddress
     );
     if (txid) {
@@ -1156,7 +1156,7 @@ async function listAddressAmounts(includeEmpty = false, isMineFilter = "all") {
 
 async function getBalance(
   account = "*",
-  minConf = 1,
+  minConf = 0,
   includeWatchOnly = false
 ) {
   try {
