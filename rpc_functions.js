@@ -394,8 +394,6 @@ async function sendToAddress(
   address,
   amount,
   comment = "",
-  commentTo = "",
-  subtractFeeFromAmount = false
 ) {
   const isConnectionReady = await waitForRPCConnection();
   if (!isConnectionReady) {
@@ -415,8 +413,6 @@ async function sendToAddress(
       address,
       amount,
       comment,
-      commentTo,
-      subtractFeeFromAmount
     );
     return { success: true, result };
   } catch (error) {
@@ -430,7 +426,7 @@ async function sendToAddress(
 
 async function sendMany(
   amounts,
-  minConf = 0,
+  minConf = 1,
   comment = "",
   changeAddress = ""
 ) {
@@ -739,8 +735,6 @@ async function createAndFundNewPSLCreditTrackingAddress(
       newCreditTrackingAddress,
       amountOfPSLToFundAddressWith + extraCushion,
       "Funding new credit tracking address",
-      "",
-      false
     );
     if (!sendResult.success) {
       logger.error(
@@ -1154,23 +1148,14 @@ async function listAddressAmounts(includeEmpty = false, isMineFilter = "all") {
   }
 }
 
-async function getBalance(
-  account = "*",
-  minConf = 0,
-  includeWatchOnly = false
-) {
+async function getBalance() {
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
       logger.error("RPC connection is not available. Cannot proceed.");
       return;
     }
-    const result = await rpc_connection.getbalance(
-      account,
-      minConf,
-      includeWatchOnly
-    );
-    logger.info(`Got balance for account: ${account}`);
+    const result = await rpc_connection.getbalance();
     return result;
   } catch (error) {
     logger.error(`Error getting balance: ${safeStringify(error)}`);
@@ -1427,22 +1412,22 @@ async function ensureTrackingAddressesHaveMinimalPSLBalance(
       const balance = await checkPSLAddressBalance(address); // Get balance for each address
       if (balance < 1.0) {
         // If balance is less than 1.0 PSL, send the needed amount
-        const amountNeeded = 1.0 - balance;
-        const sendResult = await sendToAddress(
-          address,
-          amountNeeded,
-          "Balancing PSL amount to ensure tracking address has a minimum balance of 1 PSL",
-          "",
-          true
-        );
-        if (sendResult.success) {
-          logger.info(
-            `Sent ${amountNeeded} PSL from address ${fundingAddress} to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
+        const amountNeeded = Math.round((1.0 - balance) * 10000) / 10000;
+        if (amountNeeded > 0.0001) {
+          const sendResult = await sendToAddress(
+            address,
+            amountNeeded,
+            "Balancing PSL amount to ensure tracking address has a minimum balance of 1 PSL",
           );
-        } else {
-          logger.error(
-            `Failed to send PSL from address ${fundingAddress} to address ${address}: ${sendResult.message}`
-          );
+          if (sendResult.success) {
+            logger.info(
+              `Sent ${amountNeeded} PSL from address ${fundingAddress} to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
+            );
+          } else {
+            logger.error(
+              `Failed to send PSL from address ${fundingAddress} to address ${address}: ${sendResult.message}`
+            );
+          }
         }
       }
     }

@@ -497,9 +497,8 @@ let network;
     });
 
     app.get("/get-balance", async (req, res) => {
-      const { account, minConf, includeWatchOnly } = req.query;
       try {
-        const result = await getBalance(account, minConf, includeWatchOnly);
+        const result = await getBalance();
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });

@@ -584,7 +584,7 @@ class PastelInferenceClient {
           process.env
             .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
           100
-        )}%.`
+        )}%. Please be patient while the new credit pack request is initialized.`
       );
       return true;
     } else {
@@ -646,6 +646,7 @@ class PastelInferenceClient {
         maximumPerCreditPriceInPSL
       );
 
+      logger.info(`Agree with price quote: ${agreeWithPriceQuote}; responding to preliminary price quote to Supernode at ${supernodeURL}...`);
       const priceQuoteResponse =
         CreditPackPurchaseRequestPreliminaryPriceQuoteResponse.build({
           sha3_256_hash_of_credit_pack_purchase_request_fields:
@@ -1614,87 +1615,62 @@ class PastelInferenceClient {
       }
       return false;
     } catch (error) {
-      logger.error(
-        `Error checking if Supernode supports desired model from Supernode URL: ${supernodeURL}: ${safeStringify(
-          error
-        )}`
-      );
       return false;
     }
   }
 
-  async getClosestSupernodeURLThatSupportsDesiredModel(
+  async getClosestSupernodeURLsThatSupportsDesiredModel(
     desiredModelCanonicalString,
     desiredModelInferenceTypeString,
-    desiredModelParametersJSON
+    desiredModelParametersJSON,
+    N = 12 // Limit to 12 supernodes
   ) {
-    const minimumNumberOfResponses = 3; // Minimum number of valid responses needed
     const timeoutPeriod = 3000; // Timeout period in milliseconds
 
     try {
       const { validMasternodeListFullDF } = await checkSupernodeList();
       const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
-      let validResponses = [];
 
-      // Custom promise to collect a specified minimum number of valid responses
-      await new Promise((resolve, reject) => {
-        let completedRequests = 0;
+      // Prepare all the promises for checking supernodes concurrently
+      const checkSupernodePromises = filteredSupernodes.map((supernode) => {
+        const startTime = Date.now(); // Capture the start time for the supernode check
 
-        const checkSupernode = async (supernode) => {
-          try {
-            const result = await Promise.race([
-              this.checkIfSupernodeSupportsDesiredModel(
-                supernode.url,
-                desiredModelCanonicalString,
-                desiredModelInferenceTypeString,
-                desiredModelParametersJSON
-              ),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutPeriod))
-            ]);
-            if (result) {
-              validResponses.push({ result, url: supernode.url });
-              if (validResponses.length >= minimumNumberOfResponses) {
-                resolve();
-              }
-            }
-          } catch (error) {
-            logger.error(`Error querying supernode at ${supernode.url}: ${error.message}`);
-          } finally {
-            completedRequests++;
-            if (completedRequests >= filteredSupernodes.length && validResponses.length < minimumNumberOfResponses) {
-              reject(new Error("Insufficient valid responses received from supernodes"));
-            }
-          }
-        };
-
-        filteredSupernodes.forEach(checkSupernode);
+        return Promise.race([
+          this.checkIfSupernodeSupportsDesiredModel(
+            supernode.url,
+            desiredModelCanonicalString,
+            desiredModelInferenceTypeString,
+            desiredModelParametersJSON
+          ).then((result) => ({
+            result,
+            url: supernode.url,
+            responseTime: Date.now() - startTime // Capture the response time
+          })),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout')), timeoutPeriod)
+          )
+        ]).catch(() => null); // Silently catch and return null for failed requests
       });
 
-      // Find the fastest valid response
-      const fastestResponse = validResponses.reduce((prev, current) => {
-        return prev.time < current.time ? prev : current;
-      });
+      // Wait for all promises to settle
+      const results = await Promise.allSettled(checkSupernodePromises);
 
-      if (fastestResponse) {
-        logger.info(`Found supporting supernode: URL: ${fastestResponse.url}`);
-        return {
-          supernodeSupportDict: {
-            [fastestResponse.url]: true,
-          },
-          closestSupportingSupernodeURL: fastestResponse.url,
-        };
-      } else {
-        logger.warn(`No supporting supernodes found for model: ${desiredModelCanonicalString}`);
-        return {
-          supernodeSupportDict: {},
-          closestSupportingSupernodeURL: null,
-        };
-      }
+      // Filter out null or rejected results
+      const validResponses = results
+        .filter((res) => res.status === 'fulfilled' && res.value !== null)
+        .map((res) => res.value);
+
+      // Sort the valid responses by their response times (fastest first)
+      const sortedResponses = validResponses.sort((a, b) => a.responseTime - b.responseTime);
+
+      // Return the closest N supernodes, capped at the number available
+      return sortedResponses.slice(0, N).map((response) => response.url);
     } catch (error) {
-      logger.error(`Error getting closest Supernode URL that supports desired model: ${safeStringify(error.message)}`);
-      throw error;
+      throw new Error(`Failed to get closest supernodes: ${error.message}`);
     }
   }
+
+
 }
 
 module.exports = {

@@ -1066,20 +1066,22 @@ async function filterSupernodes(
   };
 
   const logResults = () => {
+    let USE_VERBOSE_LOGGING = false;
     const totalRemoved = stats.removedDueToPing + stats.removedDueToPerformance + stats.removedDueToError;
     const removedPercentage = ((totalRemoved / stats.totalProcessed) * 100).toFixed(2);
-    logger.info(`Total supernodes processed: ${stats.totalProcessed}`);
-    logger.info(`Total supernodes removed: ${totalRemoved} (${removedPercentage}%)`);
-    logger.info(`- Removed due to ping: ${stats.removedDueToPing}`);
-    logger.info(`- Removed due to performance: ${stats.removedDueToPerformance}`);
-    logger.info(`- Removed due to errors: ${stats.removedDueToError}`);
-    if (stats.timeouts > 0) {
-      logger.info(`Total timeouts: ${stats.timeouts}`);
+    if (USE_VERBOSE_LOGGING) {
+      logger.info(`Total supernodes processed: ${stats.totalProcessed}`);
+      logger.info(`Total supernodes removed: ${totalRemoved} (${removedPercentage}%)`);
+      logger.info(`- Removed due to ping: ${stats.removedDueToPing}`);
+      logger.info(`- Removed due to performance: ${stats.removedDueToPerformance}`);
+      logger.info(`- Removed due to errors: ${stats.removedDueToError}`);
+      if (stats.timeouts > 0) {
+        logger.info(`Total timeouts: ${stats.timeouts}`);
+      }
     }
   };
 
   const cachedData = await getFromCache(cacheKey);
-  // const cachedData = null;
 
   if (cachedData && cachedData.length >= maxSupernodes) {
     logger.info("Returning cached supernodes.");
@@ -1104,7 +1106,7 @@ async function filterSupernodes(
     if (completed) return;
     const cacheKey = `supernode_${supernode.extKey}`;
     const cachedResult = await getFromCache(cacheKey);
-    // const cachedResult = null;
+
     if (cachedResult) return cachedResult;
 
     try {
@@ -1129,7 +1131,6 @@ async function filterSupernodes(
       await storeInCache(cacheKey, result);
       return result;
     } catch (error) {
-      // logger.error(`Error checking supernode ${supernode.extKey} (${supernode.ipaddress_port}): ${error.message}`);
       stats.removedDueToError++;
       return null;
     }
