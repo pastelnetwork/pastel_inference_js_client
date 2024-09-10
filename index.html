@@ -566,7 +566,14 @@
 Write me a Shakespeare-style sonnet about Pastel Network and how it's really decentralized and powerful. </textarea>
           </div>
         </div>
-        <div id="modelParametersContainer" class="col-span-full"></div>
+        <div class="hidden col-span-full" id="modelAdvancedSettingsSection">
+          <div>
+            <button type="button" class="btn success outline" id="advancedSettingsButton">Show advanced settings</button>
+          </div>
+          <div id="modelAdvancedSettingsContent" class="hidden mt-4">
+            <div id="modelParametersContainer" class="col-span-full"></div>
+          </div>
+        </div>
 
         <div id="imageGenerationSettings" class="col-span-full" style="display: none">
           <div class="mb-4">
@@ -1699,6 +1706,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       function generateModelParameterFields(selectedModel) {
+        const modelAdvancedSettingsSection = document.getElementById("modelAdvancedSettingsSection");
         const modelParametersContainer = document.getElementById("modelParametersContainer");
         modelParametersContainer.innerHTML = "";
         const selectedInferenceType = document.getElementById("inferenceType").value;
@@ -1714,7 +1722,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
           return false;
         });
-
+        console.log('selectedModel', selectedModel)
+        console.log('applicableParameters', applicableParameters)
+        console.log('=====================')
 
         applicableParameters.forEach((param) => {
           const fieldContainer = document.createElement("div");
@@ -1780,6 +1790,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           fieldContainer.appendChild(input);
           modelParametersContainer.appendChild(fieldContainer);
         });
+        if (applicableParameters.length) {
+          modelAdvancedSettingsSection.classList.remove("hidden");
+        } else {
+          modelAdvancedSettingsSection.classList.add("hidden");
+        }
       }
 
       function populateModelDropdown() {
@@ -2276,6 +2291,21 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       document
         .getElementById("model")
         .addEventListener("change", handleModelChange);
+
+      document
+        .getElementById("advancedSettingsButton")
+        .addEventListener("click", handleAdvancedSettingsButtonChange);
+
+      function handleAdvancedSettingsButtonChange() {
+        const advancedSettingsButton = document.getElementById("advancedSettingsButton");
+        const modelAdvancedSettingsContent = document.getElementById("modelAdvancedSettingsContent");
+        if (modelAdvancedSettingsContent.classList.contains('hidden')) {
+          advancedSettingsButton.innerHTML = 'Hide advanced settings';
+        } else {
+          advancedSettingsButton.innerHTML = 'Show advanced settings';
+        }
+        modelAdvancedSettingsContent.classList.toggle("hidden");
+      }
 
       function handleCreditPackSelection() {
         const radioButtons = document.querySelectorAll(
