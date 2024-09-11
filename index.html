@@ -137,13 +137,43 @@
       color: #ffffff;
     }
 
+    [data-theme="dark"] .input,
+    [data-theme="dark"] .select {
+      border-color: #cccccc;
+    }
+
+    [data-theme="dark"] .input::placeholder {
+      color: #cccccc;
+      opacity: 1; /* Firefox */
+    }
+
+    [data-theme="dark"] .input::-ms-input-placeholder { /* Edge 12-18 */
+      color: #cccccc;
+    }
+
+    [data-theme="dark"] .select option {
+      color: #333333;
+    }
+
     [data-theme="dark"] .delete-btn {
       color: #ffffff;
       border-color: #ffffff;
     }
 
+    [data-theme="dark"] .bg-bw-800 {
+      background-color: #111827;
+    }
+
     .table-responsive {
       overflow-x: auto;
+    }
+
+    .table.bordered tbody tr:last-child td:first-child {
+      border-bottom-left-radius: 12px;
+    }
+
+    .table.bordered tbody tr:last-child td:last-child {
+      border-bottom-right-radius: 12px;
     }
 
     .truncate {
@@ -209,6 +239,10 @@
       border: 1px solid #e5e7eb;
       border-radius: 0.5rem;
       padding: 1.5rem;
+    }
+
+    [data-theme="dark"] #requestPreview {
+      background-color: #0f291e;
     }
 
     .delete-btn {
@@ -1736,7 +1770,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
           return false;
         });
-
         applicableParameters.forEach((param) => {
           const fieldContainer = document.createElement("div");
           fieldContainer.className = "mb-4";
