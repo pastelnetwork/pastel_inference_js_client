@@ -602,7 +602,8 @@ Write me a Shakespeare-style sonnet about Pastel Network and how it's really dec
         </div>
         <div class="hidden col-span-full" id="modelAdvancedSettingsSection">
           <div>
-            <button type="button" class="btn success outline" id="advancedSettingsButton">Show advanced settings</button>
+            <button type="button" class="btn success outline" id="advancedSettingsButton">Show advanced
+              settings</button>
           </div>
           <div id="modelAdvancedSettingsContent" class="hidden mt-4">
             <div id="modelParametersContainer" class="col-span-full"></div>
@@ -1062,15 +1063,22 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       function logActionWithPayload(action, payloadName, jsonPayload) {
         const maxPayloadLength = 10000;
         let formattedPayload = prettyJSON(jsonPayload);
-        if (formattedPayload.length > maxPayloadLength) {
-          formattedPayload = abbreviateJSON(
-            formattedPayload,
-            maxPayloadLength
-          );
+
+        // Truncate file contents in the payload
+        if (typeof formattedPayload === 'string') {
+          const fileContentRegex = /"(document|audio|image)":\s*"([^"]+)"/g;
+          formattedPayload = formattedPayload.replace(fileContentRegex, (match, key, value) => {
+            if (value.length > 100) {
+              return `"${key}": "${value.substring(0, 100)}..."`;
+            }
+            return match;
+          });
         }
-        logger.info(
-          `Now ${action} ${payloadName} with payload:\n${formattedPayload}`
-        );
+
+        if (formattedPayload.length > maxPayloadLength) {
+          formattedPayload = abbreviateJSON(formattedPayload, maxPayloadLength);
+        }
+        logger.info(`Now ${action} ${payloadName} with payload:\n${formattedPayload}`);
       }
 
       async function setSelectedPastelIDAndPassphrase(selectedPastelID) {
@@ -1748,11 +1756,17 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         // Filter parameters based on the selected inference type
         const applicableParameters = selectedModel.model_parameters.filter(param => {
           const inferenceTypes = param.inference_types_parameter_applies_to;
-          // Check if it's an array or a string
           if (Array.isArray(inferenceTypes)) {
             return inferenceTypes.includes(selectedInferenceType);
           } else if (typeof inferenceTypes === 'string') {
-            return inferenceTypes.split(',').map(type => type.trim()).includes(selectedInferenceType);
+            try {
+              // Try parsing as JSON-like string (replacing single quotes with double quotes)
+              const parsedTypes = JSON.parse(inferenceTypes.replace(/'/g, '"'));
+              return Array.isArray(parsedTypes) && parsedTypes.includes(selectedInferenceType);
+            } catch (e) {
+              // If parsing fails, treat it as a comma-separated string
+              return inferenceTypes.split(',').map(type => type.trim()).includes(selectedInferenceType);
+            }
           }
           return false;
         });
@@ -1761,16 +1775,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           fieldContainer.className = "mb-4";
 
           const labelText = param.description.split("[Optional]")[0].trim();
-          const tooltipText =
-            param.description
-              .split("[Optional]")[1]
-              ?.trim()
-              .replace(/^\(|\)$/g, "") || "";
+          const tooltipText = param.description.split("[Optional]")[1]?.trim().replace(/^\(|\)$/g, "") || "";
 
           const label = document.createElement("label");
-          label.className =
-            "block font-bold mb-2" +
-            (param.description.includes("[Optional]") ? " text-bw-800" : "");
+          label.className = "block font-bold mb-2" + (param.description.includes("[Optional]") ? " text-bw-800" : "");
           label.htmlFor = param.name;
           label.textContent = labelText;
           fieldContainer.appendChild(label);
@@ -1790,10 +1798,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           input.className = "input w-full";
           input.id = param.name;
           input.name = param.name;
-          input.type =
-            param.type === "float" || param.type === "int"
-              ? "number"
-              : "text";
+          input.type = param.type === "float" || param.type === "int" ? "number" : "text";
           input.placeholder = `Enter ${param.description.toLowerCase()}`;
           input.value = param.default;
 
@@ -1809,17 +1814,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             input.min = "1";
             input.max = "10";
             input.step = "1";
-          } else if (
-            param.name === "grammar_file_string" ||
-            param.name === "query_string" ||
-            param.name === "corpus_identifier_string"
-          ) {
+          } else if (param.name === "grammar_file_string" || param.name === "query_string" || param.name === "corpus_identifier_string") {
             input.type = "text"; // Ensure it's a text input
           }
 
           fieldContainer.appendChild(input);
           modelParametersContainer.appendChild(fieldContainer);
         });
+
         if (applicableParameters.length) {
           modelAdvancedSettingsSection.classList.remove("hidden");
         } else {
@@ -2820,24 +2822,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           logStatusMessage("Creating new inference request...");
 
           if (!modelInputDataJSONBase64Encoded) {
-            throw new Error(
-              "Model input data is required and cannot be empty."
-            );
+            throw new Error("Model input data is required and cannot be empty.");
           }
 
           const requestPayload = {
             model_inference_type_string: selectedInferenceType,
             model_parameters_json_b64: modelParametersJSONBase64Encoded,
-            model_input_data_json_b64: modelInputDataJSONBase64Encoded,
+            model_input_data_json_b64: modelInputDataJSONBase64Encoded, // Use the original, untruncated data
             selectedCreditPackTicketId,
             maxCost,
             model_canonical_name: selectedModelCanonicalName,
           };
 
-          const response = await axios.post(
-            "/create-inference-request",
-            requestPayload
-          );
+          // Create a truncated version only for logging
+          const truncatedPayload = { ...requestPayload };
+          if (typeof truncatedPayload.model_input_data_json_b64 === 'string' && truncatedPayload.model_input_data_json_b64.length > 100) {
+            truncatedPayload.model_input_data_json_b64 = truncatedPayload.model_input_data_json_b64.substring(0, 100) + '...';
+          }
+
+          console.log('Creating inference request with payload:', JSON.stringify(truncatedPayload, null, 2));
+
+          const response = await axios.post("/create-inference-request", requestPayload);
 
           if (response.data.success) {
             logStatusMessage("Inference request created successfully.");
