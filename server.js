@@ -1,3 +1,5 @@
+// server.js
+
 const express = require("express");
 const multer = require("multer");
 const bodyParser = require("body-parser");
@@ -609,19 +611,21 @@ let network;
     app.post("/set-pastel-id-passphrase", async (req, res) => {
       const { pastelID, passphrase } = req.body;
       try {
-        // Update storage
+        // Check if the PastelID is valid
+        const isValid = await isPastelIDRegistered(pastelID);
+
+        if (!isValid) {
+          // If not valid, send a response indicating that the PastelID is invalid
+          return res.json({ success: false, message: "Invalid PastelID" });
+        }
+
+        // If valid, proceed with updating storage and global variables
         await setPastelIdAndPassphrase(pastelID, passphrase);
-
-        // Update global variables
         globals.setPastelIdAndPassphrase(pastelID, passphrase);
-
-        // Update local variables
         MY_LOCAL_PASTELID = pastelID;
         MY_PASTELID_PASSPHRASE = passphrase;
 
         res.json({ success: true });
-
-        // Emit the event as before
         app.emit("pastelIDAndPassphraseSet");
       } catch (error) {
         console.error("Error setting PastelID and passphrase:", error);
@@ -663,6 +667,17 @@ let network;
           )}`
         );
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.post('/check-pastel-id-validity', async (req, res) => {
+      try {
+        const { pastelID } = req.body;
+        const isValid = await isPastelIDRegistered(pastelID);
+        res.json({ isValid });
+      } catch (error) {
+        console.error("Error checking PastelID validity:", error);
+        res.status(500).json({ error: "Failed to check PastelID validity" });
       }
     });
 

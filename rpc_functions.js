@@ -1,3 +1,5 @@
+// rpc_functions.js
+
 require("dotenv").config();
 const http = require("http");
 const https = require("https");

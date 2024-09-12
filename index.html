@@ -1086,67 +1086,102 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       async function setSelectedPastelIDAndPassphrase(selectedPastelID) {
         let storedPassphrase = localStorage.getItem(selectedPastelID);
 
-        if (!storedPassphrase) {
-          const dialogHtml = `
-            <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
-              <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
-                <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
-                <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
-                <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
-                <div>
-                  <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
-                </div>
-              </div>
-            </div>
-          `;
+        try {
+          const response = await axios.post("/check-pastel-id-validity", { pastelID: selectedPastelID });
+          const isValid = response.data.isValid;
 
-          const dialog = document.createElement("div");
-          dialog.innerHTML = dialogHtml;
-          document.body.appendChild(dialog);
-
-          return new Promise((resolve) => {
-            const submitButton = dialog.querySelector("#submitPassphrase");
-            const passphraseInput = dialog.querySelector("#passphraseInput");
-
-            submitButton.addEventListener("click", async () => {
-              const inputPassphrase = passphraseInput.value;
-              if (inputPassphrase) {
-                try {
-                  localStorage.setItem(
-                    selectedPastelID,
-                    btoa(inputPassphrase)
-                  );
-                  storedPassphrase = btoa(inputPassphrase);
-                  dialog.remove();
-                  await postPassphrase(selectedPastelID, storedPassphrase);
-                  resolve();
-                } catch (error) {
-                  console.error("Error handling passphrase:", error);
-                }
-              } else {
-                console.error("No passphrase entered");
-              }
-            });
-          });
-        } else {
-          await postPassphrase(selectedPastelID, storedPassphrase);
-        }
-
-        async function postPassphrase(pastelID, encodedPassphrase) {
-          try {
-            await axios.post("/set-pastel-id-passphrase", {
-              pastelID: pastelID,
-              passphrase: atob(encodedPassphrase),
-            });
-
-            // Fetch the model menu after setting the PastelID and passphrase
-            await fetchModelMenu();
-
-            // Fetch received messages after setting the PastelID and passphrase
-            await fetchReceivedMessages();
-          } catch (error) {
-            console.error("Error setting PastelID and passphrase:", error);
+          if (!isValid) {
+            console.log(`PastelID ${selectedPastelID} is not valid. Removing from localStorage.`);
+            localStorage.removeItem(selectedPastelID);
+            updatePastelIDUI();
+            return;
           }
+
+          if (!storedPassphrase) {
+            const dialogHtml = `
+        <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
+          <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
+            <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
+            <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
+            <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
+            <div>
+              <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+            const dialog = document.createElement("div");
+            dialog.innerHTML = dialogHtml;
+            document.body.appendChild(dialog);
+
+            return new Promise((resolve) => {
+              const submitButton = dialog.querySelector("#submitPassphrase");
+              const passphraseInput = dialog.querySelector("#passphraseInput");
+
+              submitButton.addEventListener("click", async () => {
+                const inputPassphrase = passphraseInput.value;
+                if (inputPassphrase) {
+                  try {
+                    localStorage.setItem(
+                      selectedPastelID,
+                      btoa(inputPassphrase)
+                    );
+                    storedPassphrase = btoa(inputPassphrase);
+                    dialog.remove();
+                    await postPassphrase(selectedPastelID, storedPassphrase);
+                    resolve();
+                  } catch (error) {
+                    console.error("Error handling passphrase:", error);
+                  }
+                } else {
+                  console.error("No passphrase entered");
+                }
+              });
+            });
+          } else {
+            await postPassphrase(selectedPastelID, storedPassphrase);
+          }
+        } catch (error) {
+          console.error("Error checking PastelID validity:", error);
+        }
+      }
+
+
+      function updatePastelIDUI() {
+        const pastelIDDropdown = document.getElementById("pastelIDDropdown");
+        const userPastelID = document.getElementById("userPastelID");
+
+        // Remove the invalid PastelID from the dropdown
+        Array.from(pastelIDDropdown.options).forEach(option => {
+          if (!localStorage.getItem(option.value)) {
+            pastelIDDropdown.remove(option.index);
+          }
+        });
+
+        // Update the displayed PastelID
+        if (pastelIDDropdown.options.length > 0) {
+          userPastelID.textContent = pastelIDDropdown.value;
+        } else {
+          userPastelID.textContent = "No valid PastelID available";
+        }
+      }
+
+
+      async function postPassphrase(pastelID, encodedPassphrase) {
+        try {
+          await axios.post("/set-pastel-id-passphrase", {
+            pastelID: pastelID,
+            passphrase: atob(encodedPassphrase),
+          });
+
+          // Fetch the model menu after setting the PastelID and passphrase
+          await fetchModelMenu();
+
+          // Fetch received messages after setting the PastelID and passphrase
+          await fetchReceivedMessages();
+        } catch (error) {
+          console.error("Error setting PastelID and passphrase:", error);
         }
       }
 
