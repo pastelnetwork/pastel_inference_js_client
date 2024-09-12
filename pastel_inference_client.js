@@ -228,12 +228,8 @@ class PastelInferenceClient {
       );
       return response.data;
     } catch (error) {
-      logger.error(
-        `Error fetching model menu from Supernode URL: ${supernodeURL}: ${safeStringify(
-          error
-        )}`
-      );
-      throw error;
+      // Silently catch the error and return undefined, null, or a default value.
+      return null;  // You can return null, undefined, or an empty object depending on your use case.
     }
   }
 
