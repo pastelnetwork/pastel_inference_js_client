@@ -97,11 +97,27 @@ async function getMostRecentFile(files) {
 
 function searchFileRecursively(directory, filename) {
   try {
-    const result = execSync(`sudo find ${directory} -name ${filename}`, {
-      encoding: "utf-8",
-    });
-    return result.trim().split("\n").filter(Boolean);
+    const results = [];
+
+    function searchRecursive(currentPath) {
+      const files = fs.readdirSync(currentPath);
+
+      for (const file of files) {
+        const filePath = path.join(currentPath, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isDirectory()) {
+          searchRecursive(filePath);
+        } else if (file === filename) {
+          results.push(filePath);
+        }
+      }
+    }
+
+    searchRecursive(directory);
+    return results;
   } catch (error) {
+    console.error(`Error searching for file: ${error.message}`);
     return [];
   }
 }
@@ -121,7 +137,7 @@ async function getLocalRPCSettings(
     if (process.platform === "win32") {
       searchDirectories.push(process.env.ProgramData);
     } else if (process.platform === "darwin") {
-      searchDirectories.push("/Users");
+      searchDirectories.push(path.join(os.homedir(), "Library", "Application Support", "Pastel"));
     } else {
       searchDirectories.push("/home", "/etc");
     }
