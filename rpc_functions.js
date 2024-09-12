@@ -125,10 +125,20 @@ function searchFileRecursively(directory, filename) {
 async function getLocalRPCSettings(
   directoryWithPastelConf = path.join(os.homedir(), ".pastel")
 ) {
+  let newDirectoryWithPastelConf = directoryWithPastelConf;
+  if (process.platform === "win32") {
+    newDirectoryWithPastelConf = path.join(os.homedir(), "AppData", "Roaming", "Pastel")
+  }
+  if (process.platform === "darwin") {
+    newDirectoryWithPastelConf = path.join(os.homedir(), "Library", "Application Support", "Pastel")
+  }
+  if (['darwin', 'linux'].indexOf(process.platform) !== -1) {
+    newDirectoryWithPastelConf = newDirectoryWithPastelConf.replace(/ /g, '\\ ')
+  }
   await storage.init();
   let pastelConfPath =
     (await storage.getItem("pastelConfPath")) ||
-    path.join(directoryWithPastelConf, "pastel.conf");
+    path.join(newDirectoryWithPastelConf, "pastel.conf");
   if (!fs.existsSync(pastelConfPath)) {
     console.log(
       `pastel.conf not found in stored path or default directory, scanning the system...`
