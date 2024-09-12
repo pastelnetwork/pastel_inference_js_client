@@ -15,6 +15,7 @@ const { execSync, spawn } = require("child_process");
 const storage = require("node-persist");
 const { setPastelIdAndPassphrase } = require("./storage");
 let rpc_connection;
+const globals = require("./globals");
 
 // Initialize the storage
 storage.init();
@@ -877,7 +878,7 @@ async function checkSupernodeList() {
     );
     return { validMasternodeListFullDF, masternodeListFullDFJSON };
   } catch (error) {
-    logger.error(`An error occurred: ${error.message}`);
+    logger.error(`An error occurred: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
   }
 }
 

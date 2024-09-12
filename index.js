@@ -26,6 +26,7 @@ async function main() {
   } else if (rpcport === "29932") {
     burnAddress = "44oUgmZSL997veFEQDq569wv5tsT6KXf9QY7";
   }
+  const globals = require("./globals");
 
   const useTestMessagingFunctionality = false;
   const useTestCreditPackTicketFunctionality = false;
@@ -282,8 +283,7 @@ async function main() {
           );
 
         logger.info(
-          `Inference result data received at ${new Date()}; decoded image size in megabytes: ${
-            inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
+          `Inference result data received at ${new Date()}; decoded image size in megabytes: ${inferenceResultDict.generated_image_decoded.length / (1024 * 1024)
           }`
         );
         logger.info(`Audit results:\n\n${prettyJSON(auditResults)}`);
@@ -328,7 +328,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  logger.error(`Error in main function: ${error.message}`);
+  logger.error(`Error in main function: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
   process.exit(1);
 });
 

@@ -144,10 +144,12 @@
 
     [data-theme="dark"] .input::placeholder {
       color: #cccccc;
-      opacity: 1; /* Firefox */
+      opacity: 1;
+      /* Firefox */
     }
 
-    [data-theme="dark"] .input::-ms-input-placeholder { /* Edge 12-18 */
+    [data-theme="dark"] .input::-ms-input-placeholder {
+      /* Edge 12-18 */
       color: #cccccc;
     }
 
@@ -1663,7 +1665,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
         } catch (error) {
           console.error(
-            `Error creating new credit pack ticket: ${error.message}`
+            `Error creating new credit pack ticket: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
           );
           logCreateTicketStatusMessage(
             "Failed to create credit pack ticket. Please try again.",
@@ -3082,7 +3084,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
         } catch (error) {
           console.error(
-            `Error creating new inference request: ${error.message}`
+            `Error creating new inference request: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
           );
           resultContainer.innerHTML =
             "Failed to create inference request. Please try again.";
@@ -3595,7 +3597,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               error.message
             );
             logCreateTicketStatusMessage(
-              `Failed to create credit pack ticket: ${error.message}`,
+              `Failed to create credit pack ticket: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`,
               statusContent
             );
           }

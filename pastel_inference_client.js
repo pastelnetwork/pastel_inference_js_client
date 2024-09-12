@@ -56,6 +56,7 @@ const {
   logActionWithPayload,
   transformCreditPackPurchaseRequestResponse,
 } = require("./utility_functions");
+const globals = require("./globals");
 
 
 const MESSAGING_TIMEOUT_IN_SECONDS = process.env.MESSAGING_TIMEOUT_IN_SECONDS;
@@ -109,7 +110,7 @@ class PastelInferenceClient {
     try {
       const { error } = userMessageSchema.validate(userMessage);
       if (error) {
-        throw new Error(`Invalid user message: ${error.message}`);
+        throw new Error(`Invalid user message: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       }
       const { challenge, challenge_id, challenge_signature } =
         await this.requestAndSignChallenge(supernodeURL);
@@ -136,7 +137,7 @@ class PastelInferenceClient {
       const userMessageInstance = await UserMessage.create(validatedResult);
       return userMessageInstance;
     } catch (error) {
-      logger.error(`Error sending user message: ${error.message}`);
+      logger.error(`Error sending user message: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       throw error;
     }
   }
@@ -164,7 +165,7 @@ class PastelInferenceClient {
       );
       return userMessageInstances;
     } catch (error) {
-      logger.error(`Error retrieving user messages: ${error.message}`);
+      logger.error(`Error retrieving user messages: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       throw error;
     }
   }
@@ -195,7 +196,7 @@ class PastelInferenceClient {
               }
             })
             .catch(error => {
-              logger.error(`Error querying supernode at ${url}: ${error.message}`);
+              logger.error(`Error querying supernode at ${url}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
               completedRequests++;
               // Check if it's still possible to get the minimum number of valid responses
               if (completedRequests > closestSupernodes.length - minimumNumberOfResponses + validResponses.length) {
@@ -212,7 +213,7 @@ class PastelInferenceClient {
 
       return largestResponse;
     } catch (error) {
-      logger.error(`Error in getModelMenu: ${error.message}`);
+      logger.error(`Error in getModelMenu: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       throw error;
     }
   }
@@ -308,7 +309,7 @@ class PastelInferenceClient {
     } catch (error) {
       if (useVerbose) {
         logger.error(
-          `Error retrieving valid credit pack tickets for PastelID: ${error.message}`
+          `Error retrieving valid credit pack tickets for PastelID: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       }
       if (useVerbose) {
@@ -352,7 +353,7 @@ class PastelInferenceClient {
       return balanceInfo;
     } catch (error) {
       logger.error(
-        `Error checking credit pack balance for txid ${txid}: ${error.message}`
+        `Error checking credit pack balance for txid ${txid}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
       );
       throw error;
     }
@@ -425,7 +426,7 @@ class PastelInferenceClient {
       };
     } catch (error) {
       logger.error(
-        `Error retrieving credit pack ticket from txid: ${error.message}`
+        `Error retrieving credit pack ticket from txid: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
       );
       throw error;
     }
@@ -440,7 +441,7 @@ class PastelInferenceClient {
       const { error, value: validatedCreditPackRequest } =
         creditPackPurchaseRequestSchema.validate(creditPackRequest.toJSON());
       if (error) {
-        throw new Error(`Invalid credit pack request: ${error.message}`);
+        throw new Error(`Invalid credit pack request: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       }
       // Create the credit pack purchase request in the database
       const _creditPackPurchaseRequestInstance =
@@ -928,7 +929,7 @@ class PastelInferenceClient {
         );
       if (error) {
         logger.error(
-          `Invalid credit pack purchase request confirmation: ${error.message}`
+          `Invalid credit pack purchase request confirmation: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
         return; // Return early instead of throwing an error
       }
@@ -971,7 +972,7 @@ class PastelInferenceClient {
         );
       } else if (error.code === "ECONNABORTED") {
         logger.error(
-          `Timeout error sending credit pack purchase completion announcement to ${supernodeURL}: ${error.message}`
+          `Timeout error sending credit pack purchase completion announcement to ${supernodeURL}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       } else {
         logger.error(
@@ -993,7 +994,7 @@ class PastelInferenceClient {
         );
       if (error) {
         throw new Error(
-          `Invalid credit pack storage retry request: ${error.message}`
+          `Invalid credit pack storage retry request: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       }
 
@@ -1066,7 +1067,7 @@ class PastelInferenceClient {
         );
       if (error) {
         throw new Error(
-          `Invalid credit pack storage retry request response: ${error.message}`
+          `Invalid credit pack storage retry request response: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       }
 
@@ -1144,7 +1145,7 @@ class PastelInferenceClient {
       return ticketInfo;
     } catch (error) {
       logger.error(
-        `Error retrieving credit pack ticket for purchase burn txid ${txid}: ${error.message}`
+        `Error retrieving credit pack ticket for purchase burn txid ${txid}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
       );
       throw error;
     }
@@ -1186,7 +1187,7 @@ class PastelInferenceClient {
       return finalTxid;
     } catch (error) {
       logger.error(
-        `Error retrieving final credit pack registration txid for purchase burn txid ${purchaseBurnTxid}: ${error.message}`
+        `Error retrieving final credit pack registration txid for purchase burn txid ${purchaseBurnTxid}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
       );
       throw error;
     }
@@ -1198,7 +1199,7 @@ class PastelInferenceClient {
         await inferenceAPIUsageRequestSchema.validate(requestData.toJSON());
       if (error) {
         throw new Error(
-          `Invalid inference API usage request: ${error.message}`
+          `Invalid inference API usage request: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       }
       delete validatedRequest["id"];
@@ -1262,7 +1263,7 @@ class PastelInferenceClient {
         await inferenceConfirmationSchema.validate(confirmationDataJSON);
       if (error) {
         throw new Error(
-          `Invalid inference confirmation data: ${error.message}`
+          `Invalid inference confirmation data: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
       }
       const confirmationInstance = await InferenceConfirmation.create(
@@ -1666,7 +1667,7 @@ class PastelInferenceClient {
       // Return the closest N supernodes, capped at the number available
       return sortedResponses.slice(0, N).map((response) => response.url);
     } catch (error) {
-      throw new Error(`Failed to get closest supernodes: ${error.message}`);
+      throw new Error(`Failed to get closest supernodes: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     }
   }
 

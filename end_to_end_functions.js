@@ -79,7 +79,7 @@ async function checkForNewIncomingMessages() {
     const messageRetrievalTasks = closestSupernodesToLocal.map(({ url }) =>
       inferenceClient.getUserMessages(url).catch((error) => {
         logger.warn(
-          `Failed to retrieve messages from supernode ${url}: ${error.message}`
+          `Failed to retrieve messages from supernode ${url}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
         return []; // Return an empty array on error
       })
@@ -103,7 +103,7 @@ async function checkForNewIncomingMessages() {
 
     return uniqueMessages;
   } catch (error) {
-    logger.error(`Error in checkForNewIncomingMessages: ${error.message}`);
+    logger.error(`Error in checkForNewIncomingMessages: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -150,7 +150,7 @@ async function sendMessageAndCheckForNewIncomingMessages(
 
     const { error } = userMessageSchema.validate(userMessage.toJSON());
     if (error) {
-      throw new Error(`Invalid user message: ${error.message}`);
+      throw new Error(`Invalid user message: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     }
 
     const sendTasks = closestSupernodesToRecipient.map(({ url }) =>
@@ -169,7 +169,7 @@ async function sendMessageAndCheckForNewIncomingMessages(
     return messageDict;
   } catch (error) {
     logger.error(
-      `Error in sendMessageAndCheckForNewIncomingMessages: ${error.message}`
+      `Error in sendMessageAndCheckForNewIncomingMessages: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     throw error;
   }
@@ -304,7 +304,7 @@ async function handleCreditPackTicketEndToEnd(
       return creditPackPurchaseRequestConfirmationResponse;
     }
   } catch (error) {
-    logger.error(`Error in handleCreditPackTicketEndToEnd: ${error.message}`);
+    logger.error(`Error in handleCreditPackTicketEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw new Error("An unexpected error occurred while processing your credit pack purchase. Please try again later.");
   }
 }
@@ -352,7 +352,7 @@ async function checkCreditPackPurchaseRequestStatus(inferenceClient, highestRank
     logger.info(`Credit pack purchase request status from the original supernode: ${JSON.stringify(status)}`);
     return status;
   } catch (error) {
-    logger.debug(`Error checking status with original supernode: ${error.message}. Trying other supernodes.`);
+    logger.debug(`Error checking status with original supernode: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}. Trying other supernodes.`);
     for (const supernode of closestSupernodes) {
       try {
         const status = await inferenceClient.checkStatusOfCreditPurchaseRequest(
@@ -496,7 +496,7 @@ async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
       balanceInfo,
     };
   } catch (error) {
-    logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message}`);
+    logger.error(`Error in getCreditPackTicketInfoEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -577,7 +577,7 @@ async function getMyValidCreditPackTicketsEndToEnd() {
             if (isResolved) return;
 
             logger.error(
-              `Error querying supernode at ${url}: ${error.message}`
+              `Error querying supernode at ${url}: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
             );
             completedRequests++;
             handleResponse();
@@ -600,7 +600,7 @@ async function getMyValidCreditPackTicketsEndToEnd() {
     }
   } catch (error) {
     logger.error(
-      `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message}`
+      `Error in getMyValidCreditPackTicketsEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     return [];
   }
@@ -636,7 +636,7 @@ async function estimateCreditPackCostEndToEnd(
       );
     return estimatedTotalCostOfTicket;
   } catch (error) {
-    logger.error(`Error in estimateCreditPackCostEndToEnd: ${error.message}`);
+    logger.error(`Error in estimateCreditPackCostEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -940,7 +940,7 @@ async function handleInferenceRequestEndToEnd(
       );
     }
   } catch (error) {
-    logger.error(`Error in handleInferenceRequestEndToEnd: ${error.message}`);
+    logger.error(`Error in handleInferenceRequestEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }

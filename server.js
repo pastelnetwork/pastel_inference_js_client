@@ -114,7 +114,7 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("error", (error) => {
-    logger.error(`WebSocket error: ${error.message}`);
+    logger.error(`WebSocket error: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     logEmitter.removeListener("newLog", logListener);
   });
 });
@@ -139,7 +139,7 @@ async function initializeServer() {
 
     // Rest of your server initialization code...
   } catch (error) {
-    logger.error(`Error initializing server: ${error.message}`);
+    logger.error(`Error initializing server: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     process.exit(1);
   }
 }

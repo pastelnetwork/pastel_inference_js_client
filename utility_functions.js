@@ -7,6 +7,7 @@ const ping = require("ping");
 const { logger, safeStringify } = require("./logger");
 const supernodeCacheStorage = require("node-persist");
 const { getCurrentPastelIdAndPassphrase } = require('./storage');
+const globals = require("./globals");
 
 const {
   verifyMessageWithPastelID,
@@ -88,7 +89,7 @@ async function fetchCurrentPSLMarketPrice() {
       const priceCG = responseCG.data.pastel.usd;
       return { priceCMC, priceCG };
     } catch (error) {
-      logger.error(`Error fetching PSL market prices: ${error.message}`);
+      logger.error(`Error fetching PSL market prices: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
       return { priceCMC: null, priceCG: null };
     }
   }
@@ -557,7 +558,7 @@ async function getClosestSupernodePastelIDFromList(
         const distance = await calculateXORDistance(localPastelID, pastelID);
         return { pastelID, distance: BigInt(distance) };
       } catch (error) {
-        logger.error(`Error calculating XOR distance: ${error.message}`);
+        logger.error(`Error calculating XOR distance: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
         return null;
       }
     })
@@ -712,7 +713,7 @@ async function getClosestSupernodeToPastelIDURL(
         await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
         return { url: supernodeURL, pastelID: closestSupernodePastelID };
       } catch (error) {
-        logger.error(`Error connecting to closest supernode: ${error.message}`);
+        logger.error(`Error connecting to closest supernode: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
         return { url: null, pastelID: null };
       }
     }
