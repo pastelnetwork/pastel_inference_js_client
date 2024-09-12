@@ -254,7 +254,7 @@ let network;
         const modelMenu = await pastelInferenceClient.getModelMenu();
         res.json({ success: true, modelMenu });
       } catch (error) {
-        logger.error(`Error in getInferenceModelMenu: ${safeStringify(error)}`);
+        logger.error(`Error in getInferenceModelMenu: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -591,7 +591,7 @@ let network;
         }
       } catch (error) {
         logger.error(
-          `Error in create-and-register-pastel-id: ${safeStringify(error)}`
+          `Error in create-and-register-pastel-id: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
         res.status(500).json({ success: false, message: error.message });
       }
@@ -646,7 +646,7 @@ let network;
         });
       } catch (error) {
         logger.error(
-          `Error in ensuring minimal PSL balance: ${safeStringify(error)}`
+          `Error in ensuring minimal PSL balance: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
         );
         res.status(500).json({ success: false, error: error.message });
       }

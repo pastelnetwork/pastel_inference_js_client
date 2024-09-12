@@ -419,10 +419,10 @@ async function sendToAddress(
     );
     return { success: true, result };
   } catch (error) {
-    logger.error(`Error in sendToAddress: ${safeStringify(error)}`);
+    logger.error(`Error in sendToAddress: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     return {
       success: false,
-      message: `Error in sendToAddress: ${safeStringify(error)}`,
+      message: `Error in sendToAddress: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`,
     };
   }
 }
@@ -450,7 +450,7 @@ async function sendMany(
     );
     return result;
   } catch (error) {
-    logger.error(`Error in sendMany: ${safeStringify(error)}`);
+    logger.error(`Error in sendMany: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     return null;
   }
 }
@@ -660,7 +660,7 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
     );
     return responseObj.signature;
   } catch (error) {
-    logger.error(`Error in signMessageWithPastelID: ${safeStringify(error)}`);
+    logger.error(`Error in signMessageWithPastelID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     return null;
   }
 }
@@ -687,7 +687,7 @@ async function checkPSLAddressBalanceAlternative(addressToCheck) {
     return balanceAtAddress;
   } catch (error) {
     logger.error(
-      `Error in checkPSLAddressBalanceAlternative: ${safeStringify(error)}`
+      `Error in checkPSLAddressBalanceAlternative: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     throw error;
   }
@@ -717,7 +717,7 @@ async function getMyPslAddressWithLargestBalance() {
     return addressWithLargestBalance;
   } catch (error) {
     logger.error(
-      `Error in getMyPslAddressWithLargestBalance: ${safeStringify(error)}`
+      `Error in getMyPslAddressWithLargestBalance: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     throw error;
   }
@@ -1109,7 +1109,7 @@ async function importPrivKey(zcashPrivKey, label = "", rescan = true) {
     logger.info(`Imported private key with label: ${label}`);
     return result;
   } catch (error) {
-    logger.error(`Error importing private key: ${safeStringify(error)}`);
+    logger.error(`Error importing private key: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1125,7 +1125,7 @@ async function importWallet(filename) {
     logger.info(`Imported wallet from file: ${filename}`);
     return result;
   } catch (error) {
-    logger.error(`Error importing wallet: ${safeStringify(error)}`);
+    logger.error(`Error importing wallet: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1146,7 +1146,7 @@ async function listAddressAmounts(includeEmpty = false, isMineFilter = "all") {
     );
     return result;
   } catch (error) {
-    logger.error(`Error listing address amounts: ${safeStringify(error)}`);
+    logger.error(`Error listing address amounts: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1161,7 +1161,7 @@ async function getBalance() {
     const result = await rpc_connection.getbalance();
     return result;
   } catch (error) {
-    logger.error(`Error getting balance: ${safeStringify(error)}`);
+    logger.error(`Error getting balance: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1177,7 +1177,7 @@ async function getWalletInfo() {
     logger.info("Got wallet info");
     return result;
   } catch (error) {
-    logger.error(`Error getting wallet info: ${safeStringify(error)}`);
+    logger.error(`Error getting wallet info: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1193,7 +1193,7 @@ async function getNewAddress() {
     logger.info("Got new Pastel address");
     return result;
   } catch (error) {
-    logger.error(`Error getting new address: ${safeStringify(error)}`);
+    logger.error(`Error getting new address: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }
@@ -1222,7 +1222,7 @@ async function checkForRegisteredPastelID() {
     return null;
   } catch (error) {
     logger.error(
-      `Error in checkForRegisteredPastelID: ${safeStringify(error)}`
+      `Error in checkForRegisteredPastelID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     throw error;
   }
@@ -1275,7 +1275,7 @@ async function isPastelIDRegistered(pastelID) {
     return !!ticketFindResult?.ticket?.pastelID;
   } catch (error) {
     logger.error(
-      `Error checking if Pastel ID is registered: ${safeStringify(error)}`
+      `Error checking if Pastel ID is registered: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     return false;
   }
@@ -1312,7 +1312,7 @@ async function createAndRegisterPastelID(burnAddress) {
     }
   } catch (error) {
     logger.error(
-      `Error creating and registering Pastel ID: ${safeStringify(error)}`
+      `Error creating and registering Pastel ID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     throw error;
   }
@@ -1371,7 +1371,7 @@ async function createAndRegisterNewPastelID(passphraseForNewPastelID) {
     };
   } catch (error) {
     logger.error(
-      `Error in createAndRegisterNewPastelID: ${safeStringify(error)}`
+      `Error in createAndRegisterNewPastelID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     return { success: false, message: error.message };
   }
@@ -1383,7 +1383,7 @@ async function isCreditPackConfirmed(txid) {
     return ticket && ticket.height > 0;
   } catch (error) {
     logger.error(
-      `Error checking if credit pack is confirmed: ${safeStringify(error)}`
+      `Error checking if credit pack is confirmed: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
     return false;
   }

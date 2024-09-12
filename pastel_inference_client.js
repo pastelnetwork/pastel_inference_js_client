@@ -1243,7 +1243,7 @@ class PastelInferenceClient {
       return responseInstance;
     } catch (error) {
       logger.error(
-        `Error making inference API usage request: ${safeStringify(error)}`
+        `Error making inference API usage request: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
       );
       throw error;
     }
