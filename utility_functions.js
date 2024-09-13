@@ -13,6 +13,14 @@ const {
   verifyMessageWithPastelID,
   getBestBlockHashAndMerkleRoot,
   checkSupernodeList,
+  getPastelIDDirectory,
+  getLocalRPCSettings,
+  initializeRPCConnection,
+  importPrivKey,
+  waitForRPCConnection,
+  stopPastelDaemon,
+  startPastelDaemon,
+  signMessageWithPastelID,
 } = require("./rpc_functions");
 
 const MAX_CACHE_AGE_MS = 1 * 60 * 1000; // 1 minute in milliseconds
@@ -1169,6 +1177,115 @@ async function filterSupernodes(
   return filteredSupernodes.slice(0, maxSupernodes);
 }
 
+
+async function importPromotionalPack(jsonFilePath) {
+  logger.info(`Starting import of promotional pack from file: ${jsonFilePath}`);
+
+  try {
+    // Initialize RPC connection
+    logger.info('Initializing RPC connection...');
+    await initializeRPCConnection();
+    logger.info('RPC connection initialized successfully');
+
+    // Read and parse the JSON file
+    const jsonContent = fs.readFileSync(jsonFilePath, 'utf8');
+    const packData = JSON.parse(jsonContent);
+
+    // Process each promotional pack in the file
+    for (let i = 0; i < packData.length; i++) {
+      const pack = packData[i];
+      logger.info(`Processing pack ${i + 1} of ${packData.length}`);
+
+      // 1. Save the PastelID secure container file
+      const { rpcport } = await getLocalRPCSettings();
+      const network = rpcport === '9932' ? 'mainnet' : rpcport === '19932' ? 'testnet' : 'devnet';
+      const pastelIDDir = getPastelIDDirectory(network);
+      const secureContainerPath = path.join(pastelIDDir, pack.pastelID);
+
+      logger.info(`Saving PastelID secure container to: ${secureContainerPath}`);
+      fs.writeFileSync(secureContainerPath, Buffer.from(pack.secureContainer, 'base64'));
+
+      // 2. Import the tracking address private key
+      logger.info(`Importing private key for tracking address: ${pack.trackingAddress.address}`);
+      const importResult = await importPrivKey(pack.trackingAddress.privateKey, "Imported from promotional pack", false);
+      if (importResult) {
+        logger.info('Private key imported successfully');
+      } else {
+        logger.warn('Failed to import private key');
+      }
+
+      // 3. Log other important information
+      logger.info(`PastelID: ${pack.pastelID}`);
+      logger.info(`Passphrase: ${pack.passphrase}`);
+      logger.info(`Credit Pack Ticket: ${JSON.stringify(pack.creditPackTicket, null, 2)}`);
+      logger.info(`Funding Transaction ID: ${pack.fundingTxid}`);
+
+      logger.info(`Pack ${i + 1} processed successfully`);
+    }
+
+    // Restart pasteld binary
+    logger.info('Restarting pasteld binary...');
+    await stopPastelDaemon();
+    await startPastelDaemon();
+    logger.info('pasteld binary restarted successfully');
+
+    // Wait for RPC connection to be re-established
+    await waitForRPCConnection();
+
+    // Verify PastelID import and wait for blockchain confirmation
+    for (let i = 0; i < packData.length; i++) {
+      const pack = packData[i];
+      logger.info(`Verifying PastelID import for pack ${i + 1}`);
+
+      try {
+        // Wait for PastelID to be confirmed in the blockchain
+        await waitForConfirmation(isPastelIDRegistered, pack.pastelID);
+        logger.info(`PastelID ${pack.pastelID} confirmed in blockchain`);
+
+        // Verify PastelID functionality
+        const testMessage = "This is a test message for PastelID verification";
+        const signature = await signMessageWithPastelID(pack.pastelID, testMessage, pack.passphrase);
+        logger.info(`Signature created successfully for PastelID: ${pack.pastelID}`);
+
+        const verificationResult = await verifyMessageWithPastelID(pack.pastelID, testMessage, signature);
+
+        if (verificationResult) {
+          logger.info(`PastelID ${pack.pastelID} verified successfully`);
+        } else {
+          logger.warn(`PastelID ${pack.pastelID} verification failed`);
+        }
+
+        // Verify Credit Pack Ticket
+        await waitForConfirmation(isCreditPackConfirmed, pack.creditPackTicket.txid);
+        logger.info(`Credit Pack Ticket ${pack.creditPackTicket.txid} confirmed in blockchain`);
+
+      } catch (error) {
+        logger.error(`Error verifying pack ${i + 1}: ${error.message}`);
+      }
+    }
+
+    logger.info('All packs in the file have been processed and verified');
+    return { success: true, message: 'Promotional pack(s) imported and verified successfully' };
+  } catch (error) {
+    logger.error(`Error importing promotional pack: ${error.message}`);
+    return { success: false, message: `Failed to import promotional pack: ${error.message}` };
+  }
+}
+
+// Helper function to wait for confirmation
+async function waitForConfirmation(checkFunction, ...args) {
+  const MAX_ATTEMPTS = 30;
+  const DELAY = 10000; // 10 seconds
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    if (await checkFunction(...args)) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, DELAY));
+  }
+  throw new Error('Confirmation timed out');
+}
+
 module.exports = {
   fetchCurrentPSLMarketPrice,
   estimatedMarketPriceOfInferenceCreditsInPSLTerms,
@@ -1201,4 +1318,5 @@ module.exports = {
   validateInferenceResultFields,
   validateInferenceData,
   logger,
+  importPromotionalPack
 };

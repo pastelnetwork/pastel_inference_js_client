@@ -50,11 +50,13 @@ const {
   isCreditPackConfirmed,
   ensureTrackingAddressesHaveMinimalPSLBalance,
 } = require("./rpc_functions");
+const { generatePromotionalPacks } = require("./create_promotional_packs");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
   prettyJSON,
   getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
+  importPromotionalPack
 } = require("./utility_functions");
 const globals = require("./globals");
 let MY_LOCAL_PASTELID = "";
@@ -679,6 +681,130 @@ let network;
         console.error("Error checking PastelID validity:", error);
         res.status(500).json({ error: "Failed to check PastelID validity" });
       }
+    });
+
+    app.get('/dump-priv-key/:tAddr', async (req, res) => {
+      const { tAddr } = req.params;
+      try {
+        const privateKey = await dumpPrivKey(tAddr);
+        res.json({ success: true, privateKey });
+      } catch (error) {
+        logger.error(`Error dumping private key for address ${tAddr}: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.post('/generate-promo-packs', async (req, res) => {
+      const { numberOfPacks, creditsPerPack } = req.body;
+
+      if (!numberOfPacks || !creditsPerPack) {
+        return res.status(400).json({ success: false, message: 'Both numberOfPacks and creditsPerPack are required.' });
+      }
+
+      if (numberOfPacks <= 0 || creditsPerPack <= 0) {
+        return res.status(400).json({ success: false, message: 'Both numberOfPacks and creditsPerPack must be positive numbers.' });
+      }
+
+      try {
+        const result = await generatePromotionalPacks(numberOfPacks, creditsPerPack);
+        res.json({ success: true, message: 'Promotional packs generation started.', result });
+      } catch (error) {
+        logger.error(`Error generating promotional packs: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        res.status(500).json({ success: false, message: 'Failed to generate promotional packs.', error: error.message });
+      }
+    });
+    app.post('/import-promotional-pack', upload.single('packFile'), async (req, res) => {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+
+      const tempFilePath = req.file.path;
+
+      try {
+        logger.info(`Received promotional pack file: ${req.file.originalname}`);
+
+        // Call the importPromotionalPack function
+        const result = await importPromotionalPack(tempFilePath);
+
+        // Delete the temporary file
+        fs.unlinkSync(tempFilePath);
+
+        res.json({
+          success: true,
+          message: 'Promotional pack imported successfully',
+          details: result
+        });
+      } catch (error) {
+        logger.error(`Error importing promotional pack: ${error.message}`);
+
+        // Attempt to delete the temporary file in case of error
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        res.status(500).json({
+          success: false,
+          message: 'Failed to import promotional pack',
+          error: error.message
+        });
+      }
+    });
+
+    app.get('/download-promo-pack/:filename', (req, res) => {
+      const filename = req.params.filename;
+      const filepath = path.join(__dirname, 'generated_promo_packs', filename);
+
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({
+          success: false,
+          message: 'Promotional pack file not found'
+        });
+      }
+
+      res.download(filepath, (err) => {
+        if (err) {
+          logger.error(`Error downloading file ${filename}: ${err.message}`);
+          res.status(500).json({
+            success: false,
+            message: 'Error downloading file',
+            error: err.message
+          });
+        }
+      });
+    });
+
+    app.get('/promo-generator', (req, res) => {
+      const filePath = path.join(__dirname, 'public', 'promo_code_generator_tool.html');
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({
+          success: false,
+          message: 'Promo generator tool not found'
+        });
+      }
+
+      res.sendFile(filePath);
+    });
+
+    app.get('/list-promo-packs', (req, res) => {
+      const folderPath = path.join(__dirname, 'generated_promo_packs');
+
+      fs.readdir(folderPath, (err, files) => {
+        if (err) {
+          logger.error(`Error reading promo packs directory: ${err.message}`);
+          return res.status(500).json({
+            success: false,
+            message: 'Error listing promotional packs',
+            error: err.message
+          });
+        }
+
+        const promoPacks = files.filter(file => file.endsWith('.json'));
+        res.json({
+          success: true,
+          promoPacks: promoPacks
+        });
+      });
     });
 
     app.listen(port, () => {

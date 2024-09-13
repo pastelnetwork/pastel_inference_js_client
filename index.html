@@ -371,6 +371,28 @@
     </div>
     <div class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
+      <!-- Promotional Pack Import Section -->
+      <div class="col-span-full mt-2">
+        <details class="bg-bw-100 p-3 rounded-lg">
+          <summary class="text-bw-700 font-semibold cursor-pointer">
+            Import Promotional Pack
+          </summary>
+          <div class="mt-2">
+            <p class="text-bw-600 text-sm mb-2">Have a promotional pack file? Import it here to set up your account
+              quickly.</p>
+            <div class="flex items-center gap-2">
+              <input type="file" id="promotionalPackFile" accept=".json" class="hidden" onchange="updateFileLabel()">
+              <label for="promotionalPackFile" class="btn outline secondary text-sm py-1 px-3 cursor-pointer">
+                Choose File
+              </label>
+              <span id="fileLabel" class="text-bw-600 text-sm">No file chosen</span>
+              <button onclick="importPromotionalPack()" class="btn success outline text-sm py-1 px-3 ml-auto">
+                Import Pack
+              </button>
+            </div>
+          </div>
+        </details>
+      </div>
       <div class="col-span-full">
         <div id="noPastelIDContainer" class="hidden">
           <p class="text-bw-700">
@@ -1081,6 +1103,74 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           formattedPayload = abbreviateJSON(formattedPayload, maxPayloadLength);
         }
         logger.info(`Now ${action} ${payloadName} with payload:\n${formattedPayload}`);
+      }
+
+      async function importPromotionalPack() {
+        const fileInput = document.getElementById('promotionalPackFile');
+        const file = fileInput.files[0];
+        if (!file) {
+          alert('Please select a file to import.');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            const packData = JSON.parse(e.target.result);
+
+            // Import the private key
+            const response = await fetch(`/dump-priv-key/${packData.address}`, {
+              method: 'GET',
+            });
+            const result = await response.json();
+
+            if (result.success) {
+              // Set the imported data in the UI
+              document.getElementById('pastelIDInput').value = packData.pastelID;
+              document.getElementById('passphraseInput').value = packData.passphrase;
+              document.getElementById('trackingAddressInput').value = packData.address;
+
+              // Trigger the setPastelIDAndPassphrase function
+              await setPastelIDAndPassphrase();
+
+              // Update the credit pack selection if applicable
+              if (packData.creditPackTxid) {
+                await updateCreditPackSelection(packData.creditPackTxid);
+              }
+
+              alert('Promotional pack imported successfully!');
+            } else {
+              throw new Error(result.error);
+            }
+          } catch (error) {
+            console.error('Error importing promotional pack:', error);
+            alert('Failed to import promotional pack. Please check the console for details.');
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      async function updateCreditPackSelection(txid) {
+        // Fetch credit pack info
+        const response = await fetch(`/credit-pack-info/${txid}`);
+        const result = await response.json();
+
+        if (result.success) {
+          const creditPackInfo = result.result;
+
+          // Update the credit pack selection in the UI
+          const selectElement = document.getElementById('creditPackSelect');
+          const option = document.createElement('option');
+          option.value = txid;
+          option.text = `${creditPackInfo.numCredits} credits - ${creditPackInfo.txid}`;
+          option.selected = true;
+          selectElement.add(option);
+
+          // Trigger the credit pack selection change event
+          selectElement.dispatchEvent(new Event('change'));
+        } else {
+          console.error('Failed to fetch credit pack info:', result.error);
+        }
       }
 
       async function setSelectedPastelIDAndPassphrase(selectedPastelID) {

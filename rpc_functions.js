@@ -97,27 +97,11 @@ async function getMostRecentFile(files) {
 
 function searchFileRecursively(directory, filename) {
   try {
-    const results = [];
-
-    function searchRecursive(currentPath) {
-      const files = fs.readdirSync(currentPath);
-
-      for (const file of files) {
-        const filePath = path.join(currentPath, file);
-        const stat = fs.statSync(filePath);
-
-        if (stat.isDirectory()) {
-          searchRecursive(filePath);
-        } else if (file === filename) {
-          results.push(filePath);
-        }
-      }
-    }
-
-    searchRecursive(directory);
-    return results;
+    const result = execSync(`sudo find ${directory} -name ${filename}`, {
+      encoding: "utf-8",
+    });
+    return result.trim().split("\n").filter(Boolean);
   } catch (error) {
-    console.error(`Error searching for file: ${error.message}`);
     return [];
   }
 }
@@ -125,20 +109,10 @@ function searchFileRecursively(directory, filename) {
 async function getLocalRPCSettings(
   directoryWithPastelConf = path.join(os.homedir(), ".pastel")
 ) {
-  let newDirectoryWithPastelConf = directoryWithPastelConf;
-  if (process.platform === "win32") {
-    newDirectoryWithPastelConf = path.join(os.homedir(), "AppData", "Roaming", "Pastel")
-  }
-  if (process.platform === "darwin") {
-    newDirectoryWithPastelConf = path.join(os.homedir(), "Library", "Application Support", "Pastel")
-  }
-  if (['darwin', 'linux'].indexOf(process.platform) !== -1) {
-    newDirectoryWithPastelConf = newDirectoryWithPastelConf.replace(/ /g, '\\ ')
-  }
   await storage.init();
   let pastelConfPath =
     (await storage.getItem("pastelConfPath")) ||
-    path.join(newDirectoryWithPastelConf, "pastel.conf");
+    path.join(directoryWithPastelConf, "pastel.conf");
   if (!fs.existsSync(pastelConfPath)) {
     console.log(
       `pastel.conf not found in stored path or default directory, scanning the system...`
@@ -147,7 +121,7 @@ async function getLocalRPCSettings(
     if (process.platform === "win32") {
       searchDirectories.push(process.env.ProgramData);
     } else if (process.platform === "darwin") {
-      searchDirectories.push(path.join(os.homedir(), "Library", "Application Support", "Pastel"));
+      searchDirectories.push("/Users");
     } else {
       searchDirectories.push("/home", "/etc");
     }
@@ -745,6 +719,22 @@ async function getMyPslAddressWithLargestBalance() {
     logger.error(
       `Error in getMyPslAddressWithLargestBalance: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
     );
+    throw error;
+  }
+}
+
+async function dumpPrivKey(tAddr) {
+  try {
+    const isConnectionReady = await waitForRPCConnection();
+    if (!isConnectionReady) {
+      logger.error("RPC connection is not available. Cannot proceed.");
+      return;
+    }
+    const result = await rpc_connection.dumpprivkey(tAddr);
+    logger.info(`Dumped private key for address: ${tAddr}`);
+    return result;
+  } catch (error) {
+    logger.error(`Error dumping private key for address ${tAddr}: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;
   }
 }

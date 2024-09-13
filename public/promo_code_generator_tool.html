@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promotional Pack Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">Promotional Pack Generator</h1>
+
+        <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Generate Promotional Packs</h2>
+
+            <div class="mb-4">
+                <label for="numberOfPacks" class="block text-sm font-medium text-gray-700 mb-1">Number of Packs:</label>
+                <input type="number" id="numberOfPacks" class="w-full p-2 border rounded-md" min="1" value="1">
+            </div>
+
+            <div class="mb-4">
+                <label for="creditsPerPack" class="block text-sm font-medium text-gray-700 mb-1">Credits Per
+                    Pack:</label>
+                <input type="number" id="creditsPerPack" class="w-full p-2 border rounded-md" min="1" value="500">
+            </div>
+
+            <button onclick="generatePromoPacks()"
+                class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">Generate
+                Packs</button>
+        </div>
+
+        <div id="logContainer" class="bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Operation Log</h2>
+            <div id="logContent" class="bg-gray-100 p-4 rounded-md h-64 overflow-y-auto font-mono text-sm"></div>
+        </div>
+
+        <div id="resultContainer" class="bg-white shadow-md rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Generation Result</h2>
+            <pre id="resultContent" class="bg-gray-100 p-4 rounded-md overflow-x-auto"></pre>
+            <button onclick="downloadZip()"
+                class="mt-4 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-300">Download
+                ZIP</button>
+        </div>
+
+        <div id="existingPacksContainer" class="bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Existing Promotional Packs</h2>
+            <select id="existingPacks" class="w-full p-2 border rounded-md mb-4"></select>
+            <button onclick="downloadExistingPack()"
+                class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">Download
+                Selected Pack</button>
+        </div>
+
+        <div id="loadingIndicator" class="text-center hidden">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p class="mt-2 text-gray-600">Generating promotional packs...</p>
+        </div>
+
+        <div id="errorContainer"
+            class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4 hidden" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span id="errorMessage" class="block sm:inline"></span>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let generatedFiles = [];
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('errorContainer').classList.add('hidden');
+        }
+
+        function connectWebSocket() {
+            return new Promise((resolve, reject) => {
+                fetch('/ws-url')
+                    .then(response => response.json())
+                    .then(data => {
+                        ws = new WebSocket(data.wsUrl);
+                        ws.onopen = () => {
+                            console.log('WebSocket connected');
+                            resolve();
+                        };
+                        ws.onerror = (error) => {
+                            console.error('WebSocket error:', error);
+                            reject(error);
+                        };
+                        ws.onclose = () => {
+                            console.log('WebSocket closed. Attempting to reconnect...');
+                            setTimeout(connectWebSocket, 5000);
+                        };
+                        ws.onmessage = (event) => {
+                            const logContent = document.getElementById('logContent');
+                            logContent.innerHTML += event.data + '<br>';
+                            logContent.scrollTop = logContent.scrollHeight;
+                        };
+                    })
+                    .catch(reject);
+            });
+        }
+
+        async function generatePromoPacks() {
+            const numberOfPacks = document.getElementById('numberOfPacks').value;
+            const creditsPerPack = document.getElementById('creditsPerPack').value;
+
+            if (!numberOfPacks || !creditsPerPack || numberOfPacks < 1 || creditsPerPack < 1) {
+                showError('Please enter valid numbers for both the number of packs and credits per pack.');
+                return;
+            }
+
+            hideError();
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
+            document.getElementById('logContent').innerHTML = '';
+
+            try {
+                await connectWebSocket();
+
+                const response = await axios.post('/generate-promo-packs', {
+                    numberOfPacks: parseInt(numberOfPacks),
+                    creditsPerPack: parseInt(creditsPerPack)
+                });
+
+                document.getElementById('resultContent').textContent = JSON.stringify(response.data, null, 2);
+                document.getElementById('resultContainer').classList.remove('hidden');
+
+                generatedFiles = [response.data.result.fileName];
+                await loadExistingPacks();
+            } catch (error) {
+                console.error('Error generating promotional packs:', error);
+                showError('Failed to generate promotional packs. Please check the console for details.');
+            } finally {
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                if (ws) {
+                    ws.close();
+                }
+            }
+        }
+
+        async function downloadZip() {
+            const zip = new JSZip();
+
+            for (const fileName of generatedFiles) {
+                try {
+                    const response = await fetch(`/download-promo-pack/${encodeURIComponent(fileName)}`);
+                    const blob = await response.blob();
+                    zip.file(fileName.split('/').pop(), blob);
+                } catch (error) {
+                    console.error(`Error downloading file ${fileName}:`, error);
+                    showError(`Error downloading file ${fileName}`);
+                }
+            }
+
+            zip.generateAsync({ type: "blob" })
+                .then(function (content) {
+                    saveAs(content, "promotional_packs.zip");
+                });
+        }
+
+        async function loadExistingPacks() {
+            try {
+                const response = await axios.get('/list-promo-packs');
+                const select = document.getElementById('existingPacks');
+                select.innerHTML = '';
+                response.data.promoPacks.forEach(pack => {
+                    const option = document.createElement('option');
+                    option.value = pack;
+                    option.textContent = pack;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading existing packs:', error);
+                showError('Failed to load existing promotional packs.');
+            }
+        }
+
+        async function downloadExistingPack() {
+            const select = document.getElementById('existingPacks');
+            const selectedPack = select.value;
+            if (!selectedPack) {
+                showError('Please select a pack to download.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/download-promo-pack/${encodeURIComponent(selectedPack)}`);
+                const blob = await response.blob();
+                saveAs(blob, selectedPack);
+            } catch (error) {
+                console.error(`Error downloading pack ${selectedPack}:`, error);
+                showError(`Error downloading pack ${selectedPack}`);
+            }
+        }
+
+        // Load existing packs when the page loads
+        window.onload = loadExistingPacks;
+    </script>
+</body>
+
+</html>

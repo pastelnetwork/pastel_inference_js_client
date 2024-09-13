@@ -144,3 +144,12 @@ dist
 /supernode-cache
 .node-persist/
 bun.lockb
+combined.log
+error.log
+supernode-cache/
+/supernode-cache/*
+.node-persist/
+/.node-persist/*
+LICENSE
+README.md
+index.js
