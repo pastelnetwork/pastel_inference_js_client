@@ -145,11 +145,9 @@ The Pastel network employs various security measures and validation steps to ens
 
 ### Communication Security
 
-1. **Secure Communication Channels**: All communication between the client and the supernodes is carried out over secure channels, such as HTTPS, to protect against eavesdropping and tampering. This ensures the confidentiality and integrity of the exchanged messages.
+1. **Message Signing**: Important messages, such as credit pack purchase requests and confirmations, are signed using the PastelIDs of the involved parties. These signatures provide authentication and non-repudiation, preventing unauthorized modifications and ensuring accountability.
 
-2. **Message Signing**: Important messages, such as credit pack purchase requests and confirmations, are signed using the PastelIDs of the involved parties. These signatures provide authentication and non-repudiation, preventing unauthorized modifications and ensuring accountability.
-
-3. **Encryption**: Sensitive data, such as the credit pack ticket and inference results, can be encrypted using strong encryption algorithms to protect against unauthorized access. The encryption keys are securely managed and shared only between the authorized parties.
+2. **Encryption**: Sensitive data, such as the credit pack ticket and inference results, can be encrypted using strong encryption algorithms to protect against unauthorized access. The encryption keys are securely managed and shared only between the authorized parties.
 
 The Pastel network employs a robust security framework to ensure the integrity and authenticity of the messages exchanged between the client and the supernodes. Let's delve into the details of how the messages are secured and validated:
 
