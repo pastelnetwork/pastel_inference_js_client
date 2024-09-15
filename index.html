@@ -2823,7 +2823,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             }" alt="Input Image" style="max-width: 100%; max-height: 400px;">
             <p>Question: ${request.inputFields.question}</p>
             <p>Answer:</p>
-            <github-md>${JSON.parse(request.inferenceResultsDecoded)[0]
+            <github-md>${Array.isArray(request.inferenceResultsDecoded) ? JSON.parse(request.inferenceResultsDecoded)[0] : JSON.parse(request.inferenceResultsDecoded)
             }</github-md>
           `;
         } else if (request.selectedInferenceType === "embedding_document") {
