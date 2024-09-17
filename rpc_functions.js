@@ -116,7 +116,7 @@ async function getLocalRPCSettings(
   if (process.platform === "darwin") {
     newDirectoryWithPastelConf = path.join(os.homedir(), "Library", "Application Support", "Pastel")
   }
-  if (['darwin', 'linux'].indexOf(process.platform) !== -1) {
+  if (['linux'].indexOf(process.platform) !== -1) {
     newDirectoryWithPastelConf = newDirectoryWithPastelConf.replace(/ /g, '\\ ')
   }
   await storage.init();
