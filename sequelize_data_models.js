@@ -260,10 +260,10 @@ const CreditPackPurchaseRequestRejection = sequelize.define(
       allowNull: false,
     },
     responding_supernode_signature_on_credit_pack_purchase_request_rejection_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_rejections",
@@ -311,15 +311,15 @@ const CreditPackPurchaseRequestPreliminaryPriceQuote = sequelize.define(
       allowNull: false,
     },
     sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     responding_supernode_signature_on_credit_pack_purchase_request_preliminary_price_quote_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_preliminary_price_quotes",
@@ -340,10 +340,10 @@ const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define(
       allowNull: false,
     },
     sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     credit_pack_purchase_request_fields_json_b64: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -377,15 +377,15 @@ const CreditPackPurchaseRequestPreliminaryPriceQuoteResponse = sequelize.define(
       allowNull: false,
     },
     sha3_256_hash_of_credit_pack_purchase_request_preliminary_price_quote_response_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     requesting_end_user_pastelid_signature_on_preliminary_price_quote_response_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_preliminary_price_quote_responses",
@@ -429,10 +429,10 @@ const CreditPackPurchaseRequestResponseTermination = sequelize.define(
       allowNull: false,
     },
     responding_supernode_signature_on_credit_pack_purchase_request_termination_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_response_terminations",
@@ -505,10 +505,10 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       allowNull: false,
     },
     list_of_supernode_pastelids_agreeing_to_credit_pack_purchase_terms_selected_for_signature_inclusion:
-      {
-        type: DataTypes.JSON,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.JSON,
+      allowNull: false,
+    },
     selected_agreeing_supernodes_signatures_dict: {
       type: DataTypes.JSON,
       allowNull: false,
@@ -519,10 +519,10 @@ const CreditPackPurchaseRequestResponse = sequelize.define(
       unique: true,
     },
     responding_supernode_signature_on_credit_pack_purchase_request_response_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_responses",
@@ -584,10 +584,10 @@ const CreditPackPurchaseRequestConfirmation = sequelize.define(
       unique: true,
     },
     requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_confirmation_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_confirmations",
@@ -649,16 +649,16 @@ const CreditPackPurchaseRequestConfirmationResponse = sequelize.define(
       allowNull: false,
     },
     sha3_256_hash_of_credit_pack_purchase_request_confirmation_response_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
     responding_supernode_signature_on_credit_pack_purchase_request_confirmation_response_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_confirmation_responses",
@@ -683,10 +683,10 @@ const CreditPackRequestStatusCheck = sequelize.define(
       allowNull: false,
     },
     requesting_end_user_pastelid_signature_on_sha3_256_hash_of_credit_pack_purchase_request_fields:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_request_status_checks",
@@ -743,10 +743,10 @@ const CreditPackPurchaseRequestStatus = sequelize.define(
       unique: true,
     },
     responding_supernode_signature_on_credit_pack_purchase_request_status_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_purchase_request_statuses",
@@ -790,10 +790,10 @@ const CreditPackStorageRetryRequest = sequelize.define(
       allowNull: false,
     },
     requesting_end_user_pastelid_signature_on_credit_pack_storage_retry_request_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_storage_retry_requests",
@@ -845,10 +845,10 @@ const CreditPackStorageRetryRequestResponse = sequelize.define(
       allowNull: false,
     },
     closest_agreeing_supernode_to_retry_storage_pastelid_signature_on_credit_pack_storage_retry_confirmation_response_hash:
-      {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
+    {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   {
     tableName: "credit_pack_storage_retry_request_responses",
@@ -1072,6 +1072,17 @@ sequelize.sync({ force: true }).then(() => {
   console.log("Database & tables created!");
 });
 
+async function initializeDatabase() {
+  try {
+    await sequelize.authenticate();
+    console.log("Connection has been established successfully.");
+    await sequelize.sync({ force: true }); // This will recreate all tables
+    console.log("All models were synchronized successfully.");
+  } catch (error) {
+    console.error("Unable to connect to the database:", error);
+  }
+}
+
 module.exports = {
   SupernodeList,
   Message,
@@ -1092,4 +1103,5 @@ module.exports = {
   InferenceAPIUsageResponse,
   InferenceAPIOutputResult,
   InferenceConfirmation,
+  initializeDatabase
 };

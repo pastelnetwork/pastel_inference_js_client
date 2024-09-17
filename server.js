@@ -50,6 +50,7 @@ const {
   isCreditPackConfirmed,
   ensureTrackingAddressesHaveMinimalPSLBalance,
 } = require("./rpc_functions");
+const { initializeDatabase } = require('./sequelize_data_models');
 const { generatePromotionalPacks } = require("./create_promotional_packs");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
@@ -153,6 +154,7 @@ let network;
 
 (async () => {
   try {
+    await initializeDatabase();
     await initializeRPCConnection();
     await initializeServer();
     const rpcSettings = await getLocalRPCSettings();
@@ -709,10 +711,17 @@ let network;
         const result = await generatePromotionalPacks(numberOfPacks, creditsPerPack);
         res.json({ success: true, message: 'Promotional packs generation started.', result });
       } catch (error) {
-        logger.error(`Error generating promotional packs: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
-        res.status(500).json({ success: false, message: 'Failed to generate promotional packs.', error: error.message });
+        console.error('Error in /generate-promo-packs:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to generate promotional packs.',
+          error: error.message,
+          stack: error.stack
+        });
       }
     });
+
     app.post('/import-promotional-pack', upload.single('packFile'), async (req, res) => {
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'No file uploaded' });

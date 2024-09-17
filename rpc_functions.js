@@ -814,6 +814,9 @@ async function waitForTableCreation() {
 
 async function checkSupernodeList() {
   try {
+    // Ensure the table is created
+    await SupernodeList.sync();
+
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
       logger.error("RPC connection is not available. Cannot proceed.");
@@ -1524,4 +1527,5 @@ module.exports = {
   getMyPslAddressWithLargestBalance,
   isCreditPackConfirmed,
   ensureTrackingAddressesHaveMinimalPSLBalance,
+  dumpPrivKey,
 };

@@ -692,7 +692,7 @@ async function getClosestSupernodeToPastelIDURL(
   logger.info(`Attempting to find closest supernode for PastelID: ${inputPastelID}`);
   if (!inputPastelID) {
     logger.warn("No input PastelID provided");
-    return null;
+    return { url: null, pastelID: null };
   }
   await initializeSupernodeCacheStorage();
   const filteredSupernodes = await filterSupernodes(
@@ -710,7 +710,6 @@ async function getClosestSupernodeToPastelIDURL(
       return { url: null, pastelID: null };
     }
 
-    // Find the supernode info in the original supernodeListDF
     const closestSupernode = supernodeListDF.find(
       (supernode) => supernode.extKey === closestSupernodePastelID
     );
@@ -721,7 +720,7 @@ async function getClosestSupernodeToPastelIDURL(
         await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
         return { url: supernodeURL, pastelID: closestSupernodePastelID };
       } catch (error) {
-        logger.error(`Error connecting to closest supernode: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        logger.error(`Error connecting to closest supernode: ${error.message}`);
         return { url: null, pastelID: null };
       }
     }
@@ -729,7 +728,6 @@ async function getClosestSupernodeToPastelIDURL(
   logger.warn("No filtered supernodes available");
   return { url: null, pastelID: null };
 }
-
 async function getNClosestSupernodesToPastelIDURLs(
   n,
   inputPastelID,
@@ -737,42 +735,82 @@ async function getNClosestSupernodesToPastelIDURLs(
   maxResponseTimeInMilliseconds = 800
 ) {
   if (!inputPastelID) {
-    return null;
+    logger.warn("No input PastelID provided");
+    return [];
   }
+
   await initializeSupernodeCacheStorage();
-  const filteredSupernodes = await filterSupernodes(
-    supernodeListDF,
-    maxResponseTimeInMilliseconds
-  );
 
-  const xorDistances = await Promise.all(
-    filteredSupernodes.map(async (supernode) => {
-      const distance = await calculateXORDistance(
-        inputPastelID,
-        supernode.pastelID
-      );
-      return { ...supernode, distance };
-    })
-  );
-  const sortedXorDistances = xorDistances.sort((a, b) => {
-    if (a.distance < b.distance) return -1;
-    if (a.distance > b.distance) return 1;
-    return 0;
-  });
-  const closestSupernodes = sortedXorDistances.slice(0, n);
+  try {
+    const filteredSupernodes = await filterSupernodes(
+      supernodeListDF,
+      maxResponseTimeInMilliseconds
+    );
 
-  const validSupernodePromises = closestSupernodes.map(async ({ url, pastelID }) => {
-    try {
-      await axios.get(url, { timeout: maxResponseTimeInMilliseconds });
-      return { url, pastelID };
-    } catch (error) {
-      return null;
+    if (filteredSupernodes.length === 0) {
+      logger.warn("No filtered supernodes available");
+      return [];
     }
-  });
 
-  const validSupernodes = (await Promise.all(validSupernodePromises)).filter(Boolean);
+    const xorDistances = await Promise.all(
+      filteredSupernodes.map(async (supernode) => {
+        try {
+          const distance = await calculateXORDistance(
+            inputPastelID,
+            supernode.pastelID
+          );
+          return { ...supernode, distance };
+        } catch (error) {
+          logger.error(`Error calculating XOR distance for supernode ${supernode.pastelID}: ${error.message}`);
+          return null;
+        }
+      })
+    );
 
-  return validSupernodes;
+    const validXorDistances = xorDistances.filter(Boolean);
+
+    if (validXorDistances.length === 0) {
+      logger.warn("No valid XOR distances calculated");
+      return [];
+    }
+
+    const sortedXorDistances = validXorDistances.sort((a, b) => {
+      if (a.distance < b.distance) return -1;
+      if (a.distance > b.distance) return 1;
+      return 0;
+    });
+
+    const closestSupernodes = sortedXorDistances.slice(0, n);
+
+    const validSupernodePromises = closestSupernodes.map(async ({ url, pastelID }) => {
+      try {
+        await axios.get(url, {
+          timeout: maxResponseTimeInMilliseconds,
+          validateStatus: function (status) {
+            return status >= 200 && status < 300; // Default
+          }
+        });
+        return { url, pastelID };
+      } catch (error) {
+        logger.error(`Error connecting to supernode ${pastelID} at ${url}: ${error.message}`);
+        return null;
+      }
+    });
+
+    const validSupernodes = (await Promise.all(validSupernodePromises)).filter(Boolean);
+
+    if (validSupernodes.length === 0) {
+      logger.warn("No valid supernodes found after connectivity check");
+    } else {
+      logger.info(`Found ${validSupernodes.length} valid supernodes`);
+    }
+
+    return validSupernodes;
+
+  } catch (error) {
+    logger.error(`Error in getNClosestSupernodesToPastelIDURLs: ${error.message}`);
+    return [];
+  }
 }
 
 async function validateCreditPackTicketMessageData(modelInstance) {
