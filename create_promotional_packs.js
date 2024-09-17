@@ -130,7 +130,7 @@ async function createPastelIDs(count) {
                 logger.debug(`Detailed error for PastelID creation attempt ${i + 1}/${count}: ${JSON.stringify(result)}`);
             }
 
-            await sleep(2000);
+            await sleep(1000);
         } catch (error) {
             logger.error(`Unexpected error during PastelID creation attempt ${i + 1}/${count}: ${error.message}`);
             logger.debug(`Stack trace: ${error.stack}`);
@@ -155,10 +155,10 @@ async function waitForPastelIDRegistrations(pastelIDs) {
 }
 
 async function createCreditPack(pastelID, passphrase, creditsPerPack) {
-    const maximumTotalCreditPackPriceInPSL = 1000000;
-    const maximumPerCreditPriceInPSL = 2000;
+    const maximumTotalCreditPackPriceInPSL = 10000;
+    const maximumPerCreditPriceInPSL = 150;
     const amountOfPSLForTrackingTransactions = 10.0; // Additional PSL for future tracking transactions
-    const creditPriceCushionPercentage = 0.15; // 15% cushion
+    const creditPriceCushionPercentage = 0.05; // 5% cushion/flexibility on per credit price
 
     logger.info(`Starting credit pack creation for PastelID: ${pastelID} with ${creditsPerPack} credits`);
 
