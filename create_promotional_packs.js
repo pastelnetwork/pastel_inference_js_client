@@ -4,6 +4,7 @@ const path = require('path');
 const {
     createAndRegisterNewPastelID,
     initializeRPCConnection,
+    getLocalRPCSettings,
     dumpPrivKey,
     getPastelIDDirectory,
     getCurrentPastelBlockHeight,
