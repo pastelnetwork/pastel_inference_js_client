@@ -526,6 +526,7 @@ class PastelInferenceClient {
     return differencePercentage;
   }
 
+
   async confirmPreliminaryPriceQuote(
     preliminaryPriceQuote,
     maximumTotalCreditPackPriceInPSL,
@@ -1668,7 +1669,6 @@ class PastelInferenceClient {
       throw new Error(`Failed to get closest supernodes: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     }
   }
-
 
 }
 

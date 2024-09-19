@@ -182,131 +182,145 @@ function getIsoStringWithMicroseconds() {
   const isoString = now.toISOString().replace("Z", "+00:00").replace(/\s/g, "");
   return isoString;
 }
-
 async function handleCreditPackTicketEndToEnd(
   numberOfCredits,
   creditUsageTrackingPSLAddress,
   burnAddress,
   maximumTotalCreditPackPriceInPSL,
-  maximumPerCreditPriceInPSL
+  maximumPerCreditPriceInPSL,
+  optionalPastelID = null,
+  optionalPassphrase = null
 ) {
-  const pastelID = globals.getPastelId();
-  const passphrase = globals.getPassphrase();
+  let pastelID, passphrase;
+
+  if (optionalPastelID && optionalPassphrase) {
+    pastelID = optionalPastelID;
+    passphrase = optionalPassphrase;
+  } else {
+    pastelID = globals.getPastelId();
+    passphrase = globals.getPassphrase();
+  }
+
   if (!pastelID || !passphrase) {
     throw new Error("PastelID or passphrase is not set");
   }
 
   const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
-  const { validMasternodeListFullDF } = await checkSupernodeList();
-  const requestTimestamp = getIsoStringWithMicroseconds();
-
-  const creditPackRequest = CreditPackPurchaseRequest.build({
-    requesting_end_user_pastelid: pastelID,
-    requested_initial_credits_in_credit_pack: parseInt(numberOfCredits, 10),
-    list_of_authorized_pastelids_allowed_to_use_credit_pack: JSON.stringify([pastelID]),
-    credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,
-    request_timestamp_utc_iso_string: requestTimestamp,
-    request_pastel_block_height: parseInt(await getCurrentPastelBlockHeight(), 10),
-    credit_purchase_request_message_version_string: "1.0",
-    sha3_256_hash_of_credit_pack_purchase_request_fields: "",
-    requesting_end_user_pastelid_signature_on_request_hash: "",
-  });
-
-  creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields =
-    await computeSHA3256HashOfSQLModelResponseFields(creditPackRequest);
-  creditPackRequest.requesting_end_user_pastelid_signature_on_request_hash =
-    await signMessageWithPastelID(
-      pastelID,
-      creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields,
-      passphrase
-    );
-
-  const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(12, pastelID, validMasternodeListFullDF);
-  if (closestSupernodes.length === 0) {
-    throw new Error("No responsive supernodes found.");
-  }
-
-  const randomIndex = Math.floor(Math.random() * closestSupernodes.length);
-  const selectedSupernode = closestSupernodes[randomIndex];
-  const highestRankedSupernodeURL = selectedSupernode.url;
-
-  logger.info(`Selected supernode URL for credit pack request: ${highestRankedSupernodeURL}`);
 
   try {
-    const preliminaryPriceQuote = await inferenceClient.creditPackTicketInitialPurchaseRequest(
-      highestRankedSupernodeURL,
-      creditPackRequest
-    );
+    const { validMasternodeListFullDF } = await checkSupernodeList();
+    const requestTimestamp = getIsoStringWithMicroseconds();
 
-    const signedCreditPackTicketOrRejection = await inferenceClient.creditPackTicketPreliminaryPriceQuoteResponse(
-      highestRankedSupernodeURL,
-      creditPackRequest,
-      preliminaryPriceQuote,
-      maximumTotalCreditPackPriceInPSL,
-      maximumPerCreditPriceInPSL
-    );
+    const creditPackRequest = CreditPackPurchaseRequest.build({
+      requesting_end_user_pastelid: pastelID,
+      requested_initial_credits_in_credit_pack: parseInt(numberOfCredits, 10),
+      list_of_authorized_pastelids_allowed_to_use_credit_pack: JSON.stringify([pastelID]),
+      credit_usage_tracking_psl_address: creditUsageTrackingPSLAddress,
+      request_timestamp_utc_iso_string: requestTimestamp,
+      request_pastel_block_height: parseInt(await getCurrentPastelBlockHeight(), 10),
+      credit_purchase_request_message_version_string: "1.0",
+      sha3_256_hash_of_credit_pack_purchase_request_fields: "",
+      requesting_end_user_pastelid_signature_on_request_hash: "",
+    });
 
-    if (signedCreditPackTicketOrRejection instanceof CreditPackPurchaseRequestResponseTermination) {
-      logger.info(`Credit pack purchase request terminated: ${signedCreditPackTicketOrRejection.termination_reason_string}`);
-      return null;
-    }
-
-    const signedCreditPackTicket = signedCreditPackTicketOrRejection;
-
-    const burnTransactionResponse = await sendToAddress(
-      burnAddress,
-      Math.round(signedCreditPackTicket.proposed_total_cost_of_credit_pack_in_psl * 100000) / 100000,
-      "Burn transaction for credit pack ticket"
-    );
-
-    if (!burnTransactionResponse.success) {
-      throw new Error(`Error sending PSL to burn address: ${burnTransactionResponse.message}`);
-    }
-
-    const burnTransactionTxid = burnTransactionResponse.result;
-
-    const creditPackPurchaseRequestConfirmation = await buildCreditPackPurchaseRequestConfirmation(
-      creditPackRequest,
-      signedCreditPackTicket,
-      burnTransactionTxid,
-      pastelID,
-      passphrase
-    );
-
-    await CreditPackPurchaseRequestConfirmation.create(creditPackPurchaseRequestConfirmation.toJSON());
-
-    const creditPackPurchaseRequestConfirmationResponse = await inferenceClient.confirmCreditPurchaseRequest(
-      highestRankedSupernodeURL,
-      creditPackPurchaseRequestConfirmation
-    );
-
-    if (!creditPackPurchaseRequestConfirmationResponse) {
-      throw new Error("Credit pack ticket storage failed");
-    }
-
-    let creditPackPurchaseRequestStatus = await checkCreditPackPurchaseRequestStatus(
-      inferenceClient,
-      highestRankedSupernodeURL,
-      creditPackRequest,
-      closestSupernodes
-    );
-
-    if (creditPackPurchaseRequestStatus.status !== "completed") {
-      const creditPackStorageRetryRequestResponse = await initiateStorageRetry(
-        inferenceClient,
-        creditPackRequest,
-        signedCreditPackTicket,
-        validMasternodeListFullDF,
+    creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields =
+      await computeSHA3256HashOfSQLModelResponseFields(creditPackRequest);
+    creditPackRequest.requesting_end_user_pastelid_signature_on_request_hash =
+      await signMessageWithPastelID(
         pastelID,
+        creditPackRequest.sha3_256_hash_of_credit_pack_purchase_request_fields,
         passphrase
       );
 
-      return creditPackStorageRetryRequestResponse;
-    } else {
-      return creditPackPurchaseRequestConfirmationResponse;
+    const closestSupernodes = await getNClosestSupernodesToPastelIDURLs(12, pastelID, validMasternodeListFullDF);
+    if (closestSupernodes.length === 0) {
+      throw new Error("No responsive supernodes found.");
     }
+
+    for (const supernode of closestSupernodes) {
+      try {
+        logger.info(`Attempting credit pack request with supernode: ${supernode.url}`);
+
+        const preliminaryPriceQuote = await inferenceClient.creditPackTicketInitialPurchaseRequest(
+          supernode.url,
+          creditPackRequest
+        );
+
+        const signedCreditPackTicketOrRejection = await inferenceClient.creditPackTicketPreliminaryPriceQuoteResponse(
+          supernode.url,
+          creditPackRequest,
+          preliminaryPriceQuote,
+          maximumTotalCreditPackPriceInPSL,
+          maximumPerCreditPriceInPSL
+        );
+
+        if (signedCreditPackTicketOrRejection instanceof CreditPackPurchaseRequestResponseTermination) {
+          logger.info(`Credit pack purchase request terminated: ${signedCreditPackTicketOrRejection.termination_reason_string}`);
+          continue;
+        }
+
+        const signedCreditPackTicket = signedCreditPackTicketOrRejection;
+
+        const burnTransactionResponse = await sendToAddress(
+          burnAddress,
+          Math.round(signedCreditPackTicket.proposed_total_cost_of_credit_pack_in_psl * 100000) / 100000,
+          "Burn transaction for credit pack ticket"
+        );
+
+        if (!burnTransactionResponse.success) {
+          throw new Error(`Error sending PSL to burn address: ${burnTransactionResponse.message}`);
+        }
+
+        const burnTransactionTxid = burnTransactionResponse.result;
+
+        const creditPackPurchaseRequestConfirmation = await buildCreditPackPurchaseRequestConfirmation(
+          creditPackRequest,
+          signedCreditPackTicket,
+          burnTransactionTxid,
+          pastelID,
+          passphrase
+        );
+
+        await CreditPackPurchaseRequestConfirmation.create(creditPackPurchaseRequestConfirmation.toJSON());
+
+        const creditPackPurchaseRequestConfirmationResponse = await inferenceClient.confirmCreditPurchaseRequest(
+          supernode.url,
+          creditPackPurchaseRequestConfirmation
+        );
+
+        if (!creditPackPurchaseRequestConfirmationResponse) {
+          throw new Error("Credit pack ticket storage failed");
+        }
+
+        let creditPackPurchaseRequestStatus = await checkCreditPackPurchaseRequestStatus(
+          inferenceClient,
+          supernode.url,
+          creditPackRequest,
+          closestSupernodes
+        );
+
+        if (creditPackPurchaseRequestStatus.status !== "completed") {
+          const creditPackStorageRetryRequestResponse = await initiateStorageRetry(
+            inferenceClient,
+            creditPackRequest,
+            signedCreditPackTicket,
+            validMasternodeListFullDF,
+            pastelID,
+            passphrase
+          );
+
+          return creditPackStorageRetryRequestResponse;
+        } else {
+          return creditPackPurchaseRequestConfirmationResponse;
+        }
+      } catch (error) {
+        logger.warn(`Failed to create credit pack with supernode ${supernode.url}: ${error.message}`);
+      }
+    }
+
+    throw new Error('Failed to create credit pack ticket with all available supernodes');
   } catch (error) {
-    logger.error(`Error in handleCreditPackTicketEndToEnd: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+    logger.error(`Error in handleCreditPackTicketEndToEnd: ${error.message}`);
     throw new Error("An unexpected error occurred while processing your credit pack purchase. Please try again later.");
   }
 }

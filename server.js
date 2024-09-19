@@ -7,6 +7,7 @@ const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const archiver = require('archiver');
 const {
   getCurrentPastelIdAndPassphrase,
   setPastelIdAndPassphrase,
@@ -51,7 +52,10 @@ const {
   ensureTrackingAddressesHaveMinimalPSLBalance,
 } = require("./rpc_functions");
 const { initializeDatabase } = require('./sequelize_data_models');
-const { generatePromotionalPacks } = require("./create_promotional_packs");
+const {
+  generateOrRecoverPromotionalPacks,
+  recoverExistingCreditPacks,
+} = require("./create_promotional_packs");
 const { logger, logEmitter, logBuffer, safeStringify } = require("./logger");
 const {
   prettyJSON,
@@ -696,7 +700,8 @@ let network;
       }
     });
 
-    app.post('/generate-promo-packs', async (req, res) => {
+    // Generate or recover promotional packs
+    app.post('/generate-or-recover-promo-packs', async (req, res) => {
       const { numberOfPacks, creditsPerPack } = req.body;
 
       if (!numberOfPacks || !creditsPerPack) {
@@ -708,20 +713,23 @@ let network;
       }
 
       try {
-        const result = await generatePromotionalPacks(numberOfPacks, creditsPerPack);
-        res.json({ success: true, message: 'Promotional packs generation started.', result });
+        const result = await generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack);
+        res.json({
+          success: true,
+          message: 'Promotional packs generated and/or recovered successfully.',
+          packs: result
+        });
       } catch (error) {
-        console.error('Error in /generate-promo-packs:', error);
-        console.error('Error stack:', error.stack);
+        logger.error('Error in /generate-or-recover-promo-packs:', error);
         res.status(500).json({
           success: false,
-          message: 'Failed to generate promotional packs.',
-          error: error.message,
-          stack: error.stack
+          message: 'Failed to generate or recover promotional packs.',
+          error: error.message
         });
       }
     });
 
+    // Import promotional pack
     app.post('/import-promotional-pack', upload.single('packFile'), async (req, res) => {
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -731,11 +739,7 @@ let network;
 
       try {
         logger.info(`Received promotional pack file: ${req.file.originalname}`);
-
-        // Call the importPromotionalPack function
         const result = await importPromotionalPack(tempFilePath);
-
-        // Delete the temporary file
         fs.unlinkSync(tempFilePath);
 
         res.json({
@@ -745,12 +749,9 @@ let network;
         });
       } catch (error) {
         logger.error(`Error importing promotional pack: ${error.message}`);
-
-        // Attempt to delete the temporary file in case of error
         if (fs.existsSync(tempFilePath)) {
           fs.unlinkSync(tempFilePath);
         }
-
         res.status(500).json({
           success: false,
           message: 'Failed to import promotional pack',
@@ -759,6 +760,7 @@ let network;
       }
     });
 
+    // Download promotional pack
     app.get('/download-promo-pack/:filename', (req, res) => {
       const filename = req.params.filename;
       const filepath = path.join(__dirname, 'generated_promo_packs', filename);
@@ -782,6 +784,39 @@ let network;
       });
     });
 
+    app.get('/download-all-promo-packs', (req, res) => {
+      const folderPath = path.join(__dirname, 'generated_promo_packs');
+      const zipFileName = 'all_promo_packs.zip';
+
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename=${zipFileName}`
+      });
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+      });
+
+      archive.pipe(res);
+
+      fs.readdir(folderPath, (err, files) => {
+        if (err) {
+          console.error('Error reading promo packs directory:', err);
+          res.status(500).send('Error creating zip file');
+          return;
+        }
+
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
+
+        jsonFiles.forEach(file => {
+          const filePath = path.join(folderPath, file);
+          archive.file(filePath, { name: file });
+        });
+
+        archive.finalize();
+      });
+    });
+
     app.get('/promo-generator', (req, res) => {
       const filePath = path.join(__dirname, 'public', 'promo_code_generator_tool.html');
 
@@ -795,6 +830,7 @@ let network;
       res.sendFile(filePath);
     });
 
+    // List promotional packs
     app.get('/list-promo-packs', (req, res) => {
       const folderPath = path.join(__dirname, 'generated_promo_packs');
 
@@ -814,6 +850,30 @@ let network;
           promoPacks: promoPacks
         });
       });
+    });
+
+    // Recover existing credit packs
+    app.post('/recover-existing-credit-packs', async (req, res) => {
+      try {
+        const { creditsPerPack, maxBlockAge } = req.body;
+        if (!creditsPerPack) {
+          return res.status(400).json({ success: false, message: 'creditsPerPack is required.' });
+        }
+
+        const recoveredPacks = await recoverExistingCreditPacks(creditsPerPack, maxBlockAge);
+        res.json({
+          success: true,
+          message: `Recovered ${recoveredPacks.length} existing credit packs.`,
+          recoveredPacks
+        });
+      } catch (error) {
+        logger.error('Error in /recover-existing-credit-packs:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to recover existing credit packs.',
+          error: error.message
+        });
+      }
     });
 
     app.listen(port, () => {

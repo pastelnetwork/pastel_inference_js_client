@@ -1290,7 +1290,7 @@ function getPastelIDDirectory(network) {
 
 async function getPastelIDsFromDirectory(directory) {
   const files = await fs.promises.readdir(directory);
-  const pastelIDs = files.filter((file) => file.length === 87);
+  const pastelIDs = files.filter((file) => file.length === 86);
   return pastelIDs;
 }
 

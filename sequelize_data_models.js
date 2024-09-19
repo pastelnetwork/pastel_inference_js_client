@@ -1075,7 +1075,6 @@ sequelize.sync({ force: true }).then(() => {
 async function initializeDatabase() {
   try {
     await sequelize.authenticate();
-    console.log("Connection has been established successfully.");
     await sequelize.sync({ force: true }); // This will recreate all tables
     console.log("All models were synchronized successfully.");
   } catch (error) {

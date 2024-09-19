@@ -538,7 +538,6 @@ async function validateHashFields(modelInstance, validationErrors) {
   }
 }
 
-
 async function getClosestSupernodePastelIDFromList(
   localPastelID,
   filteredSupernodes,

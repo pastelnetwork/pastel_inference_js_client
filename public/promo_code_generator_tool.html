@@ -26,12 +26,27 @@
             <div class="mb-4">
                 <label for="creditsPerPack" class="block text-sm font-medium text-gray-700 mb-1">Credits Per
                     Pack:</label>
-                <input type="number" id="creditsPerPack" class="w-full p-2 border rounded-md" min="1" value="500">
+                <input type="number" id="creditsPerPack" class="w-full p-2 border rounded-md" min="1" value="100">
             </div>
 
             <button onclick="generatePromoPacks()"
                 class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">Generate
                 Packs</button>
+        </div>
+
+        <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Recover Existing Credit Packs</h2>
+
+            <div class="mb-4">
+                <label for="recoverCreditsPerPack" class="block text-sm font-medium text-gray-700 mb-1">Credits Per
+                    Pack:</label>
+                <input type="number" id="recoverCreditsPerPack" class="w-full p-2 border rounded-md" min="1"
+                    value="100">
+            </div>
+
+            <button onclick="recoverExistingCreditPacks()"
+                class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-300">Recover
+                Existing Packs</button>
         </div>
 
         <div id="logContainer" class="bg-white shadow-md rounded-lg p-6 mb-6">
@@ -50,9 +65,14 @@
         <div id="existingPacksContainer" class="bg-white shadow-md rounded-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">Existing Promotional Packs</h2>
             <select id="existingPacks" class="w-full p-2 border rounded-md mb-4"></select>
-            <button onclick="downloadExistingPack()"
-                class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">Download
-                Selected Pack</button>
+            <div class="flex justify-between">
+                <button onclick="downloadExistingPack()"
+                    class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">Download
+                    Selected Pack</button>
+                <button onclick="downloadAllPromoPacks()"
+                    class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-300">Download
+                    All Packs (ZIP)</button>
+            </div>
         </div>
 
         <div id="loadingIndicator" class="text-center hidden">
@@ -127,7 +147,7 @@
             try {
                 await connectWebSocket();
 
-                const response = await axios.post('/generate-promo-packs', {
+                const response = await axios.post('/generate-or-recover-promo-packs', {
                     numberOfPacks: parseInt(numberOfPacks),
                     creditsPerPack: parseInt(creditsPerPack)
                 });
@@ -135,7 +155,7 @@
                 document.getElementById('resultContent').textContent = JSON.stringify(response.data, null, 2);
                 document.getElementById('resultContainer').classList.remove('hidden');
 
-                generatedFiles = [response.data.result.fileName];
+                generatedFiles = response.data.packs.map(pack => pack.fileName || `pack_${pack.pastelID}.json`);
                 await loadExistingPacks();
             } catch (error) {
                 console.error('Error generating promotional packs:', error);
@@ -200,6 +220,61 @@
             } catch (error) {
                 console.error(`Error downloading pack ${selectedPack}:`, error);
                 showError(`Error downloading pack ${selectedPack}`);
+            }
+        }
+
+        async function recoverExistingCreditPacks() {
+            const creditsPerPack = document.getElementById('recoverCreditsPerPack').value;
+
+            if (!creditsPerPack || creditsPerPack < 1) {
+                showError('Please enter a valid number for credits per pack.');
+                return;
+            }
+
+            hideError();
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
+            document.getElementById('logContent').innerHTML = '';
+
+            try {
+                await connectWebSocket();
+
+                const response = await axios.post('/recover-existing-credit-packs', {
+                    creditsPerPack: parseInt(creditsPerPack)
+                });
+
+                document.getElementById('resultContent').textContent = JSON.stringify(response.data, null, 2);
+                document.getElementById('resultContainer').classList.remove('hidden');
+
+                if (response.data.recoveredPacks && response.data.recoveredPacks.length > 0) {
+                    const fileName = `recovered_packs_${Date.now()}.json`;
+                    const blob = new Blob([JSON.stringify(response.data.recoveredPacks, null, 2)], { type: 'application/json' });
+                    saveAs(blob, fileName);
+                }
+
+                await loadExistingPacks();
+            } catch (error) {
+                console.error('Error recovering existing credit packs:', error);
+                showError('Failed to recover existing credit packs. Please check the console for details.');
+            } finally {
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                if (ws) {
+                    ws.close();
+                }
+            }
+        }
+
+        async function downloadAllPromoPacks() {
+            try {
+                const response = await fetch('/download-all-promo-packs');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const blob = await response.blob();
+                saveAs(blob, "all_promotional_packs.zip");
+            } catch (error) {
+                console.error('Error downloading all promo packs:', error);
+                showError('Failed to download all promotional packs. Please check the console for details.');
             }
         }
 
