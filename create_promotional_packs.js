@@ -3,7 +3,6 @@ const fsPromises = fs.promises;
 const path = require('path');
 const {
     createAndRegisterNewPastelID,
-    getLocalRPCSettings,
     initializeRPCConnection,
     dumpPrivKey,
     getPastelIDDirectory,
@@ -13,7 +12,8 @@ const {
     getNewAddress,
     sendToAddress,
     signMessageWithPastelID,
-    checkSupernodeList
+    checkSupernodeList,
+    getNetworkInfo,
 } = require('./rpc_functions');
 const { filterSupernodes } = require('./utility_functions');
 const { PastelInferenceClient } = require('./pastel_inference_client');
@@ -32,7 +32,7 @@ const PASSPHRASE_FOR_PROMO_PACK_CREDIT_PACKS = "testpass";
 const RETRY_DELAY = 10000; // 10 seconds
 const BATCH_DELAY = 30000; // 30 seconds
 const MAX_RETRIES = 3;
-
+const { network, burnAddress } = getNetworkInfo("9932");
 
 function loadIntermediateResults() {
     try {
@@ -240,7 +240,7 @@ async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
     const pastelIDDir = getPastelIDDirectory(network);
 
     // File to store PastelIDs that don't work with the default passphrase
-    const invalidPassphrasePastelIDsFile = path.join(pastelIDDir, 'invalid_passphrase_pastelids.json');
+    const invalidPassphrasePastelIDsFile = 'invalid_passphrase_pastelids.json';
 
     // Ensure the directory exists
     try {
@@ -404,7 +404,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
         const pack = await handleCreditPackTicketEndToEnd(
             creditsPerPack,
             await getNewAddress(),
-            await getBurnAddress(),
+            burnAddress,
             10000, // maximumTotalCreditPackPriceInPSL
             150,   // maximumPerCreditPriceInPSL
             pastelID,
