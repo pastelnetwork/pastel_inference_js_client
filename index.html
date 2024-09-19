@@ -394,10 +394,9 @@
         </details>
       </div>
       <div class="col-span-full">
-        <div id="noPastelIDContainer" class="hidden">
+        <div id="noPastelIDContainer">
           <p class="text-bw-700">
-            No PastelID found. Would you like to create a new one for 1,000
-            PSL?
+            Create a new PastelID for 1,000 PSL:
           </p>
           <form id="createPastelIDForm" class="mt-4">
             <label class="block text-bw-700 font-bold mb-2" for="newPastelIDPassphrase">
@@ -2221,36 +2220,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           // Check if there are any PastelIDs on initial load
           const pastelIDTickets = await listPastelIDTickets();
           if (pastelIDTickets.length === 0) {
-            document
-              .getElementById("pastelIDDropdownContainer")
-              .classList.add("hidden");
-            document
-              .getElementById("changePastelIDButton")
-              .classList.add("hidden");
-            noPastelIDContainer.classList.remove("hidden");
+            document.getElementById("pastelIDDropdownContainer").classList.add("hidden");
+            document.getElementById("changePastelIDButton").classList.add("hidden");
           } else {
-            const validPastelIDs = await fetchValidPastelIDs();
-            const storedPastelIDs = Object.keys(localStorage);
-            let hasPastelID = false;
-            storedPastelIDs.forEach((pastelID) => {
-              if (validPastelIDs.includes(pastelID)) {
-                hasPastelID = true;
-              }
-            });
-            if (!hasPastelID) {
-              await setSelectedPastelIDAndPassphrase(
-                pastelIDTickets[0].ticket.pastelID
-              );
-              location.reload();
-            }
-            noPastelIDContainer.classList.add("hidden");
-            document
-              .getElementById("pastelIDDropdownContainer")
-              .classList.remove("hidden");
-            document
-              .getElementById("changePastelIDButton")
-              .classList.remove("hidden");
+            document.getElementById("pastelIDDropdownContainer").classList.remove("hidden");
+            document.getElementById("changePastelIDButton").classList.remove("hidden");
           }
+          // Always show the PastelID creation form
+          document.getElementById("pastelIDCreationContainer").classList.remove("hidden");
         } catch (error) {
           console.error("Error checking PastelIDs:", error);
         }
@@ -2298,6 +2275,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
         pastelIDDropdown.addEventListener("change", async () => {
           const selectedPastelID = pastelIDDropdown.value;
+          saveSelectedPastelID(selectedPastelID);
           document.getElementById("userPastelID").textContent =
             selectedPastelID || "No PastelID selected";
           if (selectedPastelID) {
@@ -2353,7 +2331,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             .classList.add("hidden");
           noPastelIDContainer.classList.remove("hidden");
         } else {
-          noPastelIDContainer.classList.add("hidden");
+          //noPastelIDContainer.classList.add("hidden");
           document
             .getElementById("pastelIDDropdownContainer")
             .classList.remove("hidden");
@@ -2363,18 +2341,19 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
 
         // Call setSelectedPastelIDAndPassphrase based on the number of PastelIDs
-        if (validPastelIDs.length === 1) {
-          const pastelID = validPastelIDs[0];
-          document.getElementById("userPastelID").textContent = pastelID;
-          pastelIDDropdown.value = pastelID; // Set the selected value of the dropdown
-          await setSelectedPastelIDAndPassphrase(pastelID);
+        const storedPastelID = localStorage.getItem('selectedPastelID');
+
+        // Call setSelectedPastelIDAndPassphrase based on the number of PastelIDs
+        if (validPastelIDs.length > 0) {
+          let pastelIDToUse = storedPastelID && validPastelIDs.includes(storedPastelID)
+            ? storedPastelID
+            : validPastelIDs[0];
+
+          document.getElementById("userPastelID").textContent = pastelIDToUse;
+          pastelIDDropdown.value = pastelIDToUse; // Set the selected value of the dropdown
+          await setSelectedPastelIDAndPassphrase(pastelIDToUse);
         } else {
-          const selectedPastelID = pastelIDDropdown.value;
-          document.getElementById("userPastelID").textContent =
-            selectedPastelID || "No PastelID selected";
-          if (selectedPastelID) {
-            await setSelectedPastelIDAndPassphrase(selectedPastelID);
-          }
+          document.getElementById("userPastelID").textContent = "No PastelID selected";
         }
       });
 
@@ -4021,7 +4000,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           console.error("Error on initial load:", error)
         );
       });
+
+      function saveSelectedPastelID(pastelID) {
+        localStorage.setItem('selectedPastelID', pastelID);
+      }
+
     </script>
+
     <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
   </div>
 </body>
