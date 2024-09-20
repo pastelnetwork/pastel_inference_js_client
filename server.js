@@ -629,6 +629,18 @@ let network;
           return res.json({ success: false, message: "Invalid PastelID" });
         }
 
+        // check if passphrase is valid by signing a message
+        const testMessage = "Verification test message";
+        const signature = 
+        await signMessageWithPastelID(pastelID, testMessage, passphrase);
+      
+     if (!signature){
+       console.error("Error signing message with this PastelID and passphrase");
+       return res.status(500).json({
+          success: false,
+          message: "Failed to set PastelID and passphrase",
+        });
+     } 
         // If valid, proceed with updating storage and global variables
         await setPastelIdAndPassphrase(pastelID, passphrase);
         globals.setPastelIdAndPassphrase(pastelID, passphrase);
