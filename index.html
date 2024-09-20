@@ -87,6 +87,11 @@
       color: #ffffff;
     }
 
+    [data-theme="light"] {
+      color: #121212;
+      background-color: #ffffff;
+    }
+
     [data-theme="dark"] .bg-white {
       background-color: #333333;
     }
@@ -1321,7 +1326,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           if (!storedPassphrase) {
             const dialogHtml = `
         <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
-          <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
+          <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
             <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
             <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
             <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
