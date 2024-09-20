@@ -526,7 +526,6 @@ class PastelInferenceClient {
     return differencePercentage;
   }
 
-
   async confirmPreliminaryPriceQuote(
     preliminaryPriceQuote,
     maximumTotalCreditPackPriceInPSL,
@@ -565,9 +564,7 @@ class PastelInferenceClient {
     if (
       quotedPricePerCredit <= maximumPerCreditPriceInPSL &&
       quotedTotalPrice <= maximumTotalCreditPackPriceInPSL &&
-      priceDifferencePercentage <=
-      process.env
-        .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING
+      priceDifferencePercentage <= parseFloat(process.env.MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING)
     ) {
       logger.info(
         `Preliminary price quote is within the acceptable range: ${numberFormat.format(
@@ -581,8 +578,7 @@ class PastelInferenceClient {
         )} PSL total. The price difference from the estimated fair market price is ${percentageFormat(
           priceDifferencePercentage * 100
         )}%, which is within the allowed maximum of ${percentageFormat(
-          process.env
-            .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
+          parseFloat(process.env.MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING) *
           100
         )}%. Please be patient while the new credit pack request is initialized.`
       );
@@ -600,8 +596,7 @@ class PastelInferenceClient {
         )} PSL total. The price difference from the estimated fair market price is ${percentageFormat(
           priceDifferencePercentage * 100
         )}%, which exceeds the allowed maximum of ${percentageFormat(
-          process.env
-            .MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING *
+          parseFloat(process.env.MAXIMUM_LOCAL_CREDIT_PRICE_DIFFERENCE_TO_ACCEPT_CREDIT_PRICING) *
           100
         )}%.`
       );

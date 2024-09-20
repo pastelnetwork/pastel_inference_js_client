@@ -160,3 +160,5 @@ intermediate_promo_pack_results.json
 /generated_promo_packs/
 generated_promo_packs/
 invalid_passphrase_pastelids.json
+recovered_packs.json
+recovered_pastelids.json
