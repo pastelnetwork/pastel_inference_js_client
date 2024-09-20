@@ -667,10 +667,15 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       passphrase,
       "ed448"
     );
+<<<<<<< HEAD
     if (!responseObj || !responseObj.signature) {
       throw new Error("Invalid response from pastelid sign command");
     }
     return responseObj.signature;
+=======
+     const sig =  await responseObj.signature; 
+    return sig;
+>>>>>>> d5cc5ca3743f1562ba281682af9a6942dd7f6ccf
   } catch (error) {
     logger.error(`Error in signMessageWithPastelID: ${error.message}`);
     if (error.message.includes("Invalid passphrase")) {
