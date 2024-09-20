@@ -560,9 +560,6 @@ let network;
           const destFilePath = path.join(destFolder, req.file.originalname);
           fs.renameSync(sourceFilePath, destFilePath);
 
-          await stopPastelDaemon();
-          await startPastelDaemon();
-
           res.json({
             success: true,
             message: "PastelID imported successfully!",
@@ -886,15 +883,6 @@ let network;
           message: 'Failed to recover existing credit packs.',
           error: error.message
         });
-      }
-    });
-
-    app.get('/check-pastel-daemon', async (req, res) => {
-      try {
-        await initializeRPCConnection();
-        res.sendStatus(200);
-      } catch (error) {
-        res.status(503).json({ message: "Pastel daemon not ready" });
       }
     });
 

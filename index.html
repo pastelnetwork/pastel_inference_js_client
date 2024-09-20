@@ -1207,9 +1207,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
       async function verifyImport(importDetails) {
         try {
-          updateModal("Verifying Import", "Waiting for Pastel daemon to restart...");
-          await waitForPastelDaemon();
-
           updateModal("Verifying Import", "Verifying PastelID...");
           await verifyPastelID(importDetails.pastel_id_pubkey, importDetails.pastel_id_passphrase);
 
@@ -1228,24 +1225,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           updateModal("Verification Failed", `Failed to verify the import: ${error.message}`);
           setTimeout(hideModal, 5000);
         }
-      }
-
-      async function waitForPastelDaemon() {
-        let attempts = 0;
-        const maxAttempts = 30;  // 5 minutes total
-        while (attempts < maxAttempts) {
-          try {
-            const response = await fetch('/check-pastel-daemon');
-            if (response.ok) {
-              return;
-            }
-          } catch (error) {
-            // Ignore error and continue waiting
-          }
-          await new Promise(resolve => setTimeout(resolve, 10000));  // Wait 10 seconds between attempts
-          attempts++;
-        }
-        throw new Error("Timed out waiting for Pastel daemon to restart");
       }
 
       async function verifyPastelID(pastelID, passphrase) {

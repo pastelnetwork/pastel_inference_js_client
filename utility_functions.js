@@ -1260,12 +1260,6 @@ async function importPromotionalPack(jsonFilePath) {
       logger.info(`Pack ${i + 1} processed successfully`);
     }
 
-    // Restart pasteld binary
-    logger.info('Restarting pasteld binary...');
-    await stopPastelDaemon();
-    await startPastelDaemon();
-    logger.info('pasteld binary restarted successfully');
-
     // Wait for RPC connection to be re-established
     await waitForRPCConnection();
 

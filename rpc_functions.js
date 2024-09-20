@@ -1123,7 +1123,7 @@ async function getContractTicket(txid, decodeProperties = true) {
   }
 }
 
-async function importPrivKey(zcashPrivKey, label = "", rescan = true) {
+async function importPrivKey(zcashPrivKey, label = "", rescan = false) {
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {

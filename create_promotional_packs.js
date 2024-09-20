@@ -96,7 +96,8 @@ async function saveInvalidPassphrasePastelID(pastelID) {
     try {
         const invalidPastelIDs = await loadInvalidPassphrasePastelIDs();
         invalidPastelIDs.add(pastelID);
-        await fs.writeFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, JSON.stringify(Array.from(invalidPastelIDs)));
+        const uniqueInvalidPastelIDs = new Set(invalidPastelIDs);
+        await fs.writeFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, JSON.stringify(Array.from(uniqueInvalidPastelIDs)));
     } catch (error) {
         logger.error(`Error saving invalid passphrase PastelID: ${error.message}`);
     }
@@ -142,42 +143,6 @@ async function createPastelIDs(count) {
     return pastelIDs;
 }
 
-async function recoverMissingTrackingAddresses() {
-    logger.info("Starting recovery of missing tracking addresses for pending credit packs...");
-    const intermediateResults = await loadIntermediateResults();
-    const { validMasternodeListFullDF } = await checkSupernodeList();
-    const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
-    const selected_supernode_url = filteredSupernodes[0].url;
-
-    for (let i = 0; i < intermediateResults.pendingCreditPacks.length; i++) {
-        const pack = intermediateResults.pendingCreditPacks[i];
-        if (!pack.psl_credit_usage_tracking_address || !pack.psl_credit_usage_tracking_address_private_key) {
-            logger.info(`Attempting to recover tracking address for PastelID: ${pack.pastel_id_pubkey}`);
-            try {
-                const inferenceClient = new PastelInferenceClient(pack.pastel_id_pubkey, pack.pastel_id_passphrase);
-                const validCreditPacks = await inferenceClient.getValidCreditPackTicketsForPastelID(selected_supernode_url);
-
-                const matchingPack = validCreditPacks.find(vp => vp.requested_initial_credits_in_credit_pack === pack.requested_initial_credits_in_credit_pack);
-
-                if (matchingPack) {
-                    pack.psl_credit_usage_tracking_address = matchingPack.credit_usage_tracking_psl_address;
-                    pack.psl_credit_usage_tracking_address_private_key = await dumpPrivKey(matchingPack.credit_usage_tracking_psl_address);
-                    delete pack.error;
-                    logger.info(`Recovered tracking address ${pack.psl_credit_usage_tracking_address} for PastelID: ${pack.pastel_id_pubkey}`);
-                } else {
-                    logger.warn(`Could not find matching credit pack for PastelID: ${pack.pastel_id_pubkey}`);
-                }
-            } catch (error) {
-                logger.error(`Error recovering tracking address for PastelID ${pack.pastel_id_pubkey}: ${error.message}`);
-                pack.error = { message: error.message };
-            }
-        }
-    }
-
-    await saveIntermediateResults(intermediateResults);
-    logger.info("Completed recovery of missing tracking addresses for pending credit packs.");
-}
-
 async function deduplicateIntermediateResults(intermediateResults) {
     // Deduplicate registered PastelIDs
     const uniqueRegisteredPastelIDs = new Map();
@@ -209,18 +174,56 @@ async function deduplicateIntermediateResults(intermediateResults) {
     intermediateResults.pendingCreditPacks = Array.from(uniquePendingCreditPacks.values());
 
     await saveIntermediateResults(intermediateResults);
+}
 
-    logger.info('Deduplicated intermediate results:');
-    logger.info(`- Registered PastelIDs: ${intermediateResults.registeredPastelIDs.length}`);
-    logger.info(`- Completed Packs: ${intermediateResults.completedPacks.length}`);
-    logger.info(`- Pending Credit Packs: ${intermediateResults.pendingCreditPacks.length}`);
+async function saveCompletedPacksAsIndividualFiles() {
+    try {
+        // Read the intermediate results file
+        const intermediateResultsPath = 'intermediate_promo_pack_results.json';
+        const intermediateResultsData = await fs.readFile(intermediateResultsPath, 'utf8');
+        let intermediateResults = JSON.parse(intermediateResultsData);
+
+        // Create the output directory if it doesn't exist
+        const outputDirectory = 'generated_promo_packs';
+        await fs.mkdir(outputDirectory, { recursive: true });
+
+        // Process each completed pack
+        const remainingCompletedPacks = [];
+        for (const pack of intermediateResults.completedPacks) {
+            const fileName = `promo_pack_${pack.pastel_id_pubkey}.json`;
+            const filePath = path.join(outputDirectory, fileName);
+
+            try {
+                // Write the pack data to a new JSON file
+                await fs.writeFile(filePath, JSON.stringify(pack, null, 2));
+                console.log(`Saved promo pack for PastelID: ${pack.pastel_id_pubkey}`);
+            } catch (error) {
+                console.error(`Error saving promo pack for PastelID: ${pack.pastel_id_pubkey}`, error);
+                // If there was an error saving, keep the pack in the completed packs
+                remainingCompletedPacks.push(pack);
+            }
+        }
+
+        // Update the intermediate results with the remaining completed packs
+        intermediateResults.completedPacks = remainingCompletedPacks;
+
+        // Write the updated intermediate results back to the file
+        await fs.writeFile(intermediateResultsPath, JSON.stringify(intermediateResults, null, 2));
+
+        console.log(`Completed saving ${intermediateResults.completedPacks.length} promo packs.`);
+        console.log(`${remainingCompletedPacks.length} completed promo packs remain in the intermediate results.`);
+    } catch (error) {
+        console.error('Error in saveCompletedPacksAsIndividualFiles:', error);
+    }
 }
 
 async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
+    await saveCompletedPacksAsIndividualFiles();
     logger.info(`Starting recovery of existing credit packs with ${creditsPerPack} credits and max block age of ${maxBlockAge}`);
     const { validMasternodeListFullDF } = await checkSupernodeList();
     const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
-    const selected_supernode_url = filteredSupernodes[0].url;
+    //choose random supernode url from filtered supernodes:
+    const selected_supernode_url = filteredSupernodes[Math.floor(Math.random() * filteredSupernodes.length)].url;
     const { rpcport } = await getLocalRPCSettings();
     const network = rpcport === '9932' ? 'mainnet' : rpcport === '19932' ? 'testnet' : 'devnet';
     const pastelIDDir = getPastelIDDirectory(network);
@@ -239,6 +242,19 @@ async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
     await fs.mkdir(outputDirectory, { recursive: true });
 
     for (const pastelID of pastelIDsToCheck) {
+        try {
+            const testMessage = "Test message for PastelID verification";
+            const results = await signMessageWithPastelID(pastelID, testMessage, CONFIG.PASSPHRASE_FOR_PROMO_PACK_CREDIT_PACKS);
+            if (results === null) {
+                await saveInvalidPassphrasePastelID(pastelID);
+                continue;
+            }
+        } catch (error) {
+            logger.debug(`PastelID ${pastelID} skipped: ${error.message}`);
+            await saveInvalidPassphrasePastelID(pastelID);
+            continue;
+        }
+
         try {
             const inferenceClient = new PastelInferenceClient(pastelID, CONFIG.PASSPHRASE_FOR_PROMO_PACK_CREDIT_PACKS);
             const validCreditPacks = await inferenceClient.getValidCreditPackTicketsForPastelID(selected_supernode_url);
@@ -279,94 +295,25 @@ async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
                 }
             }
         } catch (error) {
-            logger.debug(`PastelID ${pastelID} skipped: ${error.message}`);
-            await saveInvalidPassphrasePastelID(pastelID);
+            logger.debug(`PastelID ${pastelID} skipped because of error: ${error.message}`);
+            continue;
         }
+        // Update intermediate results
+        intermediateResults.registeredPastelIDs = [
+            ...intermediateResults.registeredPastelIDs,
+            ...newlyRecoveredPastelIDs
+        ];
+        intermediateResults.completedPacks = [
+            ...intermediateResults.completedPacks,
+            ...newlyRecoveredPacks
+        ];
+        // Save updated intermediate results
+        await saveIntermediateResults(intermediateResults);
+        await deduplicateIntermediateResults(intermediateResults);
     }
-
-    // Update intermediate results
-    intermediateResults.registeredPastelIDs = [
-        ...intermediateResults.registeredPastelIDs,
-        ...newlyRecoveredPastelIDs
-    ];
-    intermediateResults.completedPacks = [
-        ...intermediateResults.completedPacks,
-        ...newlyRecoveredPacks
-    ];
-
-    // Save updated intermediate results
-    await saveIntermediateResults(intermediateResults);
 
     logger.info(`Recovered ${newlyRecoveredPacks.length} new credit packs and ${newlyRecoveredPastelIDs.length} new PastelIDs without credit packs`);
     return { recoveredPacks: newlyRecoveredPacks, recoveredPastelIDs: newlyRecoveredPastelIDs };
-}
-
-async function convertPendingPacksToCompletedPacks() {
-    logger.info("Starting conversion of pending credit packs to completed packs");
-
-    let intermediateResults = await loadIntermediateResults();
-    const { rpcport } = await getLocalRPCSettings();
-    const network = rpcport === '9932' ? 'mainnet' : rpcport === '19932' ? 'testnet' : 'devnet';
-    const pastelIDDir = getPastelIDDirectory(network);
-
-    const convertedPacks = [];
-    const failedConversions = [];
-
-    for (const pack of intermediateResults.pendingCreditPacks) {
-        if (pack.psl_credit_usage_tracking_address && pack.psl_credit_usage_tracking_address_private_key && pack.requested_initial_credits_in_credit_pack) {
-            try {
-                logger.info(`Converting pending credit pack for PastelID: ${pack.pastel_id_pubkey}`);
-
-                const secureContainerPath = path.join(pastelIDDir, pack.pastel_id_pubkey);
-                let secureContainerContent;
-                try {
-                    secureContainerContent = await fs.readFile(secureContainerPath, 'base64');
-                } catch (error) {
-                    logger.warn(`Could not read secure container for PastelID: ${pack.pastel_id_pubkey}. Error: ${error.message}`);
-                    secureContainerContent = null;
-                }
-
-                const completedPack = {
-                    pastel_id_pubkey: pack.pastel_id_pubkey,
-                    pastel_id_passphrase: pack.pastel_id_passphrase,
-                    secureContainerBase64: secureContainerContent,
-                    credit_pack_registration_txid: pack.credit_pack_registration_txid || "",
-                    credit_purchase_request_confirmation_pastel_block_height: pack.credit_purchase_request_confirmation_pastel_block_height || 0,
-                    requested_initial_credits_in_credit_pack: pack.requested_initial_credits_in_credit_pack,
-                    psl_credit_usage_tracking_address: pack.psl_credit_usage_tracking_address,
-                    psl_credit_usage_tracking_address_private_key: pack.psl_credit_usage_tracking_address_private_key
-                };
-
-                const fileName = `promo_pack_${pack.pastel_id_pubkey}.json`;
-                const filePath = path.join('generated_promo_packs', fileName);
-                await fs.writeFile(filePath, JSON.stringify(completedPack, null, 2));
-                logger.info(`Saved completed pack to ${filePath}`);
-
-                convertedPacks.push(completedPack);
-            } catch (error) {
-                logger.error(`Error converting credit pack for PastelID ${pack.pastel_id_pubkey}: ${error.message}`);
-                failedConversions.push(pack.pastel_id_pubkey);
-            }
-        } else {
-            logger.warn(`Incomplete information for PastelID: ${pack.pastel_id_pubkey}. Skipping.`);
-            failedConversions.push(pack.pastel_id_pubkey);
-        }
-    }
-
-    intermediateResults.pendingCreditPacks = intermediateResults.pendingCreditPacks.filter(
-        pack => !convertedPacks.some(converted => converted.pastel_id_pubkey === pack.pastel_id_pubkey)
-    );
-    intermediateResults.completedPacks = [
-        ...intermediateResults.completedPacks,
-        ...convertedPacks
-    ];
-
-    await saveIntermediateResults(intermediateResults);
-
-    logger.info(`Converted and saved ${convertedPacks.length} credit packs`);
-    logger.info(`Failed to convert ${failedConversions.length} pending credit packs`);
-
-    return { convertedPacks, failedConversions };
 }
 
 
@@ -477,7 +424,6 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
         }
 
         logger.info(`Total packs: ${combinedPacks.length} (${recoveredPacks.length} recovered, ${combinedPacks.length - recoveredPacks.length} generated)`);
-        await recoverMissingTrackingAddresses();
         await deduplicateIntermediateResults(intermediateResults);
         logger.info('Final deduplication of intermediate results completed');
         return combinedPacks;
