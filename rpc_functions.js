@@ -658,8 +658,7 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
-      logger.error("RPC connection is not available. Cannot proceed.");
-      return; // Stop the function if the connection is not available
+      throw new Error("RPC connection is not available.");
     }
     const responseObj = await rpc_connection.pastelid(
       "sign",
@@ -668,10 +667,16 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       passphrase,
       "ed448"
     );
+    if (!responseObj || !responseObj.signature) {
+      throw new Error("Invalid response from pastelid sign command");
+    }
     return responseObj.signature;
   } catch (error) {
-    logger.error(`Error in signMessageWithPastelID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
-    return null;
+    logger.error(`Error in signMessageWithPastelID: ${error.message}`);
+    if (error.message.includes("Invalid passphrase")) {
+      throw new Error("Invalid passphrase for PastelID");
+    }
+    throw error;
   }
 }
 

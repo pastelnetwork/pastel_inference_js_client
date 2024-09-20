@@ -721,7 +721,6 @@ async function getClosestSupernodeToPastelIDURL(
         await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
         return { url: supernodeURL, pastelID: closestSupernodePastelID };
       } catch (error) {
-        logger.error(`Error connecting to closest supernode: ${error.message}`);
         return { url: null, pastelID: null };
       }
     }
@@ -793,7 +792,6 @@ async function getNClosestSupernodesToPastelIDURLs(
         });
         return { url, pastelID };
       } catch (error) {
-        logger.error(`Error connecting to supernode ${pastelID} at ${url}: ${error.message}`);
         return null;
       }
     });
