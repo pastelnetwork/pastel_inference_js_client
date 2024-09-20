@@ -2383,6 +2383,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           } else {
             const validPastelIDs = await fetchValidPastelIDs();
             const storedPastelIDs = Object.keys(localStorage);
+            // Add all the valid PastelIDs to localStorage if they are not already there
+            // This ensure we have all the valid PastelIDs in localStorage if we change the browser or clear local storage
+            // The passphrases still needs to be set manually by the user
+            validPastelIDs.forEach((pastelID) => {
+              if (!storedPastelIDs.includes(pastelID)) {
+                localStorage.setItem(pastelID, "");
+              }
+            });
             let hasPastelID = false;
             storedPastelIDs.forEach((pastelID) => {
               if (validPastelIDs.includes(pastelID)) {
