@@ -50,6 +50,10 @@ const {
   isPastelIDRegistered,
   isCreditPackConfirmed,
   ensureTrackingAddressesHaveMinimalPSLBalance,
+  verifyMessageWithPastelID,
+  signMessageWithPastelID,
+  getPastelIDDirectory,
+  checkPSLAddressBalance,
 } = require("./rpc_functions");
 const { initializeDatabase } = require('./sequelize_data_models');
 const {
@@ -61,7 +65,8 @@ const {
   prettyJSON,
   getClosestSupernodeToPastelIDURL,
   getNClosestSupernodesToPastelIDURLs,
-  importPromotionalPack
+  importPromotionalPack,
+  filterSupernodes,
 } = require("./utility_functions");
 const globals = require("./globals");
 let MY_LOCAL_PASTELID = "";
@@ -742,11 +747,19 @@ let network;
         const result = await importPromotionalPack(tempFilePath);
         fs.unlinkSync(tempFilePath);
 
-        res.json({
-          success: true,
-          message: 'Promotional pack imported successfully',
-          details: result
-        });
+        if (result.success) {
+          res.json({
+            success: true,
+            message: 'Promotional pack(s) imported and verified successfully',
+            details: result
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: result.message,
+            details: result
+          });
+        }
       } catch (error) {
         logger.error(`Error importing promotional pack: ${error.message}`);
         if (fs.existsSync(tempFilePath)) {
@@ -873,6 +886,100 @@ let network;
           message: 'Failed to recover existing credit packs.',
           error: error.message
         });
+      }
+    });
+
+    app.get('/check-pastel-daemon', async (req, res) => {
+      try {
+        await initializeRPCConnection();
+        res.sendStatus(200);
+      } catch (error) {
+        res.status(503).json({ message: "Pastel daemon not ready" });
+      }
+    });
+
+    app.post('/verify-pastel-id', async (req, res) => {
+      const { pastelID, passphrase } = req.body;
+      try {
+        const testMessage = "Verification test message";
+        const signature = await signMessageWithPastelID(pastelID, testMessage, passphrase);
+        const verificationResult = await verifyMessageWithPastelID(pastelID, testMessage, signature);
+        if (verificationResult) {
+          res.sendStatus(200);
+        } else {
+          res.status(400).json({ message: "PastelID verification failed" });
+        }
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    app.post('/verify-tracking-address', async (req, res) => {
+      const { address } = req.body;
+      try {
+        const balance = await checkPSLAddressBalance(address);
+        if (balance !== undefined) {
+          res.sendStatus(200);
+        } else {
+          res.status(400).json({ message: "Tracking address not found in wallet" });
+        }
+      } catch (error) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    async function getMyValidCreditPacks(pastelID, passphrase) {
+      try {
+        if (!pastelID || !passphrase) {
+          logger.warn('No PastelID or passphrase provided');
+          return [];
+        }
+
+        const { validMasternodeListFullDF } = await checkSupernodeList();
+        const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
+
+        if (filteredSupernodes.length === 0) {
+          logger.warn('No valid supernodes found');
+          return [];
+        }
+
+        const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
+        const selected_supernode_url = filteredSupernodes[0].url;
+
+        const validCreditPacks = await inferenceClient.getValidCreditPackTicketsForPastelID(selected_supernode_url);
+
+        return validCreditPacks.map(pack => ({
+          pastel_id_pubkey: pack.requesting_end_user_pastelid,
+          psl_credit_usage_tracking_address: pack.credit_usage_tracking_psl_address,
+          credit_pack_registration_txid: pack.credit_pack_registration_txid,
+          requested_initial_credits_in_credit_pack: pack.requested_initial_credits_in_credit_pack,
+          credit_pack_current_credit_balance: pack.credit_pack_current_credit_balance
+        }));
+      } catch (error) {
+        logger.error(`Error in getMyValidCreditPacks: ${error.message}`);
+        return [];
+      }
+    }
+
+    app.post('/verify-credit-pack', async (req, res) => {
+      const { pastelID, trackingAddress, passphrase } = req.body;
+      try {
+        if (!pastelID || !trackingAddress || !passphrase) {
+          return res.status(400).json({ message: "PastelID, tracking address, and passphrase are required" });
+        }
+
+        const creditPacks = await getMyValidCreditPacks(pastelID, passphrase);
+        const validPack = creditPacks.find(pack =>
+          pack.pastel_id_pubkey === pastelID &&
+          pack.psl_credit_usage_tracking_address === trackingAddress
+        );
+        if (validPack) {
+          res.sendStatus(200);
+        } else {
+          res.status(400).json({ message: "No valid credit pack found for the given PastelID and tracking address" });
+        }
+      } catch (error) {
+        res.status(500).json({ message: error.message });
       }
     });
 
