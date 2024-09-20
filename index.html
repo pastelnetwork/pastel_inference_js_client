@@ -1309,7 +1309,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
-      async function setSelectedPastelIDAndPassphrase(selectedPastelID) {
+      async function setSelectedPastelIDAndPassphrase(selectedPastelID, extraMessage = "") {
         let storedPassphrase = localStorage.getItem(selectedPastelID);
 
         try {
@@ -1327,6 +1327,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const dialogHtml = `
         <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
           <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
+            <p style="color:red;">${extraMessage}</p>
             <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
             <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
             <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
@@ -1373,7 +1374,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
-
+      debugger;
       function updatePastelIDUI() {
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");
         const userPastelID = document.getElementById("userPastelID");
@@ -1396,6 +1397,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
       async function postPassphrase(pastelID, encodedPassphrase) {
         try {
+
           await axios.post("/set-pastel-id-passphrase", {
             pastelID: pastelID,
             passphrase: atob(encodedPassphrase),
@@ -1407,6 +1409,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           // Fetch received messages after setting the PastelID and passphrase
           await fetchReceivedMessages();
         } catch (error) {
+          await localStorage.setItem(pastelID, "");
+          setSelectedPastelIDAndPassphrase(pastelID, "Invalid Passphrase");
+
           console.error("Error setting PastelID and passphrase:", error);
         }
       }
@@ -2482,6 +2487,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 "Failed to set PastelID and passphrase.";
             }
           } catch (error) {
+            await setItem(selectedPastelID, "");
+            setSelectedPastelIDAndPassphrase(selectedPastelID, "You entered an incorrect passphrase.");
             console.error("Error setting PastelID and passphrase:", error);
             document.getElementById("messageContainer").innerText =
               "Failed to set PastelID and passphrase.";

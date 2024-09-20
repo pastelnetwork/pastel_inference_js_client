@@ -668,7 +668,8 @@ async function signMessageWithPastelID(pastelid, messageToSign, passphrase) {
       passphrase,
       "ed448"
     );
-    return responseObj.signature;
+     const sig =  await responseObj.signature; 
+    return sig;
   } catch (error) {
     logger.error(`Error in signMessageWithPastelID: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     return null;
