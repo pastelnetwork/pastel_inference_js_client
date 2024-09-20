@@ -29,6 +29,7 @@ const CONFIG = {
     CONCURRENT_CREDIT_PACK_CREATIONS: 3,
     INTERMEDIATE_PROMO_PACK_RESULTS_FILE: 'intermediate_promo_pack_results.json',
     INVALID_PASSPHRASE_PASTELIDS_FILE: 'invalid_passphrase_pastelids.json',
+    LOCK_FILE: 'invalid_pastelids.lock',
     PASSPHRASE_FOR_PROMO_PACK_CREDIT_PACKS: "testpass",
     RETRY_DELAY: 10000,
     BATCH_DELAY: 30000,
@@ -66,18 +67,6 @@ function validateIntermediateResults(results) {
     }
 }
 
-async function loadInvalidPassphrasePastelIDs() {
-    try {
-        const data = await fs.readFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, 'utf8');
-        return new Set(JSON.parse(data));
-    } catch (error) {
-        if (error.code !== 'ENOENT') {
-            logger.error(`Error loading invalid passphrase PastelIDs: ${error.message}`);
-        }
-        return new Set();
-    }
-}
-
 async function loadIntermediateResults() {
     try {
         const data = await fs.readFile(CONFIG.INTERMEDIATE_PROMO_PACK_RESULTS_FILE, 'utf8');
@@ -92,14 +81,61 @@ async function loadIntermediateResults() {
     }
 }
 
-async function saveInvalidPassphrasePastelID(pastelID) {
+async function acquireLock() {
+    while (true) {
+        try {
+            await fs.writeFile(CONFIG.LOCK_FILE, '', { flag: 'wx' });
+            return;
+        } catch (error) {
+            if (error.code !== 'EEXIST') throw error;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+}
+
+async function releaseLock() {
     try {
-        const invalidPastelIDs = await loadInvalidPassphrasePastelIDs();
+        await fs.unlink(CONFIG.LOCK_FILE);
+    } catch (error) {
+        logger.error(`Error releasing lock: ${error.message}`);
+    }
+}
+
+async function loadInvalidPassphrasePastelIDs() {
+    await acquireLock();
+    try {
+        const data = await fs.readFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, 'utf8');
+        return new Set(JSON.parse(data));
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            logger.error(`Error loading invalid passphrase PastelIDs: ${error.message}`);
+        }
+        return new Set();
+    } finally {
+        await releaseLock();
+    }
+}
+
+async function saveInvalidPassphrasePastelID(pastelID) {
+    await acquireLock();
+    try {
+        let invalidPastelIDs;
+        try {
+            const data = await fs.readFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, 'utf8');
+            invalidPastelIDs = new Set(JSON.parse(data));
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                logger.error(`Error reading invalid passphrase PastelIDs: ${error.message}`);
+            }
+            invalidPastelIDs = new Set();
+        }
+
         invalidPastelIDs.add(pastelID);
-        const uniqueInvalidPastelIDs = new Set(invalidPastelIDs);
-        await fs.writeFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, JSON.stringify(Array.from(uniqueInvalidPastelIDs)));
+        await fs.writeFile(CONFIG.INVALID_PASSPHRASE_PASTELIDS_FILE, JSON.stringify(Array.from(invalidPastelIDs)));
     } catch (error) {
         logger.error(`Error saving invalid passphrase PastelID: ${error.message}`);
+    } finally {
+        await releaseLock();
     }
 }
 
@@ -216,6 +252,8 @@ async function saveCompletedPacksAsIndividualFiles() {
         console.error('Error in saveCompletedPacksAsIndividualFiles:', error);
     }
 }
+
+
 
 async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
     await saveCompletedPacksAsIndividualFiles();
@@ -379,7 +417,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
                         passphrase
                     );
 
-                    if (pack && pack.txid) {
+                    if (pack && pack.credit_pack_registration_txid) {
                         const trackingAddressPrivKey = await dumpPrivKey(pack.creditUsageTrackingPSLAddress);
                         const secureContainerPath = path.join(getPastelIDDirectory(network), pastelID);
                         const secureContainerContent = await fs.readFile(secureContainerPath, 'base64');
@@ -388,7 +426,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
                             pastel_id_pubkey: pastelID,
                             pastel_id_passphrase: passphrase,
                             secureContainerBase64: secureContainerContent,
-                            credit_pack_registration_txid: pack.txid,
+                            credit_pack_registration_txid: pack.credit_pack_registration_txid,
                             credit_purchase_request_confirmation_pastel_block_height: pack.credit_purchase_request_confirmation_pastel_block_height,
                             requested_initial_credits_in_credit_pack: creditsPerPack,
                             psl_credit_usage_tracking_address: pack.creditUsageTrackingPSLAddress,
@@ -402,7 +440,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
 
                         combinedPacks.push(generatedPack);
                         intermediateResults.completedPacks.push(generatedPack);
-                        logger.info(`Generated and saved credit pack for PastelID: ${pastelID}, TXID: ${pack.txid}, Tracking Address: ${pack.creditUsageTrackingPSLAddress}`);
+                        logger.info(`Generated and saved credit pack for PastelID: ${pastelID}, TXID: ${pack.credit_pack_registration_txid}, Tracking Address: ${pack.creditUsageTrackingPSLAddress}`);
                     } else {
                         logger.error(`Failed to create credit pack for PastelID: ${pastelID}`);
                         intermediateResults.pendingCreditPacks.push({
@@ -432,6 +470,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) 
         throw error;
     }
 }
+
 
 module.exports = {
     generateOrRecoverPromotionalPacks,
