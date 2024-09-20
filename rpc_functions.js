@@ -216,9 +216,9 @@ class AsyncAuthServiceProxy {
   constructor(
     serviceUrl,
     serviceName = null,
-    reconnectTimeout = 15,
+    reconnectTimeout = 3,
     reconnectAmount = 2,
-    requestTimeout = 20
+    requestTimeout = 10
   ) {
     this.serviceUrl = serviceUrl;
     this.serviceName = serviceName;

@@ -301,6 +301,75 @@ async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
     return { recoveredPacks: newlyRecoveredPacks, recoveredPastelIDs: newlyRecoveredPastelIDs };
 }
 
+async function convertPendingPacksToCompletedPacks() {
+    logger.info("Starting conversion of pending credit packs to completed packs");
+
+    let intermediateResults = await loadIntermediateResults();
+    const { rpcport } = await getLocalRPCSettings();
+    const network = rpcport === '9932' ? 'mainnet' : rpcport === '19932' ? 'testnet' : 'devnet';
+    const pastelIDDir = getPastelIDDirectory(network);
+
+    const convertedPacks = [];
+    const failedConversions = [];
+
+    for (const pack of intermediateResults.pendingCreditPacks) {
+        if (pack.psl_credit_usage_tracking_address && pack.psl_credit_usage_tracking_address_private_key && pack.requested_initial_credits_in_credit_pack) {
+            try {
+                logger.info(`Converting pending credit pack for PastelID: ${pack.pastel_id_pubkey}`);
+
+                const secureContainerPath = path.join(pastelIDDir, pack.pastel_id_pubkey);
+                let secureContainerContent;
+                try {
+                    secureContainerContent = await fs.readFile(secureContainerPath, 'base64');
+                } catch (error) {
+                    logger.warn(`Could not read secure container for PastelID: ${pack.pastel_id_pubkey}. Error: ${error.message}`);
+                    secureContainerContent = null;
+                }
+
+                const completedPack = {
+                    pastel_id_pubkey: pack.pastel_id_pubkey,
+                    pastel_id_passphrase: pack.pastel_id_passphrase,
+                    secureContainerBase64: secureContainerContent,
+                    credit_pack_registration_txid: pack.credit_pack_registration_txid || "",
+                    credit_purchase_request_confirmation_pastel_block_height: pack.credit_purchase_request_confirmation_pastel_block_height || 0,
+                    requested_initial_credits_in_credit_pack: pack.requested_initial_credits_in_credit_pack,
+                    psl_credit_usage_tracking_address: pack.psl_credit_usage_tracking_address,
+                    psl_credit_usage_tracking_address_private_key: pack.psl_credit_usage_tracking_address_private_key
+                };
+
+                const fileName = `promo_pack_${pack.pastel_id_pubkey}.json`;
+                const filePath = path.join('generated_promo_packs', fileName);
+                await fs.writeFile(filePath, JSON.stringify(completedPack, null, 2));
+                logger.info(`Saved completed pack to ${filePath}`);
+
+                convertedPacks.push(completedPack);
+            } catch (error) {
+                logger.error(`Error converting credit pack for PastelID ${pack.pastel_id_pubkey}: ${error.message}`);
+                failedConversions.push(pack.pastel_id_pubkey);
+            }
+        } else {
+            logger.warn(`Incomplete information for PastelID: ${pack.pastel_id_pubkey}. Skipping.`);
+            failedConversions.push(pack.pastel_id_pubkey);
+        }
+    }
+
+    intermediateResults.pendingCreditPacks = intermediateResults.pendingCreditPacks.filter(
+        pack => !convertedPacks.some(converted => converted.pastel_id_pubkey === pack.pastel_id_pubkey)
+    );
+    intermediateResults.completedPacks = [
+        ...intermediateResults.completedPacks,
+        ...convertedPacks
+    ];
+
+    await saveIntermediateResults(intermediateResults);
+
+    logger.info(`Converted and saved ${convertedPacks.length} credit packs`);
+    logger.info(`Failed to convert ${failedConversions.length} pending credit packs`);
+
+    return { convertedPacks, failedConversions };
+}
+
+
 async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack) {
     logger.info(`Starting generation or recovery of ${numberOfPacks} promotional packs with ${creditsPerPack} credits each`);
 
