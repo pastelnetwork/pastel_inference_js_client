@@ -333,10 +333,6 @@ async function recoverExistingCreditPacks(creditsPerPack, maxBlockAge = 1500) {
 
         for (const pendingPack of intermediateResults.pendingCreditPacks) {
             try {
-                if (processedPastelIDs.has(pendingPack.pastel_id_pubkey)) {
-                    logger.info(`Skipping already processed PastelID: ${pendingPack.pastel_id_pubkey}`);
-                    continue;
-                }
 
                 if (invalidPassphrasePastelIDs.has(pendingPack.pastel_id_pubkey)) {
                     logger.info(`Skipping PastelID with invalid passphrase: ${pendingPack.pastel_id_pubkey}`);
@@ -564,7 +560,7 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack, 
 
                 const newAddress = await getNewAddress();
                 try {
-                    const pack = await handleCreditPackTicketEndToEnd(
+                    const { creditPackRequest, creditPackPurchaseRequestConfirmation, creditPackPurchaseRequestConfirmationResponse } = await handleCreditPackTicketEndToEnd(
                         creditsPerPack,
                         newAddress,
                         burnAddress,
@@ -574,8 +570,8 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack, 
                         passphrase
                     );
 
-                    if (pack && pack.credit_pack_registration_txid) {
-                        const trackingAddressPrivKey = await dumpPrivKey(pack.creditUsageTrackingPSLAddress);
+                    if (creditPackPurchaseRequestConfirmationResponse && creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid) {
+                        const trackingAddressPrivKey = await dumpPrivKey(creditPackRequest.credit_usage_tracking_psl_address);
                         const secureContainerPath = path.join(getPastelIDDirectory(network), pastelID);
                         const secureContainerContent = await fs.readFile(secureContainerPath, 'base64');
 
@@ -583,10 +579,10 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack, 
                             pastel_id_pubkey: pastelID,
                             pastel_id_passphrase: passphrase,
                             secureContainerBase64: secureContainerContent,
-                            credit_pack_registration_txid: pack.credit_pack_registration_txid,
-                            credit_purchase_request_confirmation_pastel_block_height: pack.credit_purchase_request_confirmation_pastel_block_height,
+                            credit_pack_registration_txid: creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid,
+                            credit_purchase_request_confirmation_pastel_block_height: creditPackPurchaseRequestConfirmationResponse.credit_purchase_request_confirmation_pastel_block_height,
                             requested_initial_credits_in_credit_pack: creditsPerPack,
-                            psl_credit_usage_tracking_address: pack.creditUsageTrackingPSLAddress,
+                            psl_credit_usage_tracking_address: creditPackRequest.credit_usage_tracking_psl_address,
                             psl_credit_usage_tracking_address_private_key: trackingAddressPrivKey
                         };
 
@@ -596,9 +592,9 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack, 
 
                         combinedPacks.push(generatedPack);
                         intermediateResults.completedPacks.push(generatedPack);
-                        logger.info(`Successfully generated and saved credit pack for PastelID: ${pastelID}, TXID: ${pack.credit_pack_registration_txid}, Tracking Address: ${pack.creditUsageTrackingPSLAddress}`);
+                        logger.info(`Successfully generated and saved credit pack for PastelID: ${pastelID}, TXID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid}, Tracking Address: ${creditPackRequest.creditUsageTrackingPSLAddress}`);
                     } else {
-                        logger.error(`Failed to create credit pack for PastelID: ${pastelID}`);
+                        logger.error(`Failed to create credit pack for PastelID: ${pastelID}; error message: ${creditPackPurchaseRequestConfirmationResponse.errorMessage}`);
                         intermediateResults.pendingCreditPacks.push({
                             pastel_id_pubkey: pastelID,
                             pastel_id_passphrase: passphrase,

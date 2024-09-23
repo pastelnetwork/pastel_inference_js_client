@@ -182,6 +182,7 @@ function getIsoStringWithMicroseconds() {
   const isoString = now.toISOString().replace("Z", "+00:00").replace(/\s/g, "");
   return isoString;
 }
+
 async function handleCreditPackTicketEndToEnd(
   numberOfCredits,
   creditUsageTrackingPSLAddress,
@@ -309,9 +310,9 @@ async function handleCreditPackTicketEndToEnd(
             passphrase
           );
 
-          return creditPackStorageRetryRequestResponse;
+          return { creditPackRequest, creditPackPurchaseRequestConfirmation, creditPackStorageRetryRequestResponse };
         } else {
-          return creditPackPurchaseRequestConfirmationResponse;
+          return { creditPackRequest, creditPackPurchaseRequestConfirmation, creditPackPurchaseRequestConfirmationResponse };
         }
       } catch (error) {
         logger.warn(`Failed to create credit pack with supernode ${supernode.url}: ${error.message}`);

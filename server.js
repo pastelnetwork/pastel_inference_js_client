@@ -316,14 +316,14 @@ let network;
         maxPerCreditPrice,
       } = req.body;
       try {
-        const result = await handleCreditPackTicketEndToEnd(
+        const { creditPackRequest, creditPackPurchaseRequestConfirmation, creditPackPurchaseRequestConfirmationResponse } = await handleCreditPackTicketEndToEnd(
           numCredits,
           creditUsageTrackingPSLAddress,
           burnAddress,
           maxTotalPrice,
           maxPerCreditPrice
         );
-        res.json({ success: true, result });
+        res.json({ success: true, creditPackPurchaseRequestConfirmationResponse });
       } catch (error) {
         console.error("Error in create-credit-pack-ticket:", error);
         res.status(500).json({
@@ -631,16 +631,16 @@ let network;
 
         // check if passphrase is valid by signing a message
         const testMessage = "Verification test message";
-        const signature = 
-        await signMessageWithPastelID(pastelID, testMessage, passphrase);
-      
-     if (!signature){
-       console.error("Error signing message with this PastelID and passphrase");
-       return res.status(500).json({
-          success: false,
-          message: "Failed to set PastelID and passphrase",
-        });
-     } 
+        const signature =
+          await signMessageWithPastelID(pastelID, testMessage, passphrase);
+
+        if (!signature) {
+          console.error("Error signing message with this PastelID and passphrase");
+          return res.status(500).json({
+            success: false,
+            message: "Failed to set PastelID and passphrase",
+          });
+        }
         // If valid, proceed with updating storage and global variables
         await setPastelIdAndPassphrase(pastelID, passphrase);
         globals.setPastelIdAndPassphrase(pastelID, passphrase);
