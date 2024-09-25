@@ -7,7 +7,7 @@ const WebSocket = require("ws");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
-const archiver = require('archiver');
+const archiver = require("archiver");
 const {
   getCurrentPastelIdAndPassphrase,
   setPastelIdAndPassphrase,
@@ -55,7 +55,7 @@ const {
   getPastelIDDirectory,
   checkPSLAddressBalance,
 } = require("./rpc_functions");
-const { initializeDatabase } = require('./sequelize_data_models');
+const { initializeDatabase } = require("./sequelize_data_models");
 const {
   generateOrRecoverPromotionalPacks,
   recoverExistingCreditPacks,
@@ -128,7 +128,12 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("error", (error) => {
-    logger.error(`WebSocket error: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+    logger.error(
+      `WebSocket error: ${error.message.slice(
+        0,
+        globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+      )}`
+    );
     logEmitter.removeListener("newLog", logListener);
   });
 });
@@ -153,7 +158,12 @@ async function initializeServer() {
 
     // Rest of your server initialization code...
   } catch (error) {
-    logger.error(`Error initializing server: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+    logger.error(
+      `Error initializing server: ${error.message.slice(
+        0,
+        globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+      )}`
+    );
     process.exit(1);
   }
 }
@@ -267,7 +277,12 @@ let network;
         const modelMenu = await pastelInferenceClient.getModelMenu();
         res.json({ success: true, modelMenu });
       } catch (error) {
-        logger.error(`Error in getInferenceModelMenu: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        logger.error(
+          `Error in getInferenceModelMenu: ${safeStringify(error).slice(
+            0,
+            globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+          )}`
+        );
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -316,14 +331,21 @@ let network;
         maxPerCreditPrice,
       } = req.body;
       try {
-        const { creditPackRequest, creditPackPurchaseRequestConfirmation, creditPackPurchaseRequestConfirmationResponse } = await handleCreditPackTicketEndToEnd(
+        const {
+          creditPackRequest,
+          creditPackPurchaseRequestConfirmation,
+          creditPackPurchaseRequestConfirmationResponse,
+        } = await handleCreditPackTicketEndToEnd(
           numCredits,
           creditUsageTrackingPSLAddress,
           burnAddress,
           maxTotalPrice,
           maxPerCreditPrice
         );
-        res.json({ success: true, creditPackPurchaseRequestConfirmationResponse });
+        res.json({
+          success: true,
+          creditPackPurchaseRequestConfirmationResponse,
+        });
       } catch (error) {
         console.error("Error in create-credit-pack-ticket:", error);
         res.status(500).json({
@@ -601,7 +623,10 @@ let network;
         }
       } catch (error) {
         logger.error(
-          `Error in create-and-register-pastel-id: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
+          `Error in create-and-register-pastel-id: ${safeStringify(error).slice(
+            0,
+            globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+          )}`
         );
         res.status(500).json({ success: false, message: error.message });
       }
@@ -631,11 +656,16 @@ let network;
 
         // check if passphrase is valid by signing a message
         const testMessage = "Verification test message";
-        const signature =
-          await signMessageWithPastelID(pastelID, testMessage, passphrase);
+        const signature = await signMessageWithPastelID(
+          pastelID,
+          testMessage,
+          passphrase
+        );
 
         if (!signature) {
-          console.error("Error signing message with this PastelID and passphrase");
+          console.error(
+            "Error signing message with this PastelID and passphrase"
+          );
           return res.status(500).json({
             success: false,
             message: "Failed to set PastelID and passphrase",
@@ -668,7 +698,10 @@ let network;
         });
       } catch (error) {
         logger.error(
-          `Error in ensuring minimal PSL balance: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
+          `Error in ensuring minimal PSL balance: ${safeStringify(error).slice(
+            0,
+            globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+          )}`
         );
         res.status(500).json({ success: false, error: error.message });
       }
@@ -692,7 +725,7 @@ let network;
       }
     });
 
-    app.post('/check-pastel-id-validity', async (req, res) => {
+    app.post("/check-pastel-id-validity", async (req, res) => {
       try {
         const { pastelID } = req.body;
         const isValid = await isPastelIDRegistered(pastelID);
@@ -703,94 +736,116 @@ let network;
       }
     });
 
-    app.get('/dump-priv-key/:tAddr', async (req, res) => {
+    app.get("/dump-priv-key/:tAddr", async (req, res) => {
       const { tAddr } = req.params;
       try {
         const privateKey = await dumpPrivKey(tAddr);
         res.json({ success: true, privateKey });
       } catch (error) {
-        logger.error(`Error dumping private key for address ${tAddr}: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        logger.error(
+          `Error dumping private key for address ${tAddr}: ${safeStringify(
+            error
+          ).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
+        );
         res.status(500).json({ success: false, error: error.message });
       }
     });
 
     // Generate or recover promotional packs
-    app.post('/generate-or-recover-promo-packs', async (req, res) => {
+    app.post("/generate-or-recover-promo-packs", async (req, res) => {
       const { numberOfPacks, creditsPerPack } = req.body;
 
       if (!numberOfPacks || !creditsPerPack) {
-        return res.status(400).json({ success: false, message: 'Both numberOfPacks and creditsPerPack are required.' });
+        return res.status(400).json({
+          success: false,
+          message: "Both numberOfPacks and creditsPerPack are required.",
+        });
       }
 
       if (numberOfPacks <= 0 || creditsPerPack <= 0) {
-        return res.status(400).json({ success: false, message: 'Both numberOfPacks and creditsPerPack must be positive numbers.' });
+        return res.status(400).json({
+          success: false,
+          message:
+            "Both numberOfPacks and creditsPerPack must be positive numbers.",
+        });
       }
 
       try {
-        const result = await generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack);
+        const result = await generateOrRecoverPromotionalPacks(
+          numberOfPacks,
+          creditsPerPack
+        );
         res.json({
           success: true,
-          message: 'Promotional packs generated and/or recovered successfully.',
-          packs: result
+          message: "Promotional packs generated and/or recovered successfully.",
+          packs: result,
         });
       } catch (error) {
-        logger.error('Error in /generate-or-recover-promo-packs:', error);
+        logger.error("Error in /generate-or-recover-promo-packs:", error);
         res.status(500).json({
           success: false,
-          message: 'Failed to generate or recover promotional packs.',
-          error: error.message
+          message: "Failed to generate or recover promotional packs.",
+          error: error.message,
         });
       }
     });
 
     // Import promotional pack
-    app.post('/import-promotional-pack', upload.single('packFile'), async (req, res) => {
-      if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
-      }
+    app.post(
+      "/import-promotional-pack",
+      upload.single("packFile"),
+      async (req, res) => {
+        if (!req.file) {
+          return res
+            .status(400)
+            .json({ success: false, message: "No file uploaded" });
+        }
 
-      const tempFilePath = req.file.path;
+        const tempFilePath = req.file.path;
 
-      try {
-        logger.info(`Received promotional pack file: ${req.file.originalname}`);
-        const result = await importPromotionalPack(tempFilePath);
-        fs.unlinkSync(tempFilePath);
+        try {
+          logger.info(
+            `Received promotional pack file: ${req.file.originalname}`
+          );
+          const result = await importPromotionalPack(tempFilePath);
+          fs.unlinkSync(tempFilePath);
 
-        if (result.success) {
-          res.json({
-            success: true,
-            message: 'Promotional pack(s) imported and verified successfully',
-            details: result
-          });
-        } else {
+          if (result.success) {
+            res.json({
+              success: true,
+              message: "Promotional pack(s) imported and verified successfully",
+              details: result,
+            });
+          } else {
+            res.status(500).json({
+              success: false,
+              message: result.message,
+              details: result,
+            });
+          }
+        } catch (error) {
+          logger.error(`Error importing promotional pack: ${error.message}`);
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
           res.status(500).json({
             success: false,
-            message: result.message,
-            details: result
+            message: "Failed to import promotional pack",
+            error: error.message,
           });
         }
-      } catch (error) {
-        logger.error(`Error importing promotional pack: ${error.message}`);
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-        res.status(500).json({
-          success: false,
-          message: 'Failed to import promotional pack',
-          error: error.message
-        });
       }
-    });
+    );
 
     // Download promotional pack
-    app.get('/download-promo-pack/:filename', (req, res) => {
+    app.get("/download-promo-pack/:filename", (req, res) => {
       const filename = req.params.filename;
-      const filepath = path.join(__dirname, 'generated_promo_packs', filename);
+      const filepath = path.join(__dirname, "generated_promo_packs", filename);
 
       if (!fs.existsSync(filepath)) {
         return res.status(404).json({
           success: false,
-          message: 'Promotional pack file not found'
+          message: "Promotional pack file not found",
         });
       }
 
@@ -799,38 +854,38 @@ let network;
           logger.error(`Error downloading file ${filename}: ${err.message}`);
           res.status(500).json({
             success: false,
-            message: 'Error downloading file',
-            error: err.message
+            message: "Error downloading file",
+            error: err.message,
           });
         }
       });
     });
 
-    app.get('/download-all-promo-packs', (req, res) => {
-      const folderPath = path.join(__dirname, 'generated_promo_packs');
-      const zipFileName = 'all_promo_packs.zip';
+    app.get("/download-all-promo-packs", (req, res) => {
+      const folderPath = path.join(__dirname, "generated_promo_packs");
+      const zipFileName = "all_promo_packs.zip";
 
       res.writeHead(200, {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename=${zipFileName}`
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename=${zipFileName}`,
       });
 
-      const archive = archiver('zip', {
-        zlib: { level: 9 } // Sets the compression level.
+      const archive = archiver("zip", {
+        zlib: { level: 9 }, // Sets the compression level.
       });
 
       archive.pipe(res);
 
       fs.readdir(folderPath, (err, files) => {
         if (err) {
-          console.error('Error reading promo packs directory:', err);
-          res.status(500).send('Error creating zip file');
+          console.error("Error reading promo packs directory:", err);
+          res.status(500).send("Error creating zip file");
           return;
         }
 
-        const jsonFiles = files.filter(file => file.endsWith('.json'));
+        const jsonFiles = files.filter((file) => file.endsWith(".json"));
 
-        jsonFiles.forEach(file => {
+        jsonFiles.forEach((file) => {
           const filePath = path.join(folderPath, file);
           archive.file(filePath, { name: file });
         });
@@ -839,13 +894,17 @@ let network;
       });
     });
 
-    app.get('/promo-generator', (req, res) => {
-      const filePath = path.join(__dirname, 'public', 'promo_code_generator_tool.html');
+    app.get("/promo-generator", (req, res) => {
+      const filePath = path.join(
+        __dirname,
+        "public",
+        "promo_code_generator_tool.html"
+      );
 
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({
           success: false,
-          message: 'Promo generator tool not found'
+          message: "Promo generator tool not found",
         });
       }
 
@@ -853,57 +912,70 @@ let network;
     });
 
     // List promotional packs
-    app.get('/list-promo-packs', (req, res) => {
-      const folderPath = path.join(__dirname, 'generated_promo_packs');
+    app.get("/list-promo-packs", (req, res) => {
+      const folderPath = path.join(__dirname, "generated_promo_packs");
 
       fs.readdir(folderPath, (err, files) => {
         if (err) {
           logger.error(`Error reading promo packs directory: ${err.message}`);
           return res.status(500).json({
             success: false,
-            message: 'Error listing promotional packs',
-            error: err.message
+            message: "Error listing promotional packs",
+            error: err.message,
           });
         }
 
-        const promoPacks = files.filter(file => file.endsWith('.json'));
+        const promoPacks = files.filter((file) => file.endsWith(".json"));
         res.json({
           success: true,
-          promoPacks: promoPacks
+          promoPacks: promoPacks,
         });
       });
     });
 
     // Recover existing credit packs
-    app.post('/recover-existing-credit-packs', async (req, res) => {
+    app.post("/recover-existing-credit-packs", async (req, res) => {
       try {
         const { creditsPerPack, maxBlockAge } = req.body;
         if (!creditsPerPack) {
-          return res.status(400).json({ success: false, message: 'creditsPerPack is required.' });
+          return res
+            .status(400)
+            .json({ success: false, message: "creditsPerPack is required." });
         }
 
-        const recoveredPacks = await recoverExistingCreditPacks(creditsPerPack, maxBlockAge);
+        const recoveredPacks = await recoverExistingCreditPacks(
+          creditsPerPack,
+          maxBlockAge
+        );
         res.json({
           success: true,
           message: `Recovered ${recoveredPacks.length} existing credit packs.`,
-          recoveredPacks
+          recoveredPacks,
         });
       } catch (error) {
-        logger.error('Error in /recover-existing-credit-packs:', error);
+        logger.error("Error in /recover-existing-credit-packs:", error);
         res.status(500).json({
           success: false,
-          message: 'Failed to recover existing credit packs.',
-          error: error.message
+          message: "Failed to recover existing credit packs.",
+          error: error.message,
         });
       }
     });
 
-    app.post('/verify-pastel-id', async (req, res) => {
+    app.post("/verify-pastel-id", async (req, res) => {
       const { pastelID, passphrase } = req.body;
       try {
         const testMessage = "Verification test message";
-        const signature = await signMessageWithPastelID(pastelID, testMessage, passphrase);
-        const verificationResult = await verifyMessageWithPastelID(pastelID, testMessage, signature);
+        const signature = await signMessageWithPastelID(
+          pastelID,
+          testMessage,
+          passphrase
+        );
+        const verificationResult = await verifyMessageWithPastelID(
+          pastelID,
+          testMessage,
+          signature
+        );
         if (verificationResult) {
           res.sendStatus(200);
         } else {
@@ -914,14 +986,16 @@ let network;
       }
     });
 
-    app.post('/verify-tracking-address', async (req, res) => {
+    app.post("/verify-tracking-address", async (req, res) => {
       const { address } = req.body;
       try {
         const balance = await checkPSLAddressBalance(address);
         if (balance !== undefined) {
           res.sendStatus(200);
         } else {
-          res.status(400).json({ message: "Tracking address not found in wallet" });
+          res
+            .status(400)
+            .json({ message: "Tracking address not found in wallet" });
         }
       } catch (error) {
         res.status(500).json({ message: error.message });
@@ -931,29 +1005,37 @@ let network;
     async function getMyValidCreditPacks(pastelID, passphrase) {
       try {
         if (!pastelID || !passphrase) {
-          logger.warn('No PastelID or passphrase provided');
+          logger.warn("No PastelID or passphrase provided");
           return [];
         }
 
         const { validMasternodeListFullDF } = await checkSupernodeList();
-        const filteredSupernodes = await filterSupernodes(validMasternodeListFullDF);
+        const filteredSupernodes = await filterSupernodes(
+          validMasternodeListFullDF
+        );
 
         if (filteredSupernodes.length === 0) {
-          logger.warn('No valid supernodes found');
+          logger.warn("No valid supernodes found");
           return [];
         }
 
         const inferenceClient = new PastelInferenceClient(pastelID, passphrase);
         const selected_supernode_url = filteredSupernodes[0].url;
 
-        const validCreditPacks = await inferenceClient.getValidCreditPackTicketsForPastelID(selected_supernode_url);
+        const validCreditPacks =
+          await inferenceClient.getValidCreditPackTicketsForPastelID(
+            selected_supernode_url
+          );
 
-        return validCreditPacks.map(pack => ({
+        return validCreditPacks.map((pack) => ({
           pastel_id_pubkey: pack.requesting_end_user_pastelid,
-          psl_credit_usage_tracking_address: pack.credit_usage_tracking_psl_address,
+          psl_credit_usage_tracking_address:
+            pack.credit_usage_tracking_psl_address,
           credit_pack_registration_txid: pack.credit_pack_registration_txid,
-          requested_initial_credits_in_credit_pack: pack.requested_initial_credits_in_credit_pack,
-          credit_pack_current_credit_balance: pack.credit_pack_current_credit_balance
+          requested_initial_credits_in_credit_pack:
+            pack.requested_initial_credits_in_credit_pack,
+          credit_pack_current_credit_balance:
+            pack.credit_pack_current_credit_balance,
         }));
       } catch (error) {
         logger.error(`Error in getMyValidCreditPacks: ${error.message}`);
@@ -961,22 +1043,28 @@ let network;
       }
     }
 
-    app.post('/verify-credit-pack', async (req, res) => {
+    app.post("/verify-credit-pack", async (req, res) => {
       const { pastelID, trackingAddress, passphrase } = req.body;
       try {
         if (!pastelID || !trackingAddress || !passphrase) {
-          return res.status(400).json({ message: "PastelID, tracking address, and passphrase are required" });
+          return res.status(400).json({
+            message: "PastelID, tracking address, and passphrase are required",
+          });
         }
 
         const creditPacks = await getMyValidCreditPacks(pastelID, passphrase);
-        const validPack = creditPacks.find(pack =>
-          pack.pastel_id_pubkey === pastelID &&
-          pack.psl_credit_usage_tracking_address === trackingAddress
+        const validPack = creditPacks.find(
+          (pack) =>
+            pack.pastel_id_pubkey === pastelID &&
+            pack.psl_credit_usage_tracking_address === trackingAddress
         );
         if (validPack) {
           res.sendStatus(200);
         } else {
-          res.status(400).json({ message: "No valid credit pack found for the given PastelID and tracking address" });
+          res.status(400).json({
+            message:
+              "No valid credit pack found for the given PastelID and tracking address",
+          });
         }
       } catch (error) {
         res.status(500).json({ message: error.message });

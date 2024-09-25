@@ -8,7 +8,7 @@ const path = require("path");
 const ping = require("ping");
 const { logger, safeStringify } = require("./logger");
 const supernodeCacheStorage = require("node-persist");
-const { getCurrentPastelIdAndPassphrase } = require('./storage');
+const { getCurrentPastelIdAndPassphrase } = require("./storage");
 const globals = require("./globals");
 
 const {
@@ -23,6 +23,8 @@ const {
   stopPastelDaemon,
   startPastelDaemon,
   signMessageWithPastelID,
+  isPastelIDRegistered,
+  isCreditPackConfirmed,
 } = require("./rpc_functions");
 
 const MAX_CACHE_AGE_MS = 1 * 60 * 1000; // 1 minute in milliseconds
@@ -66,7 +68,7 @@ async function clearOldCache() {
 async function storeInCache(key, data) {
   await supernodeCacheStorage.setItem(key, {
     timestamp: Date.now(),
-    data: data
+    data: data,
   });
 }
 
@@ -99,7 +101,12 @@ async function fetchCurrentPSLMarketPrice() {
       const priceCG = responseCG.data.pastel.usd;
       return { priceCMC, priceCG };
     } catch (error) {
-      logger.error(`Error fetching PSL market prices: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+      logger.error(
+        `Error fetching PSL market prices: ${error.message.slice(
+          0,
+          globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+        )}`
+      );
       return { priceCMC: null, priceCG: null };
     }
   }
@@ -554,7 +561,7 @@ async function getClosestSupernodePastelIDFromList(
   const xorDistances = await Promise.all(
     filteredSupernodes.map(async (supernode) => {
       let pastelID;
-      if (typeof supernode === 'string') {
+      if (typeof supernode === "string") {
         pastelID = supernode;
       } else if (supernode && supernode.pastelID) {
         pastelID = supernode.pastelID;
@@ -567,7 +574,12 @@ async function getClosestSupernodePastelIDFromList(
         const distance = await calculateXORDistance(localPastelID, pastelID);
         return { pastelID, distance: BigInt(distance) };
       } catch (error) {
-        logger.error(`Error calculating XOR distance: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
+        logger.error(
+          `Error calculating XOR distance: ${error.message.slice(
+            0,
+            globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+          )}`
+        );
         return null;
       }
     })
@@ -690,7 +702,9 @@ async function getClosestSupernodeToPastelIDURL(
   supernodeListDF,
   maxResponseTimeInMilliseconds = 1200
 ) {
-  logger.info(`Attempting to find closest supernode for PastelID: ${inputPastelID}`);
+  logger.info(
+    `Attempting to find closest supernode for PastelID: ${inputPastelID}`
+  );
   if (!inputPastelID) {
     logger.warn("No input PastelID provided");
     return { url: null, pastelID: null };
@@ -716,9 +730,12 @@ async function getClosestSupernodeToPastelIDURL(
     );
 
     if (closestSupernode) {
-      const supernodeURL = `http://${closestSupernode.ipaddress_port.split(":")[0]}:7123`;
+      const supernodeURL = `http://${closestSupernode.ipaddress_port.split(":")[0]
+        }:7123`;
       try {
-        await axios.get(supernodeURL, { timeout: maxResponseTimeInMilliseconds });
+        await axios.get(supernodeURL, {
+          timeout: maxResponseTimeInMilliseconds,
+        });
         return { url: supernodeURL, pastelID: closestSupernodePastelID };
       } catch (error) {
         return { url: null, pastelID: null };
@@ -761,7 +778,9 @@ async function getNClosestSupernodesToPastelIDURLs(
           );
           return { ...supernode, distance };
         } catch (error) {
-          logger.error(`Error calculating XOR distance for supernode ${supernode.pastelID}: ${error.message}`);
+          logger.error(
+            `Error calculating XOR distance for supernode ${supernode.pastelID}: ${error.message}`
+          );
           return null;
         }
       })
@@ -782,21 +801,25 @@ async function getNClosestSupernodesToPastelIDURLs(
 
     const closestSupernodes = sortedXorDistances.slice(0, n);
 
-    const validSupernodePromises = closestSupernodes.map(async ({ url, pastelID }) => {
-      try {
-        await axios.get(url, {
-          timeout: maxResponseTimeInMilliseconds,
-          validateStatus: function (status) {
-            return status >= 200 && status < 300; // Default
-          }
-        });
-        return { url, pastelID };
-      } catch (error) {
-        return null;
+    const validSupernodePromises = closestSupernodes.map(
+      async ({ url, pastelID }) => {
+        try {
+          await axios.get(url, {
+            timeout: maxResponseTimeInMilliseconds,
+            validateStatus: function (status) {
+              return status >= 200 && status < 300; // Default
+            },
+          });
+          return { url, pastelID };
+        } catch (error) {
+          return null;
+        }
       }
-    });
+    );
 
-    const validSupernodes = (await Promise.all(validSupernodePromises)).filter(Boolean);
+    const validSupernodes = (await Promise.all(validSupernodePromises)).filter(
+      Boolean
+    );
 
     if (validSupernodes.length === 0) {
       logger.warn("No valid supernodes found after connectivity check");
@@ -805,9 +828,10 @@ async function getNClosestSupernodesToPastelIDURLs(
     }
 
     return validSupernodes;
-
   } catch (error) {
-    logger.error(`Error in getNClosestSupernodesToPastelIDURLs: ${error.message}`);
+    logger.error(
+      `Error in getNClosestSupernodesToPastelIDURLs: ${error.message}`
+    );
     return [];
   }
 }
@@ -1108,18 +1132,28 @@ async function filterSupernodes(
     removedDueToPing: 0,
     removedDueToPerformance: 0,
     removedDueToError: 0,
-    timeouts: 0
+    timeouts: 0,
   };
 
   const logResults = () => {
     let USE_VERBOSE_LOGGING = false;
-    const totalRemoved = stats.removedDueToPing + stats.removedDueToPerformance + stats.removedDueToError;
-    const removedPercentage = ((totalRemoved / stats.totalProcessed) * 100).toFixed(2);
+    const totalRemoved =
+      stats.removedDueToPing +
+      stats.removedDueToPerformance +
+      stats.removedDueToError;
+    const removedPercentage = (
+      (totalRemoved / stats.totalProcessed) *
+      100
+    ).toFixed(2);
     if (USE_VERBOSE_LOGGING) {
       logger.info(`Total supernodes processed: ${stats.totalProcessed}`);
-      logger.info(`Total supernodes removed: ${totalRemoved} (${removedPercentage}%)`);
+      logger.info(
+        `Total supernodes removed: ${totalRemoved} (${removedPercentage}%)`
+      );
       logger.info(`- Removed due to ping: ${stats.removedDueToPing}`);
-      logger.info(`- Removed due to performance: ${stats.removedDueToPerformance}`);
+      logger.info(
+        `- Removed due to performance: ${stats.removedDueToPerformance}`
+      );
       logger.info(`- Removed due to errors: ${stats.removedDueToError}`);
       if (stats.timeouts > 0) {
         logger.info(`Total timeouts: ${stats.timeouts}`);
@@ -1144,7 +1178,7 @@ async function filterSupernodes(
 
   const filteredSupernodes = [];
   let completed = false;
-  const { default: pLimit } = await import('p-limit');
+  const { default: pLimit } = await import("p-limit");
   const limit = pLimit(150);
 
   const checkSupernode = async (supernode) => {
@@ -1166,14 +1200,22 @@ async function filterSupernodes(
         stats.removedDueToPing++;
         return null;
       }
-      const performanceResponse = await axios.get(`http://${ipAddress}:7123/liveness_ping`, {
-        timeout: maxResponseTimeInMilliseconds,
-      });
-      if (performanceResponse.data.performance_ratio_score < minPerformanceRatio) {
+      const performanceResponse = await axios.get(
+        `http://${ipAddress}:7123/liveness_ping`,
+        {
+          timeout: maxResponseTimeInMilliseconds,
+        }
+      );
+      if (
+        performanceResponse.data.performance_ratio_score < minPerformanceRatio
+      ) {
         stats.removedDueToPerformance++;
         return null;
       }
-      const result = { pastelID: supernode.extKey, url: `http://${ipAddress}:7123` };
+      const result = {
+        pastelID: supernode.extKey,
+        url: `http://${ipAddress}:7123`,
+      };
       await storeInCache(cacheKey, result);
       return result;
     } catch (error) {
@@ -1192,16 +1234,20 @@ async function filterSupernodes(
   try {
     await Promise.race([
       timeoutPromise,
-      Promise.all(fullSupernodeList.map(supernode =>
-        limit(() => checkSupernode(supernode).then(result => {
-          if (result) {
-            filteredSupernodes.push(result);
-            if (filteredSupernodes.length >= maxSupernodes) {
-              completed = true;
-            }
-          }
-        }))
-      ))
+      Promise.all(
+        fullSupernodeList.map((supernode) =>
+          limit(() =>
+            checkSupernode(supernode).then((result) => {
+              if (result) {
+                filteredSupernodes.push(result);
+                if (filteredSupernodes.length >= maxSupernodes) {
+                  completed = true;
+                }
+              }
+            })
+          )
+        )
+      ),
     ]);
   } catch (error) {
     if (error.message !== "Operation timed out") {
@@ -1214,40 +1260,138 @@ async function filterSupernodes(
   return filteredSupernodes.slice(0, maxSupernodes);
 }
 
+async function waitForConfirmation(checkFunction, ...checkFunctionArgs) {
+  const options = {
+    maxRetries: 30,
+    retryDelay: 10000,
+    actionName: "condition",
+    ...(typeof checkFunctionArgs[checkFunctionArgs.length - 1] === "object"
+      ? checkFunctionArgs.pop()
+      : {}),
+  };
+
+  for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
+    try {
+      const result = await checkFunction(...checkFunctionArgs);
+      if (result) {
+        logger.info(
+          `${options.actionName} confirmed after ${attempt} attempt(s).`
+        );
+        return true;
+      }
+    } catch (error) {
+      logger.warn(
+        `Error checking ${options.actionName} (attempt ${attempt}/${options.maxRetries}): ${error.message}`
+      );
+    }
+
+    if (attempt < options.maxRetries) {
+      logger.info(
+        `${options.actionName} not yet confirmed. Attempt ${attempt}/${options.maxRetries
+        }. Waiting ${options.retryDelay / 1000} seconds before next check...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, options.retryDelay));
+    }
+  }
+
+  logger.warn(
+    `${options.actionName} not confirmed after ${options.maxRetries} attempts.`
+  );
+  return false;
+}
+
+async function waitForPastelIDRegistration(pastelID) {
+  const isRegistered = await waitForConfirmation(
+    isPastelIDRegistered,
+    pastelID,
+    {
+      maxRetries: 20,
+      retryDelay: 15000,
+      actionName: "PastelID registration",
+    }
+  );
+
+  if (isRegistered) {
+    logger.info(`PastelID ${pastelID} has been successfully registered.`);
+  } else {
+    logger.error(`PastelID ${pastelID} registration could not be confirmed.`);
+  }
+
+  return isRegistered;
+}
+
+async function waitForCreditPackConfirmation(txid) {
+  const isConfirmed = await waitForConfirmation(isCreditPackConfirmed, txid, {
+    maxRetries: 40,
+    retryDelay: 20000,
+    actionName: "Credit pack confirmation",
+  });
+
+  if (isConfirmed) {
+    logger.info(`Credit pack with TXID ${txid} has been confirmed.`);
+  } else {
+    logger.error(`Credit pack with TXID ${txid} could not be confirmed.`);
+  }
+
+  return isConfirmed;
+}
+
 async function importPromotionalPack(jsonFilePath) {
   logger.info(`Starting import of promotional pack from file: ${jsonFilePath}`);
 
   try {
     // Initialize RPC connection
-    logger.info('Initializing RPC connection...');
+    logger.info("Initializing RPC connection...");
     await initializeRPCConnection();
-    logger.info('RPC connection initialized successfully');
+    logger.info("RPC connection initialized successfully");
 
     // Read and parse the JSON file
-    const jsonContent = fs.readFileSync(jsonFilePath, 'utf8');
-    const packData = JSON.parse(jsonContent);
+    const jsonContent = fs.readFileSync(jsonFilePath, "utf8");
+    let packData = JSON.parse(jsonContent);
 
     // Process each promotional pack in the file
+    if (!Array.isArray(packData)) {
+      packData = [packData]; // Wrap it in an array if it's not already
+    }
+
     for (let i = 0; i < packData.length; i++) {
       const pack = packData[i];
       logger.info(`Processing pack ${i + 1} of ${packData.length}`);
 
       // 1. Save the PastelID secure container file
       const { rpcport } = await getLocalRPCSettings();
-      const network = rpcport === '9932' ? 'mainnet' : rpcport === '19932' ? 'testnet' : 'devnet';
+      const network =
+        rpcport === "9932"
+          ? "mainnet"
+          : rpcport === "19932"
+            ? "testnet"
+            : "devnet";
       const pastelIDDir = getPastelIDDirectory(network);
       const secureContainerPath = path.join(pastelIDDir, pack.pastel_id_pubkey);
 
-      logger.info(`Saving PastelID secure container to: ${secureContainerPath}`);
-      fs.writeFileSync(secureContainerPath, Buffer.from(pack.secureContainerBase64, 'base64'));
+      logger.info(
+        `Saving PastelID secure container to: ${secureContainerPath}`
+      );
+      fs.writeFileSync(
+        secureContainerPath,
+        Buffer.from(pack.secureContainerBase64, "base64")
+      );
 
       // 2. Import the tracking address private key
-      logger.info(`Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`);
-      const importResult = await importPrivKey(pack.psl_credit_usage_tracking_address_private_key, "Imported from promotional pack", false);
+      logger.info(
+        `Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`
+      );
+      const importResult = await importPrivKey(
+        pack.psl_credit_usage_tracking_address_private_key,
+        "Imported from promotional pack",
+        false
+      );
       if (importResult) {
-        logger.info('Private key imported successfully');
+        logger.info(
+          `Private key imported successfully for tracking address: ${importResult}`
+        );
       } else {
-        logger.warn('Failed to import private key');
+        logger.warn("Failed to import private key");
       }
 
       // 3. Log other important information
@@ -1268,36 +1412,57 @@ async function importPromotionalPack(jsonFilePath) {
 
       try {
         // Wait for PastelID to be confirmed in the blockchain
-        await waitForConfirmation(isPastelIDRegistered, pack.pastel_id_pubkey);
-        logger.info(`PastelID ${pack.pastel_id_pubkey} confirmed in blockchain`);
+        await waitForPastelIDRegistration(pack.pastel_id_pubkey);
+        logger.info(
+          `PastelID ${pack.pastel_id_pubkey} confirmed in blockchain`
+        );
 
         // Verify PastelID functionality
         const testMessage = "This is a test message for PastelID verification";
-        const signature = await signMessageWithPastelID(pack.pastel_id_pubkey, testMessage, pack.pastel_id_passphrase);
-        logger.info(`Signature created successfully for PastelID: ${pack.pastel_id_pubkey}`);
+        const signature = await signMessageWithPastelID(
+          pack.pastel_id_pubkey,
+          testMessage,
+          pack.pastel_id_passphrase
+        );
+        logger.info(
+          `Signature created successfully for PastelID: ${pack.pastel_id_pubkey}`
+        );
 
-        const verificationResult = await verifyMessageWithPastelID(pack.pastel_id_pubkey, testMessage, signature);
+        const verificationResult = await verifyMessageWithPastelID(
+          pack.pastel_id_pubkey,
+          testMessage,
+          signature
+        );
 
         if (verificationResult) {
-          logger.info(`PastelID ${pack.pastel_id_pubkey} verified successfully`);
+          logger.info(
+            `PastelID ${pack.pastel_id_pubkey} verified successfully`
+          );
         } else {
           logger.warn(`PastelID ${pack.pastel_id_pubkey} verification failed`);
         }
 
         // Verify Credit Pack Ticket
-        await waitForConfirmation(isCreditPackConfirmed, pack.credit_pack_registration_txid);
-        logger.info(`Credit Pack Ticket ${pack.credit_pack_registration_txid} confirmed in blockchain`);
-
+        await waitForCreditPackConfirmation(pack.credit_pack_registration_txid);
+        logger.info(
+          `Credit Pack Ticket ${pack.credit_pack_registration_txid} confirmed in blockchain`
+        );
       } catch (error) {
         logger.error(`Error verifying pack ${i + 1}: ${error.message}`);
       }
     }
 
-    logger.info('All packs in the file have been processed and verified');
-    return { success: true, message: 'Promotional pack(s) imported and verified successfully' };
+    logger.info("All promo packs in the file have been processed and verified");
+    return {
+      success: true,
+      message: "Promotional pack(s) imported and verified successfully",
+    };
   } catch (error) {
     logger.error(`Error importing promotional pack: ${error.message}`);
-    return { success: false, message: `Failed to import promotional pack: ${error.message}` };
+    return {
+      success: false,
+      message: `Failed to import promotional pack: ${error.message}`,
+    };
   }
 }
 
@@ -1333,5 +1498,5 @@ module.exports = {
   validateInferenceResultFields,
   validateInferenceData,
   logger,
-  importPromotionalPack
+  importPromotionalPack,
 };

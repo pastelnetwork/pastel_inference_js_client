@@ -383,10 +383,12 @@
             Import Promotional Pack
           </summary>
           <div class="mt-2">
-            <p class="text-bw-600 text-sm mb-2">Have a promotional pack file? Import it here to set up your account
-              quickly.</p>
+            <p class="text-bw-600 text-sm mb-2">
+              Have a promotional pack file? Import it here to set up your
+              account quickly.
+            </p>
             <div class="flex items-center gap-2">
-              <input type="file" id="promotionalPackFile" accept=".json" class="hidden" onchange="updateFileLabel()">
+              <input type="file" id="promotionalPackFile" accept=".json" class="hidden" onchange="updateFileLabel()" />
               <label for="promotionalPackFile" class="btn outline secondary text-sm py-1 px-3 cursor-pointer">
                 Choose File
               </label>
@@ -409,11 +411,13 @@
                 </path>
               </svg>
             </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-5" id="modalTitle">Importing Promotional Pack</h3>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-5" id="modalTitle">
+              Importing Promotional Pack
+            </h3>
             <div class="mt-2 px-7 py-3">
               <p class="text-sm text-gray-500" id="modalMessage">
-                Please be patient while the information from your promo pack is imported into Pastel... this may take a
-                few minutes.
+                Please be patient while the information from your promo pack
+                is imported into Pastel... this may take a few minutes.
               </p>
             </div>
           </div>
@@ -563,9 +567,7 @@
             <thead>
               <tr>
                 <th>Registration TXID</th>
-                <th>
-                  SHA3-256 Hash of Credit Pack Purchase Request Fields
-                </th>
+                <th>SHA3-256 Hash of Credit Pack Purchase Request Fields</th>
                 <th>Responding Supernode PastelID</th>
                 <th>Outcome</th>
               </tr>
@@ -652,8 +654,9 @@ Write me a Shakespeare-style sonnet about Pastel Network and how it's really dec
         </div>
         <div class="hidden col-span-full" id="modelAdvancedSettingsSection">
           <div>
-            <button type="button" class="btn success outline" id="advancedSettingsButton">Show advanced
-              settings</button>
+            <button type="button" class="btn success outline" id="advancedSettingsButton">
+              Show advanced settings
+            </button>
           </div>
           <div id="modelAdvancedSettingsContent" class="hidden mt-4">
             <div id="modelParametersContainer" class="col-span-full"></div>
@@ -897,6 +900,38 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
     </div>
 
     <script>
+      function showNotification(message, type = "success") {
+        // Create the notification element
+        const notification = document.createElement("div");
+        const bgColorClass =
+          type === "success"
+            ? "bg-gradient-to-t from-green-300 to-green-600 border-green-800"
+            : "bg-gradient-to-t from-rose-600 via-red-500 to-red-600 border-red-800";
+        // Set classes and styles
+        notification.className = `fixed top-4 left-4 ml-4 mt-4 ${bgColorClass} white-text-shadow p-6 rounded-3xl shadow-2xl  opacity-0 transition-all duration-500 ease-in-out border font-semibold text-lg`;
+        notification.style.zIndex = "5000"; // Set z-index to 5000
+        notification.style.transform = "translateY(-100%)";
+        // Add emoji and message
+        const emoji = type === "success" ? "✅" : "❌";
+        notification.innerHTML = `<span class="text-2xl mr-2">${emoji}</span> ${message}`;
+        // Append to body
+        document.body.appendChild(notification);
+        // Animate in
+        setTimeout(() => {
+          notification.style.opacity = "1";
+          notification.style.transform = "translateY(0%)";
+        }, 10);
+        // Animate out and remove element
+        setTimeout(() => {
+          notification.style.opacity = "0";
+          notification.style.transform = "translateY(-100%)";
+          setTimeout(() => {
+            document.body.removeChild(notification);
+          }, 500);
+        }, 3000);
+      }
+      window.showNotification = showNotification;
+
       const MESSAGING_TIMEOUT_IN_SECONDS = 60;
       const LOADING_MESSAGE = "Wait while data is loaded...";
       const STORAGE_KEY = "validCreditPackTickets";
@@ -1115,83 +1150,51 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         let formattedPayload = prettyJSON(jsonPayload);
 
         // Truncate file contents in the payload
-        if (typeof formattedPayload === 'string') {
+        if (typeof formattedPayload === "string") {
           const fileContentRegex = /"(document|audio|image)":\s*"([^"]+)"/g;
-          formattedPayload = formattedPayload.replace(fileContentRegex, (match, key, value) => {
-            if (value.length > 100) {
-              return `"${key}": "${value.substring(0, 100)}..."`;
+          formattedPayload = formattedPayload.replace(
+            fileContentRegex,
+            (match, key, value) => {
+              if (value.length > 100) {
+                return `"${key}": "${value.substring(0, 100)}..."`;
+              }
+              return match;
             }
-            return match;
-          });
+          );
         }
 
         if (formattedPayload.length > maxPayloadLength) {
-          formattedPayload = abbreviateJSON(formattedPayload, maxPayloadLength);
+          formattedPayload = abbreviateJSON(
+            formattedPayload,
+            maxPayloadLength
+          );
         }
-        logger.info(`Now ${action} ${payloadName} with payload:\n${formattedPayload}`);
+        logger.info(
+          `Now ${action} ${payloadName} with payload:\n${formattedPayload}`
+        );
       }
 
       function updateFileLabel() {
-        const fileInput = document.getElementById('promotionalPackFile');
-        const fileLabel = document.getElementById('fileLabel');
+        const fileInput = document.getElementById("promotionalPackFile");
+        const fileLabel = document.getElementById("fileLabel");
         if (fileInput.files.length > 0) {
           fileLabel.textContent = fileInput.files[0].name;
         } else {
-          fileLabel.textContent = 'No file chosen';
+          fileLabel.textContent = "No file chosen";
         }
-      }
-
-      async function importPromotionalPack() {
-        const fileInput = document.getElementById('promotionalPackFile');
-        if (fileInput.files.length === 0) {
-          alert('Please select a file to import.');
-          return;
-        }
-
-        const file = fileInput.files[0];
-        const formData = new FormData();
-        formData.append('packFile', file);
-
-        showModal("Importing Promotional Pack", "Starting the import process...");
-
-        try {
-          const response = await fetch('/import-promotional-pack', {
-            method: 'POST',
-            body: formData
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            await verifyImport(result.details);
-          } else {
-            throw new Error(result.message);
-          }
-        } catch (error) {
-          console.error('Error importing promotional pack:', error);
-          updateModal("Import Failed", `An error occurred while importing the promotional pack: ${error.message}`);
-          setTimeout(hideModal, 5000);
-        }
-      }
-
-      async function refreshUI() {
-        // Refresh PastelID dropdown
-        await updatePastelIDDropdown();
-        // Refresh credit pack tickets
-        await getMyValidCreditPacks(true);
       }
 
       async function updatePastelIDDropdown() {
         try {
-          const response = await fetch('/list-pastel-id-tickets');
+          const response = await fetch("/list-pastel-id-tickets");
           const data = await response.json();
           if (data.success) {
             const tickets = data.result;
-            const dropdown = document.getElementById('pastelIDDropdown');
-            dropdown.innerHTML = ''; // Clear existing options
+            const dropdown = document.getElementById("pastelIDDropdown");
+            dropdown.innerHTML = ""; // Clear existing options
 
-            tickets.forEach(ticket => {
-              const option = document.createElement('option');
+            tickets.forEach((ticket) => {
+              const option = document.createElement("option");
               option.value = ticket.ticket.pastelID;
               option.textContent = ticket.ticket.pastelID;
               dropdown.appendChild(option);
@@ -1200,43 +1203,182 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             // Select the first PastelID if available
             if (tickets.length > 0) {
               dropdown.value = tickets[0].ticket.pastelID;
-              document.getElementById('userPastelID').textContent = tickets[0].ticket.pastelID;
+              document.getElementById("userPastelID").textContent =
+                tickets[0].ticket.pastelID;
             }
           } else {
-            console.error('Failed to fetch PastelID tickets:', data.message);
+            console.error("Failed to fetch PastelID tickets:", data.message);
           }
         } catch (error) {
-          console.error('Error updating PastelID dropdown:', error);
+          console.error("Error updating PastelID dropdown:", error);
         }
       }
+
+      async function refreshCreditPackTickets() {
+        const refreshButton = document.getElementById("refreshButton");
+        const loader = refreshButton.querySelector(".loader");
+        const loadingMessage = document.getElementById("loadingMessage");
+
+        loader.classList.remove("hidden");
+        loadingMessage.classList.remove("hidden");
+
+        try {
+          await getMyValidCreditPacks(true);
+          console.log("Credit pack tickets refreshed successfully.");
+        } catch (error) {
+          console.error("Error refreshing credit pack tickets:", error);
+          showNotification(
+            "There was an error refreshing credit pack tickets. Please try again.",
+            "error"
+          );
+        } finally {
+          loader.classList.add("hidden");
+          loadingMessage.classList.add("hidden");
+        }
+      }
+
+      async function refreshUI() {
+        try {
+          console.log("Starting UI refresh...");
+
+          // Refresh PastelID dropdown
+          await updatePastelIDDropdown();
+          console.log("PastelID dropdown updated");
+
+          // Refresh credit pack tickets
+          await refreshCreditPackTickets();
+          console.log("UI refresh completed");
+        } catch (error) {
+          console.error("Error during UI refresh:", error);
+        }
+      }
+
+      async function importPromotionalPack() {
+        const fileInput = document.getElementById("promotionalPackFile");
+        if (fileInput.files.length === 0) {
+          showNotification("Please select a file to import.", "error");
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append("packFile", file);
+
+        showModal(
+          "Importing Promotional Pack",
+          "Processing your promotional pack..."
+        );
+
+        try {
+          const response = await fetch("/import-promotional-pack", {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            updateModal("Import Successful", result.message);
+            console.log("Import details:", result.details);
+
+            // Automatically set the passphrase for the newly imported PastelID
+            if (result.details && result.details.pastel_id_pubkey) {
+              const pastelID = result.details.pastel_id_pubkey;
+              const defaultPassphrase = "testpass"; // The known default passphrase for promo packs
+              localStorage.setItem(pastelID, btoa(defaultPassphrase));
+              // We don't need to call setSelectedPastelIDAndPassphrase here as the page will reload
+            }
+
+            // Update modal to inform user about the upcoming page reload
+            updateModal(
+              "Import Successful",
+              "Import completed. The page will now reload to refresh all data."
+            );
+
+            // Set a flag in sessionStorage to indicate we should refresh credit packs after reload
+            sessionStorage.setItem("refreshCreditPacksAfterReload", "true");
+
+            // Delay the reload slightly to allow the user to see the success message
+            setTimeout(() => {
+              location.reload();
+            }, 3000);
+
+            return;
+          } else {
+            throw new Error(
+              result.message || "Unknown error occurred during import"
+            );
+          }
+        } catch (error) {
+          console.error("Error importing promotional pack:", error);
+          updateModal(
+            "Import Failed",
+            `An error occurred while importing the promotional pack: ${error.message}`
+          );
+          setTimeout(hideModal, 5000);
+        }
+      }
+
+      // Add this function to your existing code
+      document.addEventListener("DOMContentLoaded", function () {
+        if (
+          sessionStorage.getItem("refreshCreditPacksAfterReload") === "true"
+        ) {
+          sessionStorage.removeItem("refreshCreditPacksAfterReload");
+          // Force refresh of credit pack tickets
+          getMyValidCreditPacks(true)
+
+            .catch((error) => {
+              console.error("Error refreshing credit pack tickets:", error);
+              showNotification(
+                "Failed to refresh credit pack tickets. Please try manual refresh.",
+                "error"
+              );
+            });
+        }
+      });
 
       async function verifyImport(importDetails) {
         try {
           updateModal("Verifying Import", "Verifying PastelID...");
-          await verifyPastelID(importDetails.pastel_id_pubkey, importDetails.pastel_id_passphrase);
+          await verifyPastelID(
+            importDetails.pastel_id_pubkey,
+            importDetails.pastel_id_passphrase
+          );
 
           updateModal("Verifying Import", "Verifying tracking address...");
-          await verifyTrackingAddress(importDetails.psl_credit_usage_tracking_address);
+          await verifyTrackingAddress(
+            importDetails.psl_credit_usage_tracking_address
+          );
 
           updateModal("Verifying Import", "Verifying credit pack...");
-          await verifyCreditPack(importDetails.pastel_id_pubkey, importDetails.psl_credit_usage_tracking_address, importDetails.pastel_id_passphrase);
+          await verifyCreditPack(
+            importDetails.pastel_id_pubkey,
+            importDetails.psl_credit_usage_tracking_address,
+            importDetails.pastel_id_passphrase
+          );
 
-          updateModal("Import Successful", "Your promotional pack has been successfully imported and verified!");
+          updateModal(
+            "Import Successful",
+            "Your promotional pack has been successfully imported and verified!"
+          );
           setTimeout(hideModal, 5000);
 
           await refreshUI();
         } catch (error) {
-          console.error('Error verifying import:', error);
-          updateModal("Verification Failed", `Failed to verify the import: ${error.message}`);
+          console.error("Error verifying import:", error);
+          updateModal(
+            "Verification Failed",
+            `Failed to verify the import: ${error.message}`
+          );
           setTimeout(hideModal, 5000);
         }
       }
 
       async function verifyPastelID(pastelID, passphrase) {
-        const response = await fetch('/verify-pastel-id', {
-          method: 'POST',
+        const response = await fetch("/verify-pastel-id", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ pastelID, passphrase }),
         });
@@ -1246,10 +1388,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       async function verifyTrackingAddress(address) {
-        const response = await fetch('/verify-tracking-address', {
-          method: 'POST',
+        const response = await fetch("/verify-tracking-address", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ address }),
         });
@@ -1259,10 +1401,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       async function verifyCreditPack(pastelID, trackingAddress, passphrase) {
-        const response = await fetch('/verify-credit-pack', {
-          method: 'POST',
+        const response = await fetch("/verify-credit-pack", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ pastelID, trackingAddress, passphrase }),
         });
@@ -1272,18 +1414,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       function showModal(title, message) {
-        document.getElementById('modalTitle').textContent = title;
-        document.getElementById('modalMessage').textContent = message;
-        document.getElementById('importModal').classList.remove('hidden');
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("modalMessage").textContent = message;
+        document.getElementById("importModal").classList.remove("hidden");
       }
 
       function updateModal(title, message) {
-        document.getElementById('modalTitle').textContent = title;
-        document.getElementById('modalMessage').textContent = message;
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("modalMessage").textContent = message;
       }
 
       function hideModal() {
-        document.getElementById('importModal').classList.add('hidden');
+        document.getElementById("importModal").classList.add("hidden");
       }
 
       async function updateCreditPackSelection(txid) {
@@ -1295,48 +1437,56 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           const creditPackInfo = result.result;
 
           // Update the credit pack selection in the UI
-          const selectElement = document.getElementById('creditPackSelect');
-          const option = document.createElement('option');
+          const selectElement = document.getElementById("creditPackSelect");
+          const option = document.createElement("option");
           option.value = txid;
           option.text = `${creditPackInfo.numCredits} credits - ${creditPackInfo.txid}`;
           option.selected = true;
           selectElement.add(option);
 
           // Trigger the credit pack selection change event
-          selectElement.dispatchEvent(new Event('change'));
+          selectElement.dispatchEvent(new Event("change"));
         } else {
-          console.error('Failed to fetch credit pack info:', result.error);
+          console.error("Failed to fetch credit pack info:", result.error);
         }
       }
 
-      async function setSelectedPastelIDAndPassphrase(selectedPastelID, extraMessage = "") {
+      async function setSelectedPastelIDAndPassphrase(
+        selectedPastelID,
+        extraMessage = "",
+        isNewlyImportedPromoPack = false
+      ) {
         let storedPassphrase = localStorage.getItem(selectedPastelID);
 
         try {
-          const response = await axios.post("/check-pastel-id-validity", { pastelID: selectedPastelID });
+          const response = await axios.post("/check-pastel-id-validity", {
+            pastelID: selectedPastelID,
+          });
           const isValid = response.data.isValid;
 
           if (!isValid) {
-            console.log(`PastelID ${selectedPastelID} is not valid. Removing from localStorage.`);
+            console.log(
+              `PastelID ${selectedPastelID} is not valid. Removing from localStorage.`
+            );
             localStorage.removeItem(selectedPastelID);
             updatePastelIDUI();
             return;
           }
 
-          if (!storedPassphrase) {
+          if (!storedPassphrase && !isNewlyImportedPromoPack) {
             const dialogHtml = `
-        <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
-          <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
-            <p style="color:red;">${extraMessage}</p>
-            <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
-            <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
-            <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
-            <div>
-              <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
-            </div>
-          </div>
-        </div>
-      `;
+                <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
+                  <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
+                    <p style="color:red;">${extraMessage}</p>
+                    <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
+                    <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
+                    <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
+                    <div>
+                      <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
+                    </div>
+                  </div>
+                </div>
+              `;
 
             const dialog = document.createElement("div");
             dialog.innerHTML = dialogHtml;
@@ -1344,7 +1494,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             return new Promise((resolve) => {
               const submitButton = dialog.querySelector("#submitPassphrase");
-              const passphraseInput = dialog.querySelector("#passphraseInput");
+              const passphraseInput =
+                dialog.querySelector("#passphraseInput");
 
               submitButton.addEventListener("click", async () => {
                 const inputPassphrase = passphraseInput.value;
@@ -1367,6 +1518,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               });
             });
           } else {
+            if (isNewlyImportedPromoPack && !storedPassphrase) {
+              // For newly imported promo packs, use the default passphrase
+              const defaultPassphrase = "testpass";
+              storedPassphrase = btoa(defaultPassphrase);
+              localStorage.setItem(selectedPastelID, storedPassphrase);
+            }
             await postPassphrase(selectedPastelID, storedPassphrase);
           }
         } catch (error) {
@@ -1374,13 +1531,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
-
       function updatePastelIDUI() {
         const pastelIDDropdown = document.getElementById("pastelIDDropdown");
         const userPastelID = document.getElementById("userPastelID");
 
         // Remove the invalid PastelID from the dropdown
-        Array.from(pastelIDDropdown.options).forEach(option => {
+        Array.from(pastelIDDropdown.options).forEach((option) => {
           if (!localStorage.getItem(option.value)) {
             pastelIDDropdown.remove(option.index);
           }
@@ -1394,10 +1550,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
-
       async function postPassphrase(pastelID, encodedPassphrase) {
         try {
-
           await axios.post("/set-pastel-id-passphrase", {
             pastelID: pastelID,
             passphrase: atob(encodedPassphrase),
@@ -1931,7 +2085,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
         } catch (error) {
           console.error(
-            `Error creating new credit pack ticket: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
+            `Error creating new credit pack ticket: ${error.message.slice(
+              0,
+              globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+            )}`
           );
           logCreateTicketStatusMessage(
             "Failed to create credit pack ticket. Please try again.",
@@ -2000,7 +2157,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           populateModelDropdown();
         } catch (error) {
           console.error("Error fetching model menu:", error);
-          //displayError("Failed to load model menu. Please try again later.");
         }
       }
 
@@ -2016,37 +2172,58 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       function generateModelParameterFields(selectedModel) {
-        const modelAdvancedSettingsSection = document.getElementById("modelAdvancedSettingsSection");
-        const modelParametersContainer = document.getElementById("modelParametersContainer");
+        const modelAdvancedSettingsSection = document.getElementById(
+          "modelAdvancedSettingsSection"
+        );
+        const modelParametersContainer = document.getElementById(
+          "modelParametersContainer"
+        );
         modelParametersContainer.innerHTML = "";
-        const selectedInferenceType = document.getElementById("inferenceType").value;
+        const selectedInferenceType =
+          document.getElementById("inferenceType").value;
 
         // Filter parameters based on the selected inference type
-        const applicableParameters = selectedModel.model_parameters.filter(param => {
-          const inferenceTypes = param.inference_types_parameter_applies_to;
-          if (Array.isArray(inferenceTypes)) {
-            return inferenceTypes.includes(selectedInferenceType);
-          } else if (typeof inferenceTypes === 'string') {
-            try {
-              // Try parsing as JSON-like string (replacing single quotes with double quotes)
-              const parsedTypes = JSON.parse(inferenceTypes.replace(/'/g, '"'));
-              return Array.isArray(parsedTypes) && parsedTypes.includes(selectedInferenceType);
-            } catch (e) {
-              // If parsing fails, treat it as a comma-separated string
-              return inferenceTypes.split(',').map(type => type.trim()).includes(selectedInferenceType);
+        const applicableParameters = selectedModel.model_parameters.filter(
+          (param) => {
+            const inferenceTypes = param.inference_types_parameter_applies_to;
+            if (Array.isArray(inferenceTypes)) {
+              return inferenceTypes.includes(selectedInferenceType);
+            } else if (typeof inferenceTypes === "string") {
+              try {
+                // Try parsing as JSON-like string (replacing single quotes with double quotes)
+                const parsedTypes = JSON.parse(
+                  inferenceTypes.replace(/'/g, '"')
+                );
+                return (
+                  Array.isArray(parsedTypes) &&
+                  parsedTypes.includes(selectedInferenceType)
+                );
+              } catch (e) {
+                // If parsing fails, treat it as a comma-separated string
+                return inferenceTypes
+                  .split(",")
+                  .map((type) => type.trim())
+                  .includes(selectedInferenceType);
+              }
             }
+            return false;
           }
-          return false;
-        });
+        );
         applicableParameters.forEach((param) => {
           const fieldContainer = document.createElement("div");
           fieldContainer.className = "mb-4";
 
           const labelText = param.description.split("[Optional]")[0].trim();
-          const tooltipText = param.description.split("[Optional]")[1]?.trim().replace(/^\(|\)$/g, "") || "";
+          const tooltipText =
+            param.description
+              .split("[Optional]")[1]
+              ?.trim()
+              .replace(/^\(|\)$/g, "") || "";
 
           const label = document.createElement("label");
-          label.className = "block font-bold mb-2" + (param.description.includes("[Optional]") ? " text-bw-800" : "");
+          label.className =
+            "block font-bold mb-2" +
+            (param.description.includes("[Optional]") ? " text-bw-800" : "");
           label.htmlFor = param.name;
           label.textContent = labelText;
           fieldContainer.appendChild(label);
@@ -2066,7 +2243,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           input.className = "input w-full";
           input.id = param.name;
           input.name = param.name;
-          input.type = param.type === "float" || param.type === "int" ? "number" : "text";
+          input.type =
+            param.type === "float" || param.type === "int"
+              ? "number"
+              : "text";
           input.placeholder = `Enter ${param.description.toLowerCase()}`;
           input.value = param.default;
 
@@ -2082,7 +2262,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             input.min = "1";
             input.max = "10";
             input.step = "1";
-          } else if (param.name === "grammar_file_string" || param.name === "query_string" || param.name === "corpus_identifier_string") {
+          } else if (
+            param.name === "grammar_file_string" ||
+            param.name === "query_string" ||
+            param.name === "corpus_identifier_string"
+          ) {
             input.type = "text"; // Ensure it's a text input
           }
 
@@ -2144,11 +2328,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             }
           }
         }
-      }
-
-      function displayError(message) {
-        // Implement user-friendly error handling/display mechanism
-        alert(message); // Simplistic example, consider more sophisticated modal or notification systems
       }
 
       // Load inference request settings from localStorage
@@ -2488,7 +2667,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             }
           } catch (error) {
             await setItem(selectedPastelID, "");
-            setSelectedPastelIDAndPassphrase(selectedPastelID, "You entered an incorrect passphrase.");
+            setSelectedPastelIDAndPassphrase(
+              selectedPastelID,
+              "You entered an incorrect passphrase."
+            );
             console.error("Error setting PastelID and passphrase:", error);
             document.getElementById("messageContainer").innerText =
               "Failed to set PastelID and passphrase.";
@@ -2607,12 +2789,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         .addEventListener("click", handleAdvancedSettingsButtonChange);
 
       function handleAdvancedSettingsButtonChange() {
-        const advancedSettingsButton = document.getElementById("advancedSettingsButton");
-        const modelAdvancedSettingsContent = document.getElementById("modelAdvancedSettingsContent");
-        if (modelAdvancedSettingsContent.classList.contains('hidden')) {
-          advancedSettingsButton.innerHTML = 'Hide advanced settings';
+        const advancedSettingsButton = document.getElementById(
+          "advancedSettingsButton"
+        );
+        const modelAdvancedSettingsContent = document.getElementById(
+          "modelAdvancedSettingsContent"
+        );
+        if (modelAdvancedSettingsContent.classList.contains("hidden")) {
+          advancedSettingsButton.innerHTML = "Hide advanced settings";
         } else {
-          advancedSettingsButton.innerHTML = 'Show advanced settings';
+          advancedSettingsButton.innerHTML = "Show advanced settings";
         }
         modelAdvancedSettingsContent.classList.toggle("hidden");
       }
@@ -2881,7 +3067,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         const requests =
           JSON.parse(localStorage.getItem("inferenceRequests")) || [];
         if (requests.length === 0) {
-          alert("No saved inference requests to export.");
+          showNotification("No saved inference requests to export.", "error");
           return;
         }
 
@@ -2889,8 +3075,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         requests.forEach((request, index) => {
           markdownContent += `## Inference Request ${index + 1}\n`;
           markdownContent += `**Prompt**: ${request.selectedInferenceType === "ask_question_about_an_image"
-            ? request.inputFields.question
-            : request.prompt
+              ? request.inputFields.question
+              : request.prompt
             }\n\n`;
           markdownContent += `**Inference Results**:\n\n`;
 
@@ -2909,8 +3095,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           markdownContent += `| Parameter | Value |\n`;
           markdownContent += `| --- | --- |\n`;
           markdownContent += `| Input Prompt to LLM | ${request.selectedInferenceType === "ask_question_about_an_image"
-            ? request.inputFields.question
-            : request.prompt
+              ? request.inputFields.question
+              : request.prompt
             } |\n`;
           markdownContent += `| Actual Cost (Credits) | ${request.actualCreditsUsed} |\n`;
           markdownContent += `| Remaining Credits | ${request.remainingCredits} |\n`;
@@ -2974,7 +3160,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             }" alt="Input Image" style="max-width: 100%; max-height: 400px;">
             <p>Question: ${request.inputFields.question}</p>
             <p>Answer:</p>
-            <github-md>${Array.isArray(request.inferenceResultsDecoded) ? JSON.parse(request.inferenceResultsDecoded)[0] : JSON.parse(request.inferenceResultsDecoded)
+            <github-md>${Array.isArray(request.inferenceResultsDecoded)
+              ? JSON.parse(request.inferenceResultsDecoded)[0]
+              : JSON.parse(request.inferenceResultsDecoded)
             }</github-md>
           `;
         } else if (request.selectedInferenceType === "embedding_document") {
@@ -3100,7 +3288,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           logStatusMessage("Creating new inference request...");
 
           if (!modelInputDataJSONBase64Encoded) {
-            throw new Error("Model input data is required and cannot be empty.");
+            throw new Error(
+              "Model input data is required and cannot be empty."
+            );
           }
 
           const requestPayload = {
@@ -3114,13 +3304,24 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
           // Create a truncated version only for logging
           const truncatedPayload = { ...requestPayload };
-          if (typeof truncatedPayload.model_input_data_json_b64 === 'string' && truncatedPayload.model_input_data_json_b64.length > 100) {
-            truncatedPayload.model_input_data_json_b64 = truncatedPayload.model_input_data_json_b64.substring(0, 100) + '...';
+          if (
+            typeof truncatedPayload.model_input_data_json_b64 === "string" &&
+            truncatedPayload.model_input_data_json_b64.length > 100
+          ) {
+            truncatedPayload.model_input_data_json_b64 =
+              truncatedPayload.model_input_data_json_b64.substring(0, 100) +
+              "...";
           }
 
-          console.log('Creating inference request with payload:', JSON.stringify(truncatedPayload, null, 2));
+          console.log(
+            "Creating inference request with payload:",
+            JSON.stringify(truncatedPayload, null, 2)
+          );
 
-          const response = await axios.post("/create-inference-request", requestPayload);
+          const response = await axios.post(
+            "/create-inference-request",
+            requestPayload
+          );
 
           if (response.data.success) {
             logStatusMessage("Inference request created successfully.");
@@ -3360,7 +3561,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
         } catch (error) {
           console.error(
-            `Error creating new inference request: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`
+            `Error creating new inference request: ${error.message.slice(
+              0,
+              globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+            )}`
           );
           resultContainer.innerHTML =
             "Failed to create inference request. Please try again.";
@@ -3473,13 +3677,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         .addEventListener("click", async () => {
           const privKey = document.getElementById("importPrivKey").value;
           if (!privKey) {
-            alert("Please enter private key!");
+            showNotification("Please enter private key!", "error");
             return;
           }
           showLoading("importPrivKeyLoading");
           try {
             await axios.post("/import-priv-key", { zcashPrivKey: privKey });
-            alert("Private key imported successfully!");
+            showNotification("Private key imported successfully!", "success");
           } catch (error) {
             console.error("Error importing private key:", error);
           }
@@ -3492,7 +3696,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         .addEventListener("click", async () => {
           const walletFile = document.getElementById("importWallet").files[0];
           if (!walletFile) {
-            alert("Please select a Wallet file to import.");
+            showNotification(
+              "Please select a Wallet file to import.",
+              "error"
+            );
             return;
           }
           showLoading("importWalletLoading");
@@ -3500,7 +3707,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           formData.append("walletFile", walletFile);
           try {
             await axios.post("/import-wallet", formData);
-            alert("Wallet imported successfully!");
+            showNotification("Wallet imported successfully!", "error");
           } catch (error) {
             console.error("Error importing wallet:", error);
           }
@@ -3552,7 +3759,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                   )
                   .join("\n");
                 navigator.clipboard.writeText(csvData);
-                alert("Address amounts copied to clipboard as CSV!");
+                showNotification(
+                  "Address amounts copied to clipboard as CSV!",
+                  "success"
+                );
               });
           } catch (error) {
             console.error("Error retrieving address amounts:", error);
@@ -3609,7 +3819,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                   )
                   .join("\n");
                 navigator.clipboard.writeText(csvData);
-                alert("Wallet info copied to clipboard as CSV!");
+                showNotification(
+                  "Wallet info copied to clipboard as CSV!",
+                  "success"
+                );
               });
           } catch (error) {
             console.error("Error retrieving wallet info:", error);
@@ -3626,7 +3839,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             )
           ) {
             localStorage.clear();
-            alert("Local storage cleared. The page will now reload.");
+            showNotification(
+              "Local storage cleared. The page will now reload.",
+              "success"
+            );
             location.reload();
           }
         });
@@ -3873,7 +4089,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               error.message
             );
             logCreateTicketStatusMessage(
-              `Failed to create credit pack ticket: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`,
+              `Failed to create credit pack ticket: ${error.message.slice(
+                0,
+                globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+              )}`,
               statusContent
             );
           }
@@ -3898,7 +4117,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               'input[name="creditPackTicket"]:checked'
             );
             if (!selectedCreditPackTicket) {
-              alert("Please select a credit pack ticket.");
+              showNotification(
+                "Please select a credit pack ticket.",
+                "error"
+              );
               return;
             }
             const selectedRow = selectedCreditPackTicket.closest("tr");
@@ -3961,7 +4183,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               const imageFile = document.getElementById("imageFile").files[0];
               const question = document.getElementById("question").value;
               if (!imageFile || !question) {
-                alert("Please select an image and enter a question.");
+                showNotification(
+                  "Please select an image and enter a question.",
+                  "error"
+                );
                 return;
               }
               const imageBase64 = await encodeFileToBase64(imageFile);
@@ -3978,7 +4203,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 "document_semantic_query_string"
               ).value;
               if (!inputFile) {
-                alert("Document file data cannot be empty.");
+                showNotification(
+                  "Document file data cannot be empty.",
+                  "error"
+                );
                 return;
               }
               const documentBase64 = await encodeFileToBase64(inputFile);
@@ -3995,7 +4223,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 "audio_semantic_query_string"
               ).value;
               if (!inputFile) {
-                alert("Audio file data cannot be empty.");
+                showNotification("Audio file data cannot be empty.", "error");
                 return;
               }
               const audioBase64 = await encodeFileToBase64(inputFile);
@@ -4013,7 +4241,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               );
             }
             if (!maxCost) {
-              alert("Maximum Cost (Credits) cannot be empty.");
+              showNotification(
+                "Maximum Cost (Credits) cannot be empty.",
+                "error"
+              );
               return;
             }
             await createNewInferenceRequest(
@@ -4100,7 +4331,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         const refreshButton = document.getElementById("refreshButton");
         let lastRunTime = 0;
         const runInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
-
         async function ensureMinimalPSLBalance() {
           const currentTime = new Date().getTime();
           if (currentTime - lastRunTime < runInterval) {
@@ -4118,13 +4348,36 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const table = document.getElementById(
               "creditPackTicketTableBody"
             );
-            const trackingAddresses = Array.from(
-              table.querySelectorAll("tr")
-            ).map((row) => {
-              return row.cells[3].textContent.trim(); // Assuming the tracking address is in the 4th column
-            });
+
+            if (!table) {
+              console.log(
+                "Credit pack table not found. Skipping balance check."
+              );
+              return;
+            }
+
+            const rows = table.querySelectorAll("tr");
+
+            if (rows.length === 0) {
+              console.log("No credit packs found. Skipping balance check.");
+              return;
+            }
+
+            const trackingAddresses = Array.from(rows)
+              .map((row) => {
+                const cell = row.cells[3]; // Assuming the tracking address is in the 4th column
+                return cell ? cell.textContent.trim() : null;
+              })
+              .filter((address) => address); // Remove any null or empty addresses
 
             const uniqueAddresses = [...new Set(trackingAddresses)];
+
+            if (uniqueAddresses.length === 0) {
+              console.log(
+                "No valid tracking addresses found. Skipping balance check."
+              );
+              return;
+            }
 
             const response = await axios.post("/ensure-minimal-psl-balance", {
               addresses: uniqueAddresses,
@@ -4138,7 +4391,37 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             }
           } catch (error) {
             console.error("Error ensuring minimal PSL balance:", error);
+            if (
+              error.message.includes("Timeout waiting for the table to load")
+            ) {
+              console.log(
+                "Table did not load in time. This may be normal if no credit packs exist yet."
+              );
+            }
           }
+        }
+
+        async function waitForTableLoad(maxWaitTime = 10000, interval = 500) {
+          const startTime = new Date().getTime();
+
+          function checkCondition() {
+            const table = document.getElementById(
+              "creditPackTicketTableBody"
+            );
+            return table !== null;
+          }
+
+          return new Promise((resolve, reject) => {
+            (function waitForCondition() {
+              if (checkCondition()) {
+                resolve();
+              } else if (new Date().getTime() - startTime < maxWaitTime) {
+                setTimeout(waitForCondition, interval);
+              } else {
+                reject(new Error("Timeout waiting for the table to load."));
+              }
+            })();
+          });
         }
 
         async function waitForTableLoad(maxWaitTime = 25000, interval = 500) {
