@@ -1282,7 +1282,7 @@ function getPastelIDDirectory(network) {
   const homeDir = process.env.HOME;
   let pastelIDDir = "";
   if (network === "mainnet") {
-    pastelIDDir = path.join(homeDir, ".pastel", "pastelkeys");
+    pastelIDDir =  process.platform === "darwin" ?  path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys"):  path.join(homeDir, ".pastel", "pastelkeys");
   } else if (network === "testnet") {
     pastelIDDir = path.join(homeDir, ".pastel", "testnet3", "pastelkeys");
   } else if (network === "devnet") {

@@ -1281,13 +1281,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             console.log("Import details:", result.details);
 
             // Automatically set the passphrase for the newly imported PastelID
-            if (result.details && result.details.pastel_id_pubkey) {
-              const pastelID = result.details.pastel_id_pubkey;
-              const defaultPassphrase = "testpass"; // The known default passphrase for promo packs
-              localStorage.setItem(pastelID, btoa(defaultPassphrase));
-              // We don't need to call setSelectedPastelIDAndPassphrase here as the page will reload
+            if (result.details && result.details.processedPacks.length > 0) {
+              result.details.processedPacks.forEach((pack) => {
+                localStorage.setItem(pack.pub_key, btoa(pack.passphrase))
+              })
             }
-
+            // We don't need to call setSelectedPastelIDAndPassphrase here as the page will reload
             // Update modal to inform user about the upcoming page reload
             updateModal(
               "Import Successful",
