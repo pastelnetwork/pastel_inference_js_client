@@ -1338,6 +1338,7 @@ async function waitForCreditPackConfirmation(txid) {
 
 async function importPromotionalPack(jsonFilePath) {
   logger.info(`Starting import of promotional pack from file: ${jsonFilePath}`);
+  const processedPacks = [];
 
   try {
     // Initialize RPC connection
@@ -1399,6 +1400,12 @@ async function importPromotionalPack(jsonFilePath) {
       logger.info(`Passphrase: ${pack.pastel_id_passphrase}`);
       logger.info(`Credit Pack Ticket: ${JSON.stringify(pack, null, 2)}`);
 
+      // Add the processed pack info to our array
+      processedPacks.push({
+        pub_key: pack.pastel_id_pubkey,
+        passphrase: pack.pastel_id_passphrase
+      });
+
       logger.info(`Pack ${i + 1} processed successfully`);
     }
 
@@ -1456,12 +1463,13 @@ async function importPromotionalPack(jsonFilePath) {
     return {
       success: true,
       message: "Promotional pack(s) imported and verified successfully",
+      processedPacks: processedPacks
     };
   } catch (error) {
     logger.error(`Error importing promotional pack: ${error.message}`);
     return {
       success: false,
-      message: `Failed to import promotional pack: ${error.message}`,
+      message: `Failed to import promotional pack: ${error.message}`
     };
   }
 }
