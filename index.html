@@ -171,6 +171,80 @@
       background-color: #111827;
     }
 
+    .inference-result,
+    .previous-inference {
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .inference-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 8px;
+    }
+
+    .inference-table th,
+    .inference-table td {
+      padding: 8px;
+      text-align: left;
+    }
+
+    /* Light mode styles */
+    .inference-result,
+    .previous-inference {
+      background-color: #f0f0f0;
+      color: #333;
+    }
+
+    .inference-table th {
+      background-color: #e0e0e0;
+    }
+
+    .inference-table td {
+      background-color: #f8f8f8;
+    }
+
+    /* Dark mode styles */
+    [data-theme="dark"] .inference-result,
+    [data-theme="dark"] .previous-inference {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] .inference-table th {
+      background-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] .inference-table td {
+      background-color: #2f2f2f;
+    }
+
+    [data-theme="dark"] github-md {
+      background-color: #2f2f2f;
+      color: #e0e0e0;
+      padding: 16px;
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* Styles for the request preview container */
+    #requestPreview {
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    [data-theme="dark"] #requestPreview {
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+    }
+
+    /* Remove white border in dark mode */
+    [data-theme="dark"] #requestPreview {
+      border: none;
+    }
+
     .table-responsive {
       overflow-x: auto;
     }
@@ -2246,10 +2320,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             throw new Error("Failed to create new credit pack ticket");
           }
         } catch (error) {
+
+          const MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE = 500;
           console.error(
             `Error creating new credit pack ticket: ${error.message.slice(
-              0,
-              globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+              0, MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
             )}`
           );
           logCreateTicketStatusMessage(
@@ -3363,18 +3438,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           <p class="text-sm italic m-2">(Please note that this is a compressed version of the original generated image.)</p>
         `;
         }
+
         previewContainer.innerHTML = `
-        <div class="mb-4">
-          <h3 class="font-bold">Inference Result:</h3>
-          ${combinedResults}
-        </div>
-        <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-        <div class="table-responsive">
-          <table class="table">
-            <tr>
-              <th>
-                ${request.selectedInferenceType ===
-            "ask_question_about_an_image"
+  <div class="previous-inference">
+    <h3 class="font-bold text-xl mb-4">Inference Result:</h3>
+    <div class="mb-4">
+      ${combinedResults}
+    </div>
+    <h3 class="font-bold text-xl mt-6 mb-4">Misc. Inference Parameters and Statistics:</h3>
+    <table class="inference-table">
+      <tr>
+        <th>
+          ${request.selectedInferenceType === "ask_question_about_an_image"
             ? "Question"
             : request.selectedInferenceType === "embedding_document"
               ? "Input Document Name"
@@ -3382,10 +3457,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 ? "Image Generation Prompt"
                 : "Input Prompt to LLM"
           }
-              </th>
-              <td>
-                ${request.selectedInferenceType ===
-            "ask_question_about_an_image"
+        </th>
+        <td>
+          ${request.selectedInferenceType === "ask_question_about_an_image"
             ? request.inputFields.question
             : request.selectedInferenceType === "embedding_document"
               ? request.inputFields.document_file_name
@@ -3393,20 +3467,16 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                 ? request.inputFields.imagePrompt
                 : request.prompt
           }
-              </td>
-            </tr>
-            <tr><th>Actual Cost (Credits)</th><td>${request.actualCreditsUsed
-          }</td></tr>
-            <tr><th>Remaining Credits</th><td>${request.remainingCredits
-          }</td></tr>
-            <tr><th>Request Timestamp</th><td>${request.requestTimestamp
-          }</td></tr>
-            <tr><th>Model</th><td>${request.selectedModelCanonicalName
-          }</td></tr>
-            <tr><th>Total Time in Seconds to Process Request</th><td>${request.elapsedTimeInSeconds
-          }</td></tr>
-          </table>
-        </div>`;
+        </td>
+      </tr>
+      <tr><th>Actual Cost (Credits)</th><td>${request.actualCreditsUsed}</td></tr>
+      <tr><th>Remaining Credits</th><td>${request.remainingCredits}</td></tr>
+      <tr><th>Request Timestamp</th><td>${request.requestTimestamp}</td></tr>
+      <tr><th>Model</th><td>${request.selectedModelCanonicalName}</td></tr>
+      <tr><th>Total Time in Seconds to Process Request</th><td>${request.elapsedTimeInSeconds}</td></tr>
+    </table>
+  </div>
+`;
 
         renderMarkdown();
       }
@@ -3434,9 +3504,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         modelParametersJSONBase64Encoded,
         modelInputDataJSONBase64Encoded
       ) {
-        const resultContainer = document.getElementById(
-          "inferenceRequestResult"
-        );
+        const resultContainer = document.getElementById("inferenceRequestResult");
         resultContainer.innerHTML = "";
         const loader = document.createElement("div");
         loader.className = "btn is-loading";
@@ -3450,29 +3518,25 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           logStatusMessage("Creating new inference request...");
 
           if (!modelInputDataJSONBase64Encoded) {
-            throw new Error(
-              "Model input data is required and cannot be empty."
-            );
+            throw new Error("Model input data is required and cannot be empty.");
           }
 
           const requestPayload = {
             model_inference_type_string: selectedInferenceType,
             model_parameters_json_b64: modelParametersJSONBase64Encoded,
-            model_input_data_json_b64: modelInputDataJSONBase64Encoded, // Use the original, untruncated data
+            model_input_data_json_b64: modelInputDataJSONBase64Encoded,
             selectedCreditPackTicketId,
             maxCost,
             model_canonical_name: selectedModelCanonicalName,
           };
 
-          // Create a truncated version only for logging
           const truncatedPayload = { ...requestPayload };
           if (
             typeof truncatedPayload.model_input_data_json_b64 === "string" &&
             truncatedPayload.model_input_data_json_b64.length > 100
           ) {
             truncatedPayload.model_input_data_json_b64 =
-              truncatedPayload.model_input_data_json_b64.substring(0, 100) +
-              "...";
+              truncatedPayload.model_input_data_json_b64.substring(0, 100) + "...";
           }
 
           console.log(
@@ -3480,118 +3544,85 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             JSON.stringify(truncatedPayload, null, 2)
           );
 
-          const response = await axios.post(
-            "/create-inference-request",
-            requestPayload
-          );
+          const response = await axios.post("/create-inference-request", requestPayload);
 
           if (response.data.success) {
+            const inferenceResultDict = response.data.result.inferenceResultDict;
+
+            // Check if there's an error in the inferenceResultDict
+            if (inferenceResultDict.error) {
+              throw new Error(inferenceResultDict.error);
+            }
+
             logStatusMessage("Inference request created successfully.");
             const contentType = response.headers["content-type"];
 
-            const inferenceResultDict =
-              response.data.result.inferenceResultDict;
-
             let combinedResults = "";
-            const modelInputDataJSON =
-              inferenceResultDict.model_input_data_json;
+            const modelInputDataJSON = inferenceResultDict.model_input_data_json;
             const {
               proposed_cost_of_request_in_inference_credits,
               remaining_credits_in_pack_after_request_processed,
             } = inferenceResultDict.usage_request_response;
 
             const endTime = new Date();
-            const elapsedTimeInSeconds = Math.floor(
-              (endTime - startTime) / 1000
-            );
+            const elapsedTimeInSeconds = Math.floor((endTime - startTime) / 1000);
             let compressedImage;
+
             if (selectedInferenceType === "text_to_image") {
-              const imageBinaryData =
-                inferenceResultDict.generated_image_decoded.data;
+              const imageBinaryData = inferenceResultDict.generated_image_decoded.data;
               if (imageBinaryData) {
-                // Convert the binary data to a Blob
-                const outputFormat =
-                  document
-                    .getElementById("output_format")
-                    .value.replace("jpeg", "jpg") || "jpg";
-                const imageBlob = new Blob(
-                  [new Uint8Array(imageBinaryData)],
-                  {
-                    type: `image/${outputFormat}`,
-                  }
-                );
-                // Create an object URL for the image
+                const outputFormat = document.getElementById("output_format").value.replace("jpeg", "jpg") || "jpg";
+                const imageBlob = new Blob([new Uint8Array(imageBinaryData)], {
+                  type: `image/${outputFormat}`,
+                });
                 const imageUrl = URL.createObjectURL(imageBlob);
-                // Generate the image name
                 const imageName = modelInputDataJSON.imagePrompt
                   .replace(/[^\w]/g, "_")
                   .replace(/_+/g, "_")
                   .substring(0, 100);
-                // Create the combined results HTML
                 const imageSizeBytes = await fetchImageSize(imageUrl);
-                const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(
-                  2
-                );
+                const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(2);
                 combinedResults = `
-                  <div class="m-8">
-                    <img id="generated-image" src="${imageUrl}" alt="Generated Image" class="max-w-full max-h-96 mx-auto mb-4">
-                    <p class="text-center">
-                      <a href="${imageUrl}" download="${imageName}.${outputFormat}" class="btn success outline m-4">Download Image</a>
-                    </p>
-                    <p class="text-center text-gray-500">File size: ${imageSizeMB} MB</p>
-                  </div>
-                `;
+            <div class="m-8">
+              <img id="generated-image" src="${imageUrl}" alt="Generated Image" class="max-w-full max-h-96 mx-auto mb-4">
+              <p class="text-center">
+                <a href="${imageUrl}" download="${imageName}.${outputFormat}" class="btn success outline m-4">Download Image</a>
+              </p>
+              <p class="text-center text-gray-500">File size: ${imageSizeMB} MB</p>
+            </div>
+          `;
               } else {
                 combinedResults = "Failed to generate image.";
               }
             } else if (selectedInferenceType === "embedding_audio") {
-              const embeddingAudioFileInput =
-                document.getElementById("embeddingAudioFile");
+              const embeddingAudioFileInput = document.getElementById("embeddingAudioFile");
               const originalFileName = embeddingAudioFileInput.files[0].name;
-              const inferenceResultDecoded =
-                inferenceResultDict.inference_result_decoded;
+              const inferenceResultDecoded = inferenceResultDict.inference_result_decoded;
               const formattedResult = prettyJSON(inferenceResultDecoded);
               const coloredResult = formattedResult
-                .replace(/({|})/g, '<span style="color: #4CAF50;">$1</span>') // Light green for braces
-                .replace(
-                  /"([^"]+)"(?=:)/g,
-                  '<span style="color: #2196F3;">$1</span>'
-                ) // Pale blue for keys
-                .replace(
-                  /: ("[^"]+")/g,
-                  ': <span style="color: #FFC107;">$1</span>'
-                ) // Pale yellow for string values
-                .replace(
-                  /: (\d+)/g,
-                  ': <span style="color: #FFC107;">$1</span>'
-                ) // Pale yellow for numeric values
-                .replace(
-                  /: (true|false|null)/g,
-                  ': <span style="color: #FFC107;">$1</span>'
-                ); // Pale yellow for boolean and null values
+                .replace(/({|})/g, '<span style="color: #4CAF50;">$1</span>')
+                .replace(/"([^"]+)"(?=:)/g, '<span style="color: #2196F3;">$1</span>')
+                .replace(/: ("[^"]+")/g, ': <span style="color: #FFC107;">$1</span>')
+                .replace(/: (\d+)/g, ': <span style="color: #FFC107;">$1</span>')
+                .replace(/: (true|false|null)/g, ': <span style="color: #FFC107;">$1</span>');
               combinedResults = `
-                <p>Original File Name: ${originalFileName}</p>
-                <p>Semantic Query String: ${modelInputDataJSON.question}</p>
-                <div style="max-height: 1000px; overflow-y: auto;">
-                  <pre>${coloredResult}</pre>
-                </div>
-              `;
-            } else if (
-              selectedInferenceType === "ask_question_about_an_image"
-            ) {
+          <p>Original File Name: ${originalFileName}</p>
+          <p>Semantic Query String: ${modelInputDataJSON.question}</p>
+          <div style="max-height: 1000px; overflow-y: auto;">
+            <pre>${coloredResult}</pre>
+          </div>
+        `;
+            } else if (selectedInferenceType === "ask_question_about_an_image") {
               const imageFile = document.getElementById("imageFile").files[0];
               const imageUrl = URL.createObjectURL(imageFile);
               combinedResults = `
-                <img src="${imageUrl}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
-                <p>Question: ${modelInputDataJSON.question}</p>
-                <p>Answer:</p>
-                <github-md>${JSON.parse(inferenceResultDict.inference_result_decoded)[0]
-                }</github-md> 
-              `;
+          <img src="${imageUrl}" alt="Input Image" style="max-width: 100%; max-height: 400px;">
+          <p>Question: ${modelInputDataJSON.question}</p>
+          <p>Answer:</p>
+          <github-md>${JSON.parse(inferenceResultDict.inference_result_decoded)[0]}</github-md> 
+        `;
             } else if (selectedInferenceType === "text_completion") {
-              const inferenceResultsDecoded = JSON.parse(
-                inferenceResultDict.inference_result_decoded
-              );
+              const inferenceResultsDecoded = JSON.parse(inferenceResultDict.inference_result_decoded);
               if (Array.isArray(inferenceResultsDecoded)) {
                 inferenceResultsDecoded.forEach((result, i) => {
                   let parsedResult = result;
@@ -3608,114 +3639,85 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                       parsedResult = result;
                     }
                   }
-                  combinedResults += `<h4>Completion ${i + 1} of ${inferenceResultsDecoded.length
-                    }</h4>`;
+                  combinedResults += `<h4>Completion ${i + 1} of ${inferenceResultsDecoded.length}</h4>`;
                   combinedResults += `<github-md>${parsedResult}</github-md>`;
                   if (i < inferenceResultsDecoded.length - 1) {
                     combinedResults += "<hr>";
                   }
                 });
               } else {
-                // It's not an array, just a single result; so wrap it in markdown tags
                 combinedResults = `<github-md>${inferenceResultsDecoded}</github-md>`;
               }
             }
 
             resultContainer.innerHTML = `
-            <div class="mb-4">
-              <h3 class="font-bold">Inference Result:</h3>
-              ${combinedResults}
-            </div>
-            <h3 class="font-bold mt-4">Misc. Inference Parameters and Statistics:</h3>
-            <div class="table-responsive">
-              <table class="table">
-                <tr>
-                  <th>${selectedInferenceType === "embedding_document"
+  <div class="inference-result">
+    <h3 class="font-bold text-xl mb-4">Inference Result:</h3>
+    <div class="mb-4">
+      ${combinedResults}
+    </div>
+    <h3 class="font-bold text-xl mt-6 mb-4">Misc. Inference Parameters and Statistics:</h3>
+    <table class="inference-table">
+      <tr>
+        <th>
+          ${selectedInferenceType === "embedding_document"
                 ? "Input Document File Name"
                 : selectedInferenceType === "embedding_audio"
                   ? "Input Audio File Name"
                   : "Input Prompt to LLM"
-              }</th>
-                  <td>${selectedInferenceType === "embedding_document"
-                ? JSON.parse(atob(modelInputDataJSONBase64Encoded))
-                  .document_file_name
-                : selectedInferenceType === "embedding_audio"
-                  ? JSON.parse(atob(modelInputDataJSONBase64Encoded))
-                    .audio_file_name
-                  : modelInputDataJSON.prompt
-              }</td>
-                </tr>
-                <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
-                <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
-                <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
-                <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
-                <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
-              </table>
-            </div>
-            ${selectedInferenceType === "embedding_document"
-                ? `<p class="text-center">
-                    <a href="#" id="downloadZipButton" class="btn success outline m-4">
-                      Download Zip File of JSON Document Embeddings${inferenceResultDict.semantic_query_result
-                  ? " and Semantic Search Results"
-                  : ""
-                }
-                    </a>
-                  </p>`
-                : ""
               }
-          `;
-
+        </th>
+        <td>
+          ${selectedInferenceType === "embedding_document"
+                ? JSON.parse(atob(modelInputDataJSONBase64Encoded)).document_file_name
+                : selectedInferenceType === "embedding_audio"
+                  ? JSON.parse(atob(modelInputDataJSONBase64Encoded)).audio_file_name
+                  : modelInputDataJSON.prompt
+              }
+        </td>
+      </tr>
+      <tr><th>Actual Cost (Credits)</th><td>${proposed_cost_of_request_in_inference_credits}</td></tr>
+      <tr><th>Remaining Credits</th><td>${remaining_credits_in_pack_after_request_processed}</td></tr>
+      <tr><th>Request Timestamp</th><td>${new Date().toISOString()}</td></tr>
+      <tr><th>Model</th><td>${selectedModelCanonicalName}</td></tr>
+      <tr><th>Total Time in Seconds to Process Request</th><td>${elapsedTimeInSeconds}</td></tr>
+    </table>
+  </div>
+`;
             saveInferenceRequestToLocalStorage({
               selectedCreditPackTicketId,
               selectedInferenceType,
               selectedModelCanonicalName,
               inputFields: JSON.parse(atob(modelInputDataJSONBase64Encoded)),
-              parameterFields: JSON.parse(
-                atob(modelParametersJSONBase64Encoded)
-              ),
+              parameterFields: JSON.parse(atob(modelParametersJSONBase64Encoded)),
               maxCost,
-              inferenceResultsDecoded:
-                inferenceResultDict.inference_result_decoded,
+              inferenceResultsDecoded: inferenceResultDict.inference_result_decoded,
               prompt: document.getElementById("prompt").value,
               elapsedTimeInSeconds,
-              actualCreditsUsed:
-                proposed_cost_of_request_in_inference_credits,
-              remainingCredits:
-                remaining_credits_in_pack_after_request_processed,
-              respondingSupernode:
-                inferenceResultDict.responding_supernode_pastelid,
+              actualCreditsUsed: proposed_cost_of_request_in_inference_credits,
+              remainingCredits: remaining_credits_in_pack_after_request_processed,
+              respondingSupernode: inferenceResultDict.responding_supernode_pastelid,
               requestTimestamp: startTime.toISOString(),
             });
 
             if (selectedInferenceType === "embedding_document") {
-              const embeddingDocumentFileInput = document.getElementById(
-                "embeddingDocumentFile"
-              );
-              const originalFileName =
-                embeddingDocumentFileInput.files[0].name;
-              document
-                .getElementById("downloadZipButton")
-                .addEventListener("click", () => {
-                  const processedFileName = originalFileName
-                    .replace(/\.[^/.]+$/, "")
-                    .replace(/[^\w]/g, "_")
-                    .replace(/_+/g, "_")
-                    .substring(0, 100);
-                  // Convert the buffer data to a Uint8Array
-                  const zipFileDataBuffer =
-                    inferenceResultDict.zip_file_data.data;
-                  const zipFileUint8Array = new Uint8Array(zipFileDataBuffer);
-                  const zipBlob = new Blob([zipFileUint8Array], {
-                    type: "application/zip",
-                  });
-                  const downloadLink = document.createElement("a");
-                  downloadLink.href = URL.createObjectURL(zipBlob);
-                  downloadLink.download = `${processedFileName}.zip`;
-                  downloadLink.click();
-                });
-              // Update the table cell with the original file name
-              resultContainer.querySelector("td").textContent =
-                originalFileName;
+              const embeddingDocumentFileInput = document.getElementById("embeddingDocumentFile");
+              const originalFileName = embeddingDocumentFileInput.files[0].name;
+              document.getElementById("downloadZipButton").addEventListener("click", () => {
+                const processedFileName = originalFileName
+                  .replace(/\.[^/.]+$/, "")
+                  .replace(/[^\w]/g, "_")
+                  .replace(/_+/g, "_")
+                  .substring(0, 100);
+                const zipFileDataBuffer = inferenceResultDict.zip_file_data.data;
+                const zipFileUint8Array = new Uint8Array(zipFileDataBuffer);
+                const zipBlob = new Blob([zipFileUint8Array], { type: "application/zip" });
+                const downloadLink = document.createElement("a");
+                downloadLink.href = URL.createObjectURL(zipBlob);
+                downloadLink.download = `${processedFileName}.zip`;
+                downloadLink.click();
+              });
+              resultContainer.querySelector("td").textContent = originalFileName;
             }
             renderMarkdown();
           } else {
@@ -3728,9 +3730,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
             )}`
           );
-          resultContainer.innerHTML =
-            "Failed to create inference request. Please try again.";
-          logStatusMessage("Failed to create inference request.");
+          resultContainer.innerHTML = `Failed to create inference request: ${error.message}`;
+          logStatusMessage(`Failed to create inference request: ${error.message}`);
         } finally {
           loader.remove();
           displayInferenceRequestLoggerMessages = false;
@@ -4250,10 +4251,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               "Error creating credit pack ticket:",
               error.message
             );
+            const MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE = 500;
+
             logCreateTicketStatusMessage(
               `Failed to create credit pack ticket: ${error.message.slice(
                 0,
-                globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
+                MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
               )}`,
               statusContent
             );

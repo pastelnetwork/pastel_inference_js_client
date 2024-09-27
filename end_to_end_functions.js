@@ -99,10 +99,6 @@ async function checkForNewIncomingMessages() {
       }
     }
 
-    logger.info(
-      `Retrieved unique user messages: ${safeStringify(uniqueMessages)}`
-    );
-
     return uniqueMessages;
   } catch (error) {
     logger.error(`Error in checkForNewIncomingMessages: ${error.message.slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
@@ -474,10 +470,25 @@ async function buildCreditPackStorageRetryRequest(creditPackRequest, signedCredi
   return storageRetryRequest;
 }
 
-async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid) {
+async function getCreditPackTicketInfoEndToEnd(creditPackTicketPastelTxid, optionalPastelID = null,
+  optionalPassphrase = null) {
   try {
-    const pastelID = globals.getPastelId();
-    const passphrase = globals.getPassphrase();
+    console.log("getCreditPackTicketInfoEndToEnd called with:", {
+      creditPackTicketPastelTxid,
+      optionalPastelID: optionalPastelID ? "[PROVIDED]" : "[NOT PROVIDED]",
+      optionalPassphrase: optionalPassphrase ? "[PROVIDED]" : "[NOT PROVIDED]"
+    });
+    let pastelID, passphrase;
+
+    if (optionalPastelID && optionalPassphrase) {
+      pastelID = optionalPastelID;
+      passphrase = optionalPassphrase;
+    } else {
+      pastelID = globals.getPastelId();
+      passphrase = globals.getPassphrase();
+    }
+    console.log("Using PastelID:", pastelID);
+
     if (!pastelID || !passphrase) {
       throw new Error("PastelID or passphrase is not set");
     }

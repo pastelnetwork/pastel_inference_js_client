@@ -954,8 +954,6 @@ async function listPastelIDTickets(filter = "mine", minheight = null) {
         params.push(minheight);
       }
       const result = await rpc_connection.tickets("list", "id", ...params);
-      logger.info(`Pastel ID Tickets: ${result}`);
-      logger.info(`Listed PastelID tickets with filter: ${filter}`);
       return result;
     }
     // If filter is "mine", combine results from `pastelid list` and `tickets find id <PastelID>`
@@ -980,7 +978,6 @@ async function listPastelIDTickets(filter = "mine", minheight = null) {
         }
       }
     }
-    logger.info(`Registered Pastel ID Tickets: ${registeredTickets}`);
     logger.info(`Listed registered PastelID tickets with filter: ${filter}`);
     return registeredTickets;
   } catch (error) {
@@ -1004,7 +1001,6 @@ async function listPastelIDTicketsOld(filter = "mine", minheight = null) {
       params.push(minheight);
     }
     const result = await rpc_connection.tickets("list", "id", ...params);
-    logger.info(`Pastel ID Tickets: ${result}`);
     logger.info(`Listed PastelID tickets with filter: ${filter}`);
     return result;
   } catch (error) {
@@ -1282,7 +1278,7 @@ function getPastelIDDirectory(network) {
   const homeDir = process.env.HOME;
   let pastelIDDir = "";
   if (network === "mainnet") {
-    pastelIDDir =  process.platform === "darwin" ?  path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys"):  path.join(homeDir, ".pastel", "pastelkeys");
+    pastelIDDir = process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys") : path.join(homeDir, ".pastel", "pastelkeys");
   } else if (network === "testnet") {
     pastelIDDir = path.join(homeDir, ".pastel", "testnet3", "pastelkeys");
   } else if (network === "devnet") {

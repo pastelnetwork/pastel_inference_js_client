@@ -441,7 +441,6 @@ let network;
       const { filter, minheight } = req.query;
       try {
         const result = await listPastelIDTickets(filter, minheight);
-        console.log("Pastel ID Tickets:", result);
         res.json({ success: true, result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -1068,6 +1067,77 @@ let network;
         }
       } catch (error) {
         res.status(500).json({ message: error.message });
+      }
+    });
+
+    app.get("/check-tracking-address-balance/:creditPackTicketId", async (req, res) => {
+      try {
+        const { creditPackTicketId } = req.params;
+        const { pastelID, passphrase } = req.query;
+
+        console.log("Received balance check request:", {
+          creditPackTicketId,
+          pastelID,
+          passphrase: passphrase ? "[REDACTED]" : undefined
+        });
+
+
+        if (!pastelID || !passphrase) {
+          return res.status(400).json({
+            success: false,
+            message: "PastelID and passphrase are required as query parameters"
+          });
+        }
+
+
+        // Get the credit pack ticket info
+        const creditPackInfo = await getCreditPackTicketInfoEndToEnd(
+          creditPackTicketId,
+          pastelID,
+          passphrase
+        );
+
+        if (!creditPackInfo || !creditPackInfo.requestConfirmation) {
+          return res.status(404).json({
+            success: false,
+            message: "Credit pack ticket not found or invalid"
+          });
+        }
+
+        const trackingAddress = creditPackInfo.requestConfirmation.credit_usage_tracking_psl_address;
+
+        if (!trackingAddress) {
+          return res.status(404).json({
+            success: false,
+            message: "Tracking address not found in credit pack ticket"
+          });
+        }
+
+        // Check the balance of the tracking address
+        const balance = await checkPSLAddressBalance(trackingAddress);
+
+        if (balance === undefined) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve balance for the tracking address",
+            address: trackingAddress
+          });
+        }
+
+        res.json({
+          success: true,
+          address: trackingAddress,
+          balance: balance
+        });
+
+      } catch (error) {
+        logger.error("Detailed error in checking tracking address balance:", error);
+        res.status(500).json({
+          success: false,
+          message: "An error occurred while checking the tracking address balance",
+          error: error.message,
+          stack: error.stack
+        });
       }
     });
 
