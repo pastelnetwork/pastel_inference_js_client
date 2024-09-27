@@ -373,6 +373,7 @@
         <span id="networkName" class="text-xl font-normal align-middle"></span>
       </h1>
       <input id="theme-toggle" class="switch success lg" data-content="☀" type="checkbox" onchange="toggleDarkMode()" />
+      <button id="openInBrowserButton" class="btn success outline">Open New Window in Browser</button>
     </div>
     <div class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
@@ -387,13 +388,13 @@
               Have a promotional pack file? Import it here to set up your
               account quickly.
             </p>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <input type="file" id="promotionalPackFile" accept=".json" class="hidden" onchange="updateFileLabel()" />
               <label for="promotionalPackFile" class="btn outline secondary text-sm py-1 px-3 cursor-pointer">
                 Choose File
               </label>
-              <span id="fileLabel" class="text-bw-600 text-sm">No file chosen</span>
-              <button onclick="importPromotionalPack()" class="btn success outline text-sm py-1 px-3 ml-auto">
+              <span id="fileLabel" class="text-bw-600 text-sm break-all max-w-lg">No file chosen</span>
+              <button onclick="importPromotionalPack()" class="btn success outline text-sm py-1 px-3 mt-2 sm:mt-0">
                 Import Pack
               </button>
             </div>
@@ -588,9 +589,7 @@
             <tr>
               <th class="select-column">Select</th>
               <th class="initial-credits-column">Initial Credits in Pack</th>
-              <th class="current-credit-balance-column">
-                Current Credit Balance
-              </th>
+              <th class="current-credit-balance-column">Current Credit Balance</th>
               <th class="tracking-address-column">Tracking Address</th>
               <th>Blockheight Registered</th>
               <th>Credit Pack Registration TXID</th>
@@ -607,9 +606,7 @@
               <div class="is-loading"></div>
             </span>
           </button>
-          <div class="btn is-loading hidden" id="loadingMessage">
-            Loading...
-          </div>
+          <div class="btn is-loading hidden" id="loadingMessage">Loading...</div>
         </div>
       </div>
     </div>
@@ -900,27 +897,76 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
     </div>
 
     <script>
+
+      document.addEventListener('DOMContentLoaded', function () {
+        // Function to check if running in Electron
+        function isRunningInElectron() {
+          if (navigator.userAgent.toLowerCase().indexOf(' electron/') > -1) {
+            return true;
+          }
+          if (window.process && process.type === 'renderer') {
+            return true;
+          }
+          if (typeof window !== 'undefined' && typeof window.electron !== 'undefined') {
+            return true;
+          }
+          return false;
+        }
+
+        // Function to set initial dark mode
+        function setInitialDarkMode(isDark) {
+          document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+          const toggle = document.querySelector('#theme-toggle');
+          if (toggle) {
+            toggle.checked = isDark;
+            toggle.setAttribute('data-content', isDark ? '🌙' : '☀');
+          }
+        }
+
+        // Check if running in Electron and set dark mode accordingly
+        if (isRunningInElectron()) {
+          console.log('Running in Electron - setting initial dark mode');
+          setInitialDarkMode(true);
+        } else {
+          // If not in Electron, respect the user's previous preference or system preference
+          const storedTheme = localStorage.getItem('theme');
+          const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const shouldUseDarkMode = storedTheme === 'dark' || (!storedTheme && systemPrefersDark);
+          setInitialDarkMode(shouldUseDarkMode);
+        }
+      });
+
       function showNotification(message, type = "success") {
         // Create the notification element
         const notification = document.createElement("div");
         const bgColorClass =
           type === "success"
-            ? "bg-gradient-to-t from-green-300 to-green-600 border-green-800"
-            : "bg-gradient-to-t from-rose-600 via-red-500 to-red-600 border-red-800";
+            ? "bg-green-100 text-green-900 border-green-300"
+            : "bg-red-100 text-red-900 border-red-300";
+
         // Set classes and styles
-        notification.className = `fixed top-4 left-4 ml-4 mt-4 ${bgColorClass} white-text-shadow p-6 rounded-3xl shadow-2xl  opacity-0 transition-all duration-500 ease-in-out border font-semibold text-lg`;
-        notification.style.zIndex = "5000"; // Set z-index to 5000
+        notification.className = `fixed top-4 left-4 p-4 rounded-lg opacity-0 transition-all duration-500 ease-in-out border font-medium text-base flex items-center`;
+
+        // Modern polished drop shadow
+        notification.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)";
+        notification.style.zIndex = "99999"; // Ensure it's on top
+        notification.style.position = "fixed";
         notification.style.transform = "translateY(-100%)";
+
         // Add emoji and message
         const emoji = type === "success" ? "✅" : "❌";
-        notification.innerHTML = `<span class="text-2xl mr-2">${emoji}</span> ${message}`;
+        notification.innerHTML = `<span class="text-xl mr-3">${emoji}</span> ${message}`;
+
         // Append to body
         document.body.appendChild(notification);
+
         // Animate in
         setTimeout(() => {
           notification.style.opacity = "1";
           notification.style.transform = "translateY(0%)";
         }, 10);
+
         // Animate out and remove element
         setTimeout(() => {
           notification.style.opacity = "0";
@@ -930,6 +976,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }, 500);
         }, 3000);
       }
+
       window.showNotification = showNotification;
 
       const MESSAGING_TIMEOUT_IN_SECONDS = 60;
@@ -1264,10 +1311,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         const formData = new FormData();
         formData.append("packFile", file);
 
-        showModal(
-          "Importing Promotional Pack",
-          "Processing your promotional pack..."
-        );
+        showModal("Importing Promotional Pack", "Processing your promotional pack...");
 
         try {
           const response = await fetch("/import-promotional-pack", {
@@ -1283,41 +1327,93 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             // Automatically set the passphrase for the newly imported PastelID
             if (result.details && result.details.processedPacks.length > 0) {
               result.details.processedPacks.forEach((pack) => {
-                localStorage.setItem(pack.pub_key, btoa(pack.passphrase))
-              })
+                localStorage.setItem(pack.pub_key, btoa(pack.passphrase));
+              });
+
+              // Set the newly imported PastelID as the current one
+              const newPastelID = result.details.processedPacks[0].pub_key;
+              await setSelectedPastelIDAndPassphrase(newPastelID, "", true);
             }
-            // We don't need to call setSelectedPastelIDAndPassphrase here as the page will reload
-            // Update modal to inform user about the upcoming page reload
-            updateModal(
-              "Import Successful",
-              "Import completed. The page will now reload to refresh all data."
-            );
 
-            // Set a flag in sessionStorage to indicate we should refresh credit packs after reload
-            sessionStorage.setItem("refreshCreditPacksAfterReload", "true");
+            updateModal("Import Successful", "Import completed. Refreshing data...");
 
-            // Delay the reload slightly to allow the user to see the success message
-            setTimeout(() => {
-              location.reload();
-            }, 3000);
+            // Refresh the necessary data without reloading the page
+            await refreshUIAfterImport(result.details);
 
-            return;
+            hideModal();
+            showNotification("Promotional pack imported successfully!", "success");
           } else {
-            throw new Error(
-              result.message || "Unknown error occurred during import"
-            );
+            throw new Error(result.message || "Unknown error occurred during import");
           }
         } catch (error) {
           console.error("Error importing promotional pack:", error);
-          updateModal(
-            "Import Failed",
-            `An error occurred while importing the promotional pack: ${error.message}`
-          );
+          updateModal("Import Failed", `An error occurred while importing the promotional pack: ${error.message}`);
           setTimeout(hideModal, 5000);
         }
       }
 
-      // Add this function to your existing code
+      async function refreshUIAfterImport(importDetails) {
+        try {
+          // Refresh PastelID dropdown and select the newly imported PastelID
+          await updatePastelIDDropdown();
+          if (importDetails && importDetails.processedPacks.length > 0) {
+            const newPastelID = importDetails.processedPacks[0].pub_key;
+            document.getElementById("pastelIDDropdown").value = newPastelID;
+            document.getElementById("userPastelID").textContent = newPastelID;
+          }
+          console.log("PastelID dropdown updated");
+
+          // Refresh credit pack tickets
+          await getMyValidCreditPacks(true);
+          console.log("Credit pack tickets refreshed");
+
+          // Refresh wallet info
+          await updateWalletInfo();
+          console.log("Wallet info updated");
+
+          // Update network name
+          await updateNetworkName();
+          console.log("Network name updated");
+
+          // Refresh the model menu
+          await fetchModelMenu();
+          console.log("Model menu refreshed");
+
+          // Refresh received messages
+          await fetchReceivedMessages();
+          console.log("Received messages refreshed");
+
+          console.log("UI refresh completed");
+        } catch (error) {
+          console.error("Error during UI refresh:", error);
+        }
+      }
+
+      async function updateNetworkName() {
+        try {
+          const response = await fetch("/get-network-info");
+          const data = await response.json();
+          document.getElementById("networkName").textContent = `(${data.network})`;
+        } catch (error) {
+          console.error("Error updating network name:", error);
+        }
+      }
+
+      async function updateWalletInfo() {
+        try {
+          const walletInfoResponse = await axios.get("/get-wallet-info");
+          const walletInfo = walletInfoResponse.data.result;
+          const formattedWalletBalance = walletInfo.balance.toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          });
+          document.getElementById("walletBalance").textContent = `${formattedWalletBalance} PSL`;
+        } catch (error) {
+          console.error("Error retrieving wallet info:", error);
+          document.getElementById("walletBalance").textContent = "Failed to load balance";
+        }
+      }
+
       document.addEventListener("DOMContentLoaded", function () {
         if (
           sessionStorage.getItem("refreshCreditPacksAfterReload") === "true"
@@ -1449,7 +1545,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           console.error("Failed to fetch credit pack info:", result.error);
         }
       }
-
       async function setSelectedPastelIDAndPassphrase(
         selectedPastelID,
         extraMessage = "",
@@ -1474,18 +1569,18 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
           if (!storedPassphrase && !isNewlyImportedPromoPack) {
             const dialogHtml = `
-                <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
-                  <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
-                    <p style="color:red;">${extraMessage}</p>
-                    <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
-                    <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
-                    <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter password">
-                    <div>
-                      <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
-                    </div>
-                  </div>
-                </div>
-              `;
+        <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
+          <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;" data-theme="light">
+            <p style="color:red;">${extraMessage}</p>
+            <h2 style="margin-bottom: 10px;">Enter passphrase for PastelID:</h2>
+            <p style="font-weight: bold; margin-bottom: 10px;">${selectedPastelID}</p>
+            <input type="password" id="passphraseInput" class="input w-full" style="margin-bottom: 10px;" placeholder="Enter passphrase">
+            <div>
+              <button id="submitPassphrase" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">Submit</button>
+            </div>
+          </div>
+        </div>
+      `;
 
             const dialog = document.createElement("div");
             dialog.innerHTML = dialogHtml;
@@ -1493,17 +1588,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             return new Promise((resolve) => {
               const submitButton = dialog.querySelector("#submitPassphrase");
-              const passphraseInput =
-                dialog.querySelector("#passphraseInput");
+              const passphraseInput = dialog.querySelector("#passphraseInput");
 
               submitButton.addEventListener("click", async () => {
                 const inputPassphrase = passphraseInput.value;
                 if (inputPassphrase) {
                   try {
-                    localStorage.setItem(
-                      selectedPastelID,
-                      btoa(inputPassphrase)
-                    );
+                    localStorage.setItem(selectedPastelID, btoa(inputPassphrase));
                     storedPassphrase = btoa(inputPassphrase);
                     dialog.remove();
                     await postPassphrase(selectedPastelID, storedPassphrase);
@@ -1517,16 +1608,37 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               });
             });
           } else {
-            if (isNewlyImportedPromoPack && !storedPassphrase) {
-              // For newly imported promo packs, use the default passphrase
-              const defaultPassphrase = "testpass";
-              storedPassphrase = btoa(defaultPassphrase);
-              localStorage.setItem(selectedPastelID, storedPassphrase);
+            if (isNewlyImportedPromoPack) {
+              // For newly imported promo packs, the passphrase should already be in localStorage
+              console.log("Using stored passphrase for newly imported promo pack.");
+              if (!storedPassphrase) {
+                console.error("Expected passphrase not found for newly imported promo pack.");
+                // Handle this error case appropriately
+                return;
+              }
             }
             await postPassphrase(selectedPastelID, storedPassphrase);
           }
+
+          // After successfully setting the PastelID and passphrase, update the UI
+          document.getElementById("userPastelID").textContent = selectedPastelID;
+          document.getElementById("pastelIDDropdown").value = selectedPastelID;
+
+          // Fetch the model menu after setting the PastelID and passphrase
+          await fetchModelMenu();
+
+          // Fetch received messages after setting the PastelID and passphrase
+          await fetchReceivedMessages();
+
         } catch (error) {
-          console.error("Error checking PastelID validity:", error);
+          console.error("Error in setSelectedPastelIDAndPassphrase:", error);
+          if (error.response && error.response.status === 401) {
+            // Handle unauthorized error (e.g., invalid passphrase)
+            await setSelectedPastelIDAndPassphrase(selectedPastelID, "Invalid Passphrase. Please try again.");
+          } else {
+            // Handle other errors
+            showNotification("An error occurred while setting PastelID and passphrase. Please try again.", "error");
+          }
         }
       }
 
@@ -1670,9 +1782,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           forceRefresh
         );
         const loadingMessage = document.getElementById("loadingMessage");
-        const tableBody = document.getElementById(
-          "creditPackTicketTableBody"
-        );
+        const tableBody = document.getElementById("creditPackTicketTableBody");
         loadingMessage.style.display = "block";
 
         let tooltip = document.getElementById("credit-pack-tooltip");
@@ -1695,11 +1805,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               "validCreditPackTicketsTimestamp"
             );
 
-            if (
-              savedData &&
-              savedTimestamp &&
-              now - savedTimestamp < 300000
-            ) {
+            if (savedData && savedTimestamp && now - savedTimestamp < 300000) {
               validCreditPackTickets = JSON.parse(savedData);
             } else {
               const response = await axios.get("/get-my-valid-credit-packs");
@@ -1758,14 +1864,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               .filter(([key]) => !displayedColumns.includes(key))
               .map(
                 ([key, value]) => `
-          <div class="flex justify-between py-1">
-            <span class="font-semibold text-gray-800 mr-2 whitespace-nowrap">${key.replace(
+    <div class="flex justify-between py-1">
+      <span class="font-semibold text-gray-800 mr-2 whitespace-nowrap">${key.replace(
                   /_/g,
                   " "
                 )}:</span>
-            <span class="text-gray-700">${value}</span>
-          </div>
-        `
+      <span class="text-gray-700">${value}</span>
+    </div>
+  `
               )
               .join("");
 
@@ -1775,7 +1881,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               hoverTimeout = setTimeout(() => {
                 tooltip.innerHTML = tooltipContent;
 
-                // Calculate position to keep tooltip within viewport and closer to the cursor
                 const tooltipRect = tooltip.getBoundingClientRect();
                 const xPos = Math.min(
                   e.clientX + 15,
@@ -1818,14 +1923,27 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               }, 300);
             });
 
-            const radioCell = document.createElement("td");
+            const selectCell = document.createElement("td");
+            selectCell.className = "flex items-center space-x-2";
+
             const radioInput = document.createElement("input");
             radioInput.type = "radio";
             radioInput.name = "creditPackTicket";
             radioInput.value = ticket.requesting_end_user_pastelid;
             radioInput.dataset.txid = ticket.credit_pack_registration_txid;
-            radioCell.appendChild(radioInput);
-            row.appendChild(radioCell);
+
+            const copyButton = document.createElement("button");
+            copyButton.innerHTML = '📋'; // Clipboard icon
+            copyButton.className = 'text-gray-500 hover:text-gray-700 focus:outline-none tooltip';
+            copyButton.setAttribute('data-tooltip', 'Copy Credit Pack Info to Clipboard');
+            copyButton.onclick = (e) => {
+              e.stopPropagation(); // Prevent row selection
+              copyToClipboard(JSON.stringify(ticket, null, 2));
+            };
+
+            selectCell.appendChild(radioInput);
+            selectCell.appendChild(copyButton);
+            row.appendChild(selectCell);
 
             const initialCreditsCell = document.createElement("td");
             initialCreditsCell.classList.add("truncate");
@@ -1846,8 +1964,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             const addressLink = document.createElement("a");
             addressLink.href = `https://explorer.pastel.network/address/${ticket.credit_usage_tracking_psl_address}`;
             addressLink.target = "_blank";
-            addressLink.textContent =
-              ticket.credit_usage_tracking_psl_address;
+            addressLink.textContent = ticket.credit_usage_tracking_psl_address;
             trackingAddressCell.appendChild(addressLink);
             row.appendChild(trackingAddressCell);
 
@@ -1858,8 +1975,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             );
             row.appendChild(blockheightCell);
 
-            const creditPackRegistrationTxidCell =
-              document.createElement("td");
+            const creditPackRegistrationTxidCell = document.createElement("td");
             creditPackRegistrationTxidCell.classList.add("truncate");
             const txLink = document.createElement("a");
             txLink.href = `https://explorer.pastel.network/tx/${ticket.credit_pack_registration_txid}`;
@@ -1882,6 +1998,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         } finally {
           loadingMessage.style.display = "none";
         }
+      }
+
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('Credit pack info copied to clipboard!', 'success');
+        }, (err) => {
+          console.error('Could not copy text: ', err);
+          showNotification('Failed to copy to clipboard', 'error');
+        });
       }
 
       function showLoading(id) {
@@ -3074,8 +3199,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         requests.forEach((request, index) => {
           markdownContent += `## Inference Request ${index + 1}\n`;
           markdownContent += `**Prompt**: ${request.selectedInferenceType === "ask_question_about_an_image"
-              ? request.inputFields.question
-              : request.prompt
+            ? request.inputFields.question
+            : request.prompt
             }\n\n`;
           markdownContent += `**Inference Results**:\n\n`;
 
@@ -3094,8 +3219,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           markdownContent += `| Parameter | Value |\n`;
           markdownContent += `| --- | --- |\n`;
           markdownContent += `| Input Prompt to LLM | ${request.selectedInferenceType === "ask_question_about_an_image"
-              ? request.inputFields.question
-              : request.prompt
+            ? request.inputFields.question
+            : request.prompt
             } |\n`;
           markdownContent += `| Actual Cost (Credits) | ${request.actualCreditsUsed} |\n`;
           markdownContent += `| Remaining Credits | ${request.remainingCredits} |\n`;

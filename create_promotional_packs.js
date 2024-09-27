@@ -17,6 +17,7 @@ const {
     checkSupernodeList,
     getNetworkInfo,
     listPastelIDTickets,
+    ensureTrackingAddressesHaveMinimalPSLBalance,
 } = require('./rpc_functions');
 
 const { filterSupernodes, getNClosestSupernodesToPastelIDURLs } = require('./utility_functions');
@@ -596,6 +597,8 @@ async function generateOrRecoverPromotionalPacks(numberOfPacks, creditsPerPack, 
                     combinedPacks.push(generatedPack);
                     intermediateResults.completedPacks.push(generatedPack);
                     logger.info(`Successfully generated and saved credit pack for PastelID: ${pastelID}, TXID: ${creditPackPurchaseRequestConfirmationResponse.pastel_api_credit_pack_ticket_registration_txid}, Tracking Address: ${creditPackRequest.credit_usage_tracking_psl_address}`);
+
+                    await ensureTrackingAddressesHaveMinimalPSLBalance([creditPackRequest.credit_usage_tracking_psl_address]);
                 } else {
                     logger.error(`Failed to create credit pack for PastelID: ${pastelID}; error message: ${creditPackPurchaseRequestConfirmationResponse.errorMessage}`);
                 }
