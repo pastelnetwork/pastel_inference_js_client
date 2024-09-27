@@ -938,18 +938,30 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       });
 
       function showNotification(message, type = "success") {
+        // Detect the theme from the HTML data-theme attribute
+        const htmlElement = document.documentElement;
+        const theme = htmlElement.getAttribute('data-theme') || 'light'; // Default to light if no theme is set
+
+        // Define styles for light and dark themes
+        const isDarkTheme = theme === 'dark';
+        const bgColorClass = type === "success"
+          ? isDarkTheme
+            ? "bg-green-700 text-white border-green-800"
+            : "bg-green-500 text-white border-green-700"
+          : isDarkTheme
+            ? "bg-red-700 text-white border-red-800"
+            : "bg-red-500 text-white border-red-700";
+
         // Create the notification element
         const notification = document.createElement("div");
-        const bgColorClass =
-          type === "success"
-            ? "bg-green-100 text-green-900 border-green-300"
-            : "bg-red-100 text-red-900 border-red-300";
 
-        // Set classes and styles
+        // Set common classes
         notification.className = `fixed top-4 left-4 p-4 rounded-lg opacity-0 transition-all duration-500 ease-in-out border font-medium text-base flex items-center`;
 
         // Modern polished drop shadow
-        notification.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)";
+        notification.style.boxShadow = isDarkTheme
+          ? "0 8px 16px rgba(0, 0, 0, 0.6), 0 4px 6px rgba(0, 0, 0, 0.4)"
+          : "0 8px 16px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1)";
         notification.style.zIndex = "99999"; // Ensure it's on top
         notification.style.position = "fixed";
         notification.style.transform = "translateY(-100%)";
@@ -957,6 +969,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         // Add emoji and message
         const emoji = type === "success" ? "✅" : "❌";
         notification.innerHTML = `<span class="text-xl mr-3">${emoji}</span> ${message}`;
+
+        // Split and add the background color classes individually
+        bgColorClass.split(' ').forEach(cls => notification.classList.add(cls));
 
         // Append to body
         document.body.appendChild(notification);
@@ -976,7 +991,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }, 500);
         }, 3000);
       }
-
       window.showNotification = showNotification;
 
       const MESSAGING_TIMEOUT_IN_SECONDS = 60;
@@ -1775,7 +1789,6 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           console.error("Error checking tracking addresses:", error.message);
         }
       }
-
       async function getMyValidCreditPacks(forceRefresh = false) {
         console.log(
           "getMyValidCreditPacks function called with forceRefresh:",
@@ -1864,14 +1877,14 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
               .filter(([key]) => !displayedColumns.includes(key))
               .map(
                 ([key, value]) => `
-    <div class="flex justify-between py-1">
-      <span class="font-semibold text-gray-800 mr-2 whitespace-nowrap">${key.replace(
+<div class="flex justify-between py-1">
+  <span class="font-semibold text-gray-800 mr-2 whitespace-nowrap">${key.replace(
                   /_/g,
                   " "
                 )}:</span>
-      <span class="text-gray-700">${value}</span>
-    </div>
-  `
+  <span class="text-gray-700">${value}</span>
+</div>
+`
               )
               .join("");
 
@@ -1933,12 +1946,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             radioInput.dataset.txid = ticket.credit_pack_registration_txid;
 
             const copyButton = document.createElement("button");
-            copyButton.innerHTML = '📋'; // Clipboard icon
-            copyButton.className = 'text-gray-500 hover:text-gray-700 focus:outline-none tooltip';
-            copyButton.setAttribute('data-tooltip', 'Copy Credit Pack Info to Clipboard');
+            copyButton.innerHTML = '📋';
+            copyButton.className = 'text-gray-500 hover:text-gray-700 focus:outline-none ml-2';
+            copyButton.title = 'Copy Credit Pack Info to Clipboard';
             copyButton.onclick = (e) => {
-              e.stopPropagation(); // Prevent row selection
+              e.stopPropagation();
               copyToClipboard(JSON.stringify(ticket, null, 2));
+              showNotification("Credit pack info copied to clipboard!", "success");
             };
 
             selectCell.appendChild(radioInput);
@@ -2001,12 +2015,12 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       }
 
       function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-          showNotification('Credit pack info copied to clipboard!', 'success');
-        }, (err) => {
-          console.error('Could not copy text: ', err);
-          showNotification('Failed to copy to clipboard', 'error');
-        });
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
       }
 
       function showLoading(id) {
