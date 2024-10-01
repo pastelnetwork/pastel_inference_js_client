@@ -1279,11 +1279,29 @@ function getPastelIDDirectory(network) {
   const homeDir = process.env.HOME;
   let pastelIDDir = "";
   if (network === "mainnet") {
-    pastelIDDir = process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys") : path.join(homeDir, ".pastel", "pastelkeys");
+    if (process.platform === "linux") {
+      pastelIDDir =  path.join(homeDir, ".pastel", "pastelkeys")
+    } else if (process.platform === "darwin") {
+      pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys")
+    } else {
+      pastelIDDir = path.join(os.homedir(), "AppData", "Roaming", "Pastel", "pastelkeys")
+    }
   } else if (network === "testnet") {
-    pastelIDDir = path.join(homeDir, ".pastel", "testnet3", "pastelkeys");
+    if (process.platform === "linux") {
+      pastelIDDir =  path.join(homeDir, ".pastel", "testnet3", "pastelkeys")
+    } else if (process.platform === "darwin") {
+      pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "testnet3", "pastelkeys")
+    } else {
+      pastelIDDir = path.join(os.homedir(), "AppData", "Roaming", "Pastel", "testnet3", "pastelkeys")
+    }
   } else if (network === "devnet") {
-    pastelIDDir = path.join(homeDir, ".pastel", "devnet3", "pastelkeys");
+    if (process.platform === "linux") {
+      pastelIDDir =  path.join(homeDir, ".pastel", "devnet3", "pastelkeys")
+    } else if (process.platform === "darwin") {
+      pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "devnet3", "pastelkeys")
+    } else {
+      pastelIDDir = path.join(os.homedir(), "AppData", "Roaming", "Pastel", "devnet3", "pastelkeys")
+    }
   }
   return pastelIDDir;
 }
