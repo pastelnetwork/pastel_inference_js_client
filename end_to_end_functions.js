@@ -64,7 +64,6 @@ async function checkForNewIncomingMessages() {
     }
     const { validMasternodeListFullDF } = await checkSupernodeList();
 
-    logger.info("Retrieving incoming user messages...");
     logger.info(`My local pastelid: ${inferenceClient.pastelID}`);
 
     const closestSupernodesToLocal = await getNClosestSupernodesToPastelIDURLs(

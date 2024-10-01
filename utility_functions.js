@@ -1382,10 +1382,13 @@ async function importPromotionalPack(jsonFilePath) {
       logger.info(
         `Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`
       );
+
+      const startingBlockHeight = 732000;
       const importResult = await importPrivKey(
         pack.psl_credit_usage_tracking_address_private_key,
         "Imported from promotional pack",
-        false
+        true,
+        startingBlockHeight
       );
       if (importResult) {
         logger.info(
