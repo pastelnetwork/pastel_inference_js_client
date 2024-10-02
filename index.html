@@ -29,14 +29,25 @@
     }
 
     /* Theme Styles */
-    [data-theme="light"] {
-      color: #121212;
-      background-color: #ffffff;
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #121212;
+      --border-color: #ccc;
+      --hover-bg: #4caf50;
+      --hover-text: #ffffff;
     }
 
     [data-theme="dark"] {
-      background-color: #121212;
-      color: #ffffff;
+      --bg-color: #121212;
+      --text-color: #e0e0e0;
+      --border-color: #444444;
+      --hover-bg: #45a049;
+      --hover-text: #121212;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
     }
 
     /* Button Styles */
@@ -46,8 +57,8 @@
     }
 
     .btn.success.outline:hover {
-      background-color: #4caf50;
-      color: #ffffff;
+      background-color: var(--hover-bg);
+      color: var(--hover-text);
     }
 
     .btn.success.outline:active {
@@ -74,7 +85,7 @@
     .table th,
     .table td {
       padding: 0.5rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-color);
     }
 
     .table th:last-child,
@@ -106,7 +117,7 @@
     .credit-pack-table th,
     .credit-pack-table td {
       padding: 0.5rem;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border-color);
     }
 
     .credit-pack-table th {
@@ -161,7 +172,7 @@
       height: 333px;
       overflow-y: auto;
       padding: 0.5rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-color);
       border-radius: 0.5rem;
     }
 
@@ -221,147 +232,6 @@
       font-size: inherit;
     }
 
-    /* Dark Mode Styles */
-    [data-theme="dark"] .bg-white {
-      background-color: #333333;
-    }
-
-    [data-theme="dark"] .text-bw-50 {
-      color: #cccccc;
-    }
-
-    [data-theme="dark"] .text-bw-600,
-    [data-theme="dark"] .text-bw-800 {
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .text-bw-700 {
-      color: #eeeeee;
-    }
-
-    [data-theme="dark"] .bg-bw-50,
-    [data-theme="dark"] .table .bg-gray-200 {
-      background-color: #333333;
-    }
-
-    [data-theme="dark"] .bg-bw-800 {
-      background-color: #111827;
-    }
-
-    [data-theme="dark"] .btn.outline.bw {
-      border-color: #ffffff;
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .btn.outline.bw:hover {
-      background-color: #ffffff;
-      color: #000000;
-    }
-
-    [data-theme="dark"] .table .bg-gray-200 {
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .table .bg-gray-200.selected-row {
-      color: #000000;
-    }
-
-    [data-theme="dark"] #previousRequestsList {
-      background-color: #333333;
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .input,
-    [data-theme="dark"] .select {
-      border-color: #cccccc;
-    }
-
-    [data-theme="dark"] .input::placeholder,
-    [data-theme="dark"] .input::-ms-input-placeholder {
-      color: #cccccc;
-      opacity: 1;
-    }
-
-    [data-theme="dark"] .select option {
-      color: #333333;
-    }
-
-    [data-theme="dark"] .delete-btn {
-      color: #ffffff;
-      border-color: #ffffff;
-    }
-
-    [data-theme="dark"] .inference-result,
-    [data-theme="dark"] .previous-inference {
-      background-color: #2a2a2a;
-      color: #e0e0e0;
-    }
-
-    [data-theme="dark"] .inference-table th {
-      background-color: #3a3a3a;
-    }
-
-    [data-theme="dark"] .inference-table td {
-      background-color: #2f2f2f;
-    }
-
-    [data-theme="dark"] github-md {
-      background-color: #2f2f2f;
-      color: #e0e0e0;
-      padding: 16px;
-      border-radius: 8px;
-      display: block;
-    }
-
-    [data-theme="dark"] #requestPreview {
-      background-color: #1e1e1e;
-      color: #e0e0e0;
-      border: none;
-    }
-
-    [data-theme="dark"] .prompt.success.xs code {
-      font-family: 'Courier New', Courier, monospace;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-attr {
-      color: #9cdcfe;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-string {
-      color: #ce9178;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-number {
-      color: #b5cea8;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-literal,
-    [data-theme="dark"] .prompt.success.xs .json .hljs-keyword {
-      color: #569cd6;
-    }
-
-    [data-theme="dark"] .credit-pack-table th {
-      background-color: #2a2a2a;
-      color: #e0e0e0;
-      border-color: #4a4a4a;
-    }
-
-    [data-theme="dark"] .credit-pack-table td {
-      border-color: #4a4a4a;
-    }
-
-    [data-theme="dark"] .credit-pack-table {
-      color: #e0e0e0;
-    }
-
-    [data-theme="dark"] .credit-pack-table tbody tr:nth-child(even) {
-      background-color: #333333;
-    }
-
-    [data-theme="dark"] .credit-pack-table tbody tr:hover {
-      background-color: #3a3a3a;
-    }
-
     /* Modal Styles */
     #importModal {
       display: none;
@@ -376,10 +246,10 @@
     }
 
     #importModal>div {
-      background-color: #fefefe;
+      background-color: var(--bg-color);
       margin: 15% auto;
       padding: 20px;
-      border: 1px solid #888;
+      border: 1px solid var(--border-color);
       width: 80%;
       max-width: 500px;
       border-radius: 10px;
@@ -388,11 +258,11 @@
 
     #modalTitle {
       margin-top: 0;
-      color: #333;
+      color: var(--text-color);
     }
 
     #modalMessage {
-      color: #666;
+      color: var(--text-color);
     }
 
     #modalCloseButton {
@@ -409,28 +279,6 @@
       background-color: #45a049;
     }
 
-    /* Dark mode styles for the modal */
-    [data-theme="dark"] #importModal>div {
-      background-color: #333;
-      border-color: #555;
-    }
-
-    [data-theme="dark"] #modalTitle {
-      color: #fff;
-    }
-
-    [data-theme="dark"] #modalMessage {
-      color: #ddd;
-    }
-
-    [data-theme="dark"] #modalCloseButton {
-      background-color: #45a049;
-    }
-
-    [data-theme="dark"] #modalCloseButton:hover {
-      background-color: #4CAF50;
-    }
-
     /* Specific Element Styles */
     #previousRequestsList {
       background-color: #f9f9f9;
@@ -442,7 +290,7 @@
     }
 
     #requestPreview {
-      background-color: #ffffff;
+      background-color: var(--bg-color);
       border: 1px solid #e5e7eb;
       border-radius: 0.5rem;
       padding: 1.5rem;
@@ -477,6 +325,144 @@
       margin-left: 5px;
       font-size: 14px;
       color: #6b7280;
+    }
+
+    #credit-pack-tooltip {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      max-width: 300px;
+      word-wrap: break-word;
+    }
+
+    /* Dark Mode Specific Styles */
+    [data-theme="dark"] .bg-white,
+    [data-theme="dark"] .bg-bw-50 {
+      background-color: #1e1e1e;
+    }
+
+    [data-theme="dark"] .text-bw-50,
+    [data-theme="dark"] .text-bw-600,
+    [data-theme="dark"] .text-bw-700,
+    [data-theme="dark"] .text-bw-800 {
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .bg-bw-800 {
+      background-color: #111827;
+    }
+
+    [data-theme="dark"] .btn.outline.bw {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .btn.outline.bw:hover {
+      background-color: #ffffff;
+      color: #000000;
+    }
+
+    [data-theme="dark"] .table .bg-gray-200 {
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .table .bg-gray-200.selected-row {
+      color: #000000;
+    }
+
+    [data-theme="dark"] .input,
+    [data-theme="dark"] .select {
+      background-color: #2a2a2a;
+      border-color: #555555;
+    }
+
+    [data-theme="dark"] .input::placeholder,
+    [data-theme="dark"] .input::-ms-input-placeholder {
+      color: #888888;
+      opacity: 1;
+    }
+
+    [data-theme="dark"] .select option {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] .delete-btn {
+      color: #ff6b6b;
+    }
+
+    [data-theme="dark"] .inference-result,
+    [data-theme="dark"] .previous-inference,
+    [data-theme="dark"] #previousRequestsList,
+    [data-theme="dark"] #receivedMessages {
+      background-color: #2a2a2a;
+    }
+
+    [data-theme="dark"] .inference-table th {
+      background-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] .inference-table td {
+      background-color: #2f2f2f;
+    }
+
+    [data-theme="dark"] github-md,
+    [data-theme="dark"] pre,
+    [data-theme="dark"] code,
+    [data-theme="dark"] .hljs {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] .prompt.success.xs code {
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    [data-theme="dark"] .hljs-attr {
+      color: #9cdcfe;
+    }
+
+    [data-theme="dark"] .hljs-string {
+      color: #ce9178;
+    }
+
+    [data-theme="dark"] .hljs-number {
+      color: #b5cea8;
+    }
+
+    [data-theme="dark"] .hljs-literal,
+    [data-theme="dark"] .hljs-keyword {
+      color: #569cd6;
+    }
+
+    [data-theme="dark"] a {
+      color: #4db6ac;
+    }
+
+    [data-theme="dark"] a:hover {
+      color: #80cbc4;
+    }
+
+    [data-theme="dark"] #terminal {
+      background-color: #1a1a1a;
+      color: #f0f0f0;
+    }
+
+    [data-theme="dark"] .notification {
+      background-color: #333333;
+      color: #ffffff;
+      border-color: #555555;
+    }
+
+    [data-theme="dark"] #credit-pack-tooltip .font-semibold {
+      color: #4db6ac;
+    }
+
+    [data-theme="dark"] #credit-pack-tooltip .text-gray-700 {
+      color: #e0e0e0;
     }
 
     /* Media Queries */
