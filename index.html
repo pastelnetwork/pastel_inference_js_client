@@ -1553,7 +1553,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
       async function refreshUIAfterImport(importDetails) {
         try {
-          // Refresh PastelID dropdown and select the newly imported PastelID
+          console.log("Starting UI refresh after import...");
+
+          // Refresh PastelID dropdown
           await updatePastelIDDropdown();
           if (importDetails && importDetails.processedPacks.length > 0) {
             const newPastelID = importDetails.processedPacks[0].pub_key;
@@ -1562,7 +1564,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           }
           console.log("PastelID dropdown updated");
 
-          // Refresh credit pack tickets
+          // Refresh credit pack tickets with force refresh
           await getMyValidCreditPacks(true);
           console.log("Credit pack tickets refreshed");
 
@@ -1581,6 +1583,13 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           // Refresh received messages
           await fetchReceivedMessages();
           console.log("Received messages refreshed");
+
+          // Ensure the UI reflects the latest credit pack data
+          const creditPackTableBody = document.getElementById("creditPackTicketTableBody");
+          if (creditPackTableBody.children.length === 0) {
+            console.log("Credit pack table is empty, triggering a re-fetch...");
+            await getMyValidCreditPacks(true);
+          }
 
           console.log("UI refresh completed");
         } catch (error) {
