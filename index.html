@@ -19,15 +19,27 @@
     src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha3/0.9.3/sha3.min.js"></script>
   <style>
-    .ground-glass {
-      background-color: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(10px);
-    }
-
+    /* Base Styles */
     body {
       font-family: Montserrat, sans-serif;
     }
 
+    * {
+      scroll-margin-top: 72px;
+    }
+
+    /* Theme Styles */
+    [data-theme="light"] {
+      color: #121212;
+      background-color: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      background-color: #121212;
+      color: #ffffff;
+    }
+
+    /* Button Styles */
     .btn.success.outline {
       border-color: #4caf50;
       color: #4caf50;
@@ -44,17 +56,12 @@
       color: #ffffff;
     }
 
-    .icon-large {
-      font-size: 1.5rem;
-      /* Adjust this size as needed */
+    .btn.is-loading:before {
+      display: inline-block;
+      vertical-align: middle;
     }
 
-    .xterm {
-      width: 100% !important;
-      border-radius: 0.5rem;
-      /* Adds rounded corners */
-    }
-
+    /* Table Styles */
     .table-container {
       overflow-x: auto;
     }
@@ -82,95 +89,50 @@
       white-space: normal;
     }
 
-    [data-theme="dark"] {
-      background-color: #121212;
-      color: #ffffff;
+    .table.bordered tbody tr:last-child td:first-child {
+      border-bottom-left-radius: 12px;
     }
 
-    [data-theme="light"] {
-      color: #121212;
-      background-color: #ffffff;
+    .table.bordered tbody tr:last-child td:last-child {
+      border-bottom-right-radius: 12px;
     }
 
-    [data-theme="dark"] .bg-white {
-      background-color: #333333;
+    /* Credit Pack Table Styles */
+    .credit-pack-table {
+      width: 100%;
+      border-collapse: collapse;
     }
 
-    [data-theme="dark"] .text-bw-50 {
-      color: #cccccc;
+    .credit-pack-table th,
+    .credit-pack-table td {
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
     }
 
-    [data-theme="dark"] .text-bw-600 {
-      color: #ffffff;
+    .credit-pack-table th {
+      background-color: #f8fafc;
+      font-weight: 600;
     }
 
-    [data-theme="dark"] .text-bw-700 {
-      color: #eeeeee;
+    /* New Ticket Table Styles */
+    .new-ticket-table {
+      width: 100%;
+      table-layout: auto;
     }
 
-    [data-theme="dark"] .text-bw-800 {
-      color: #ffffff;
+    .new-ticket-table th,
+    .new-ticket-table td {
+      padding: 8px;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
-    [data-theme="dark"] .bg-bw-50 {
-      background-color: #333333;
+    .new-ticket-table th {
+      width: 25%;
     }
 
-    [data-theme="dark"] .btn.outline.bw {
-      border-color: #ffffff;
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .btn.outline.bw:hover {
-      background-color: #ffffff;
-      color: #000000;
-    }
-
-    [data-theme="dark"] .table .bg-gray-200 {
-      background-color: #333333;
-      color: #ffffff;
-      /* This needs to be adjusted */
-    }
-
-    [data-theme="dark"] .table .bg-gray-200.selected-row {
-      color: #000000;
-      /* Adjust this color to be dark for legibility */
-    }
-
-    [data-theme="dark"] #previousRequestsList {
-      background-color: #333333;
-      color: #ffffff;
-    }
-
-    [data-theme="dark"] .input,
-    [data-theme="dark"] .select {
-      border-color: #cccccc;
-    }
-
-    [data-theme="dark"] .input::placeholder {
-      color: #cccccc;
-      opacity: 1;
-      /* Firefox */
-    }
-
-    [data-theme="dark"] .input::-ms-input-placeholder {
-      /* Edge 12-18 */
-      color: #cccccc;
-    }
-
-    [data-theme="dark"] .select option {
-      color: #333333;
-    }
-
-    [data-theme="dark"] .delete-btn {
-      color: #ffffff;
-      border-color: #ffffff;
-    }
-
-    [data-theme="dark"] .bg-bw-800 {
-      background-color: #111827;
-    }
-
+    /* Inference Styles */
     .inference-result,
     .previous-inference {
       border-radius: 8px;
@@ -190,45 +152,149 @@
       text-align: left;
     }
 
-    /* Light mode styles */
-    .inference-result,
-    .previous-inference {
-      background-color: #f0f0f0;
-      color: #333;
+    /* Prompt Styles */
+    .prompt.success.xs {
+      display: inline-block;
+      flex-grow: 1;
+      max-width: calc(100% - 2rem);
+      word-wrap: break-word;
+      height: 333px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
     }
 
-    .inference-table th {
-      background-color: #e0e0e0;
+    .prompt.success.xs .content {
+      overflow-wrap: break-word;
     }
 
-    .inference-table td {
-      background-color: #f8f8f8;
+    /* Utility Classes */
+    .ground-glass {
+      background-color: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
     }
 
-    /* Dark mode styles */
+    .icon-large {
+      font-size: 1.5rem;
+    }
+
+    .truncate {
+      max-width: 150px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .gap-4 {
+      gap: 1rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .align-middle {
+      vertical-align: middle;
+    }
+
+    /* Terminal Styles */
+    .xterm {
+      width: 100% !important;
+      border-radius: 0.5rem;
+    }
+
+    .terminal-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    #terminal {
+      font-size: inherit;
+    }
+
+    /* Dark Mode Styles */
+    [data-theme="dark"] .bg-white {
+      background-color: #333333;
+    }
+
+    [data-theme="dark"] .text-bw-50 {
+      color: #cccccc;
+    }
+
+    [data-theme="dark"] .text-bw-600,
+    [data-theme="dark"] .text-bw-800 {
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .text-bw-700 {
+      color: #eeeeee;
+    }
+
+    [data-theme="dark"] .bg-bw-50,
+    [data-theme="dark"] .table .bg-gray-200 {
+      background-color: #333333;
+    }
+
+    [data-theme="dark"] .bg-bw-800 {
+      background-color: #111827;
+    }
+
+    [data-theme="dark"] .btn.outline.bw {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .btn.outline.bw:hover {
+      background-color: #ffffff;
+      color: #000000;
+    }
+
+    [data-theme="dark"] .table .bg-gray-200 {
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .table .bg-gray-200.selected-row {
+      color: #000000;
+    }
+
+    [data-theme="dark"] #previousRequestsList {
+      background-color: #333333;
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .input,
+    [data-theme="dark"] .select {
+      border-color: #cccccc;
+    }
+
+    [data-theme="dark"] .input::placeholder,
+    [data-theme="dark"] .input::-ms-input-placeholder {
+      color: #cccccc;
+      opacity: 1;
+    }
+
+    [data-theme="dark"] .select option {
+      color: #333333;
+    }
+
+    [data-theme="dark"] .delete-btn {
+      color: #ffffff;
+      border-color: #ffffff;
+    }
+
     [data-theme="dark"] .inference-result,
     [data-theme="dark"] .previous-inference {
       background-color: #2a2a2a;
       color: #e0e0e0;
-    }
-
-    [data-theme="dark"] #importModal>div {
-      background-color: #2a2a2a;
-      color: #e0e0e0;
-    }
-
-    [data-theme="dark"] #modalTitle,
-    [data-theme="dark"] #modalMessage {
-      color: #e0e0e0;
-    }
-
-    [data-theme="dark"] #modalCloseButton {
-      background-color: #4a5568;
-      color: #e0e0e0;
-    }
-
-    [data-theme="dark"] #modalCloseButton:hover {
-      background-color: #2d3748;
     }
 
     [data-theme="dark"] .inference-table th {
@@ -247,84 +313,125 @@
       display: block;
     }
 
-    /* Styles for the request preview container */
-    #requestPreview {
-      background-color: #f0f0f0;
-      border-radius: 8px;
-      padding: 16px;
-    }
-
     [data-theme="dark"] #requestPreview {
       background-color: #1e1e1e;
       color: #e0e0e0;
-    }
-
-    /* Remove white border in dark mode */
-    [data-theme="dark"] #requestPreview {
       border: none;
     }
 
-    .table-responsive {
-      overflow-x: auto;
+    [data-theme="dark"] .prompt.success.xs code {
+      font-family: 'Courier New', Courier, monospace;
     }
 
-    .table.bordered tbody tr:last-child td:first-child {
-      border-bottom-left-radius: 12px;
+    [data-theme="dark"] .prompt.success.xs .json .hljs-attr {
+      color: #9cdcfe;
     }
 
-    .table.bordered tbody tr:last-child td:last-child {
-      border-bottom-right-radius: 12px;
+    [data-theme="dark"] .prompt.success.xs .json .hljs-string {
+      color: #ce9178;
     }
 
-    .truncate {
-      max-width: 150px;
-      /* Adjust as needed */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    [data-theme="dark"] .prompt.success.xs .json .hljs-number {
+      color: #b5cea8;
     }
 
-    .prompt.success.xs {
-      display: inline-block;
-      flex-grow: 1;
-      /* Allow it to take up the remaining space */
-      max-width: calc(100% - 2rem);
-      /* Leave some padding for better readability */
-      word-wrap: break-word;
-      /* Ensure the text wraps correctly */
-      height: 333px;
-      /* Set a fixed height */
-      overflow-y: auto;
-      /* Add a scrollbar if the content exceeds the height */
-      padding: 0.5rem;
-      /* Add padding for better readability */
-      border: 1px solid #ccc;
-      /* Optional: Add a border for better visibility */
-      border-radius: 0.5rem;
-      /* Optional: Add rounded corners */
+    [data-theme="dark"] .prompt.success.xs .json .hljs-literal,
+    [data-theme="dark"] .prompt.success.xs .json .hljs-keyword {
+      color: #569cd6;
     }
 
-    .prompt.success.xs .content {
-      overflow-wrap: break-word;
+    [data-theme="dark"] .credit-pack-table th {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+      border-color: #4a4a4a;
     }
 
-    .flex {
-      display: flex;
+    [data-theme="dark"] .credit-pack-table td {
+      border-color: #4a4a4a;
     }
 
-    .items-center {
-      align-items: center;
+    [data-theme="dark"] .credit-pack-table {
+      color: #e0e0e0;
     }
 
-    .gap-4 {
-      gap: 1rem;
-      /* Adjust gap as needed */
+    [data-theme="dark"] .credit-pack-table tbody tr:nth-child(even) {
+      background-color: #333333;
     }
 
-    .hidden {
+    [data-theme="dark"] .credit-pack-table tbody tr:hover {
+      background-color: #3a3a3a;
+    }
+
+    /* Modal Styles */
+    #importModal {
       display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
     }
 
+    #importModal>div {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #modalTitle {
+      margin-top: 0;
+      color: #333;
+    }
+
+    #modalMessage {
+      color: #666;
+    }
+
+    #modalCloseButton {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      float: right;
+    }
+
+    #modalCloseButton:hover {
+      background-color: #45a049;
+    }
+
+    /* Dark mode styles for the modal */
+    [data-theme="dark"] #importModal>div {
+      background-color: #333;
+      border-color: #555;
+    }
+
+    [data-theme="dark"] #modalTitle {
+      color: #fff;
+    }
+
+    [data-theme="dark"] #modalMessage {
+      color: #ddd;
+    }
+
+    [data-theme="dark"] #modalCloseButton {
+      background-color: #45a049;
+    }
+
+    [data-theme="dark"] #modalCloseButton:hover {
+      background-color: #4CAF50;
+    }
+
+    /* Specific Element Styles */
     #previousRequestsList {
       background-color: #f9f9f9;
       border: 1px solid #e5e7eb;
@@ -339,10 +446,6 @@
       border: 1px solid #e5e7eb;
       border-radius: 0.5rem;
       padding: 1.5rem;
-    }
-
-    [data-theme="dark"] #requestPreview {
-      background-color: #0f291e;
     }
 
     .delete-btn {
@@ -366,30 +469,8 @@
       margin-top: auto;
     }
 
-    .align-middle {
-      vertical-align: middle;
-    }
-
     .credit-pack-details-container {
       width: 100%;
-    }
-
-    .new-ticket-table {
-      width: 100%;
-      table-layout: auto;
-    }
-
-    .new-ticket-table th,
-    .new-ticket-table td {
-      padding: 8px;
-      text-align: left;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-
-    .new-ticket-table th {
-      width: 25%;
-      /* As we have 4 columns, each gets 25% width */
     }
 
     .tooltip-icon {
@@ -398,108 +479,10 @@
       color: #6b7280;
     }
 
-    .select-column {
-      width: 6%;
-    }
-
-    .initial-credits-column {
-      width: 16%;
-    }
-
-    .current-credit-balance-column {
-      width: 16.5%;
-    }
-
-    .tracking-address-column {
-      width: 25%;
-    }
-
-    .table {
-      width: 100%;
-      table-layout: fixed;
-    }
-
-    .new-ticket-table {
-      width: 100%;
-      table-layout: auto;
-    }
-
-    .new-ticket-table th,
-    .new-ticket-table td {
-      padding: 8px;
-      text-align: left;
-      word-wrap: break-word;
-    }
-
-    .registration-txid-column {
-      width: 25%;
-    }
-
-    .sha3256-hash-of-credit-pack-column {
-      width: 30%;
-    }
-
-    .responding-supernode-pastelid-column {
-      width: 30%;
-    }
-
-    .outcome-column {
-      width: 15%;
-    }
-
-    .btn.is-loading:before {
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    * {
-      scroll-margin-top: 72px;
-    }
-
-    [data-theme="dark"] .prompt.success.xs code {
-      font-family: 'Courier New', Courier, monospace;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-attr {
-      color: #9cdcfe;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-string {
-      color: #ce9178;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-number {
-      color: #b5cea8;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-literal {
-      color: #569cd6;
-    }
-
-    [data-theme="dark"] .prompt.success.xs .json .hljs-keyword {
-      color: #569cd6;
-    }
-
-    .credit-pack-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .credit-pack-table th,
-    .credit-pack-table td {
-      padding: 0.5rem;
-      border: 1px solid #e2e8f0;
-    }
-
-    .credit-pack-table th {
-      background-color: #f8fafc;
-      font-weight: 600;
-    }
-
+    /* Media Queries */
     @media (max-width: 1200px) {
       .credit-pack-table {
         font-size: 0.875rem;
-        /* Slightly smaller font size */
       }
 
       .credit-pack-table th {
@@ -507,32 +490,16 @@
         height: auto;
         vertical-align: top;
       }
+
+      #terminal {
+        font-size: 0.65em;
+      }
     }
 
     @media (max-width: 768px) {
       .credit-pack-table {
         font-size: 0.75rem;
-        /* Even smaller font size for very narrow screens */
       }
-    }
-
-    .terminal-container {
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    #terminal {
-      /* Preserve the original font size */
-      font-size: inherit;
-    }
-
-    /* Media query to reduce font size when viewport width is insufficient */
-    @media (max-width: 1200px) {
-      #terminal {
-        font-size: 0.65em;
-        /* 65% of the parent font size */
-      }
-
     }
   </style>
 </head>
@@ -1503,6 +1470,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         }
       }
 
+
+      let modalCloseTimer;
+      const MODAL_AUTO_CLOSE_DELAY = 10000; // 10 seconds
+
       async function importPromotionalPack() {
         const fileInput = document.getElementById("promotionalPackFile");
         if (fileInput.files.length === 0) {
@@ -1538,29 +1509,26 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             updateModal("Import Successful", "Import completed. Refreshing data...", true);
 
-            let timeoutId = setTimeout(async () => {
-              try {
-                hideModal();
-                await refreshUIAfterImport(result.details);
-                showNotification("Promotional pack imported successfully!", "success");
-              } catch (error) {
-                console.error("Error during auto-close and refresh:", error);
-                updateModal("Import Successful", "Please click 'Close' to complete the process.", true);
-              }
-            }, 5000);
+            // Start the failsafe timer
+            startModalCloseTimer();
 
-            modalCloseButton.onclick = async () => {
-              clearTimeout(timeoutId);
-              hideModal();
+            try {
               await refreshUIAfterImport(result.details);
               showNotification("Promotional pack imported successfully!", "success");
-            };
+            } catch (error) {
+              console.error("Error during auto-close and refresh:", error);
+              updateModal("Import Successful", "Please click 'Close' to complete the process.", true);
+            } finally {
+              // Ensure the modal closes even if there's an error during refresh
+              hideModal();
+            }
           } else {
             throw new Error(result.message || "Unknown error occurred during import");
           }
         } catch (error) {
           console.error("Error importing promotional pack:", error);
           updateModal("Import Failed", `An error occurred while importing the promotional pack: ${error.message}`, true);
+          startModalCloseTimer(); // Start the failsafe timer even on error
         }
       }
 
@@ -1728,33 +1696,64 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           throw new Error("Failed to verify credit pack");
         }
       }
-
-      const importModal = document.getElementById('importModal');
-      const modalCloseButton = document.getElementById('modalCloseButton');
-
       function showModal(title, message) {
         document.getElementById('modalTitle').textContent = title;
         document.getElementById('modalMessage').textContent = message;
-        importModal.classList.remove('hidden');
-        modalCloseButton.classList.add('hidden');
+        document.getElementById('importModal').style.display = 'block';
+        document.getElementById('modalCloseButton').style.display = 'none';
+        startModalCloseTimer(); // Start the failsafe timer when showing the modal
+        document.getElementById('importModal').dataset.openTime = Date.now().toString();
       }
 
       function hideModal() {
-        importModal.classList.add('hidden');
-        modalCloseButton.classList.add('hidden');
+        document.getElementById('importModal').style.display = 'none';
+        clearTimeout(modalCloseTimer); // Clear the failsafe timer when hiding the modal
       }
 
       function updateModal(title, message, showCloseButton = false) {
         document.getElementById('modalTitle').textContent = title;
         document.getElementById('modalMessage').textContent = message;
-        if (showCloseButton) {
-          modalCloseButton.classList.remove('hidden');
-        } else {
-          modalCloseButton.classList.add('hidden');
-        }
+        document.getElementById('modalCloseButton').style.display = showCloseButton ? 'block' : 'none';
+        startModalCloseTimer(); // Restart the failsafe timer when updating the modal
       }
 
-      modalCloseButton.addEventListener('click', hideModal);
+      function startModalCloseTimer() {
+        clearTimeout(modalCloseTimer); // Clear any existing timer
+        modalCloseTimer = setTimeout(() => {
+          hideModal();
+          showNotification("Modal closed automatically", "info");
+        }, MODAL_AUTO_CLOSE_DELAY);
+      }
+
+      document.getElementById('modalCloseButton').addEventListener('click', async () => {
+        hideModal();
+        try {
+          await refreshUIAfterImport(window.lastImportDetails);
+          showNotification("Promotional pack imported successfully!", "success");
+        } catch (error) {
+          console.error("Error during manual refresh:", error);
+          showNotification("Error refreshing UI. Please try again.", "error");
+        }
+      });
+
+      // Failsafe: Add a global error handler to close the modal
+      window.addEventListener('error', function (event) {
+        console.error('Global error caught:', event.error);
+        hideModal();
+        showNotification("An unexpected error occurred. Please try again.", "error");
+      });
+
+      // Failsafe: Add a check to close the modal if it's been open too long
+      setInterval(() => {
+        const modal = document.getElementById('importModal');
+        if (modal.style.display === 'block') {
+          const openTime = parseInt(modal.dataset.openTime || '0', 10);
+          if (Date.now() - openTime > MODAL_AUTO_CLOSE_DELAY * 2) {
+            hideModal();
+            showNotification("Modal closed due to timeout", "info");
+          }
+        }
+      }, 5000); // Check every 5 seconds
 
       async function updateCreditPackSelection(txid) {
         // Fetch credit pack info
