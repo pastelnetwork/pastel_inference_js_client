@@ -212,6 +212,20 @@
       color: #e0e0e0;
     }
 
+    [data-theme="dark"] #importModal {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    [data-theme="dark"] #importModal>div {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] #modalTitle,
+    [data-theme="dark"] #modalMessage {
+      color: #e0e0e0;
+    }
+
     [data-theme="dark"] .inference-table th {
       background-color: #3a3a3a;
     }
@@ -1011,6 +1025,15 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           return false;
         }
 
+        document.getElementById('openInBrowserButton').addEventListener('click', () => {
+          if (window.electron && window.electron.shell) {
+            window.electron.shell.openExternal(window.location.href);
+          } else {
+            // Fallback for non-Electron environments or if shell is not available
+            window.open(window.location.href, '_blank');
+          }
+        });
+
         // Function to set initial dark mode
         function setInitialDarkMode(isDark) {
           document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
@@ -1436,31 +1459,40 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             updateModal("Import Successful", result.message);
             console.log("Import details:", result.details);
 
-            // Automatically set the passphrase for the newly imported PastelID
             if (result.details && result.details.processedPacks.length > 0) {
               result.details.processedPacks.forEach((pack) => {
                 localStorage.setItem(pack.pub_key, btoa(pack.passphrase));
               });
 
-              // Set the newly imported PastelID as the current one
               const newPastelID = result.details.processedPacks[0].pub_key;
               await setSelectedPastelIDAndPassphrase(newPastelID, "", true);
             }
 
             updateModal("Import Successful", "Import completed. Refreshing data...");
 
-            // Refresh the necessary data without reloading the page
             await refreshUIAfterImport(result.details);
 
-            hideModal();
-            showNotification("Promotional pack imported successfully!", "success");
+            setTimeout(() => {
+              try {
+                hideModal();
+                showNotification("Promotional pack imported successfully!", "success");
+              } catch (error) {
+                console.error("Error hiding modal:", error);
+              }
+            }, 5000); // Increased timeout to 5 seconds
           } else {
             throw new Error(result.message || "Unknown error occurred during import");
           }
         } catch (error) {
           console.error("Error importing promotional pack:", error);
           updateModal("Import Failed", `An error occurred while importing the promotional pack: ${error.message}`);
-          setTimeout(hideModal, 5000);
+          setTimeout(() => {
+            try {
+              hideModal();
+            } catch (error) {
+              console.error("Error hiding modal after import failure:", error);
+            }
+          }, 5000);
         }
       }
 
