@@ -125,6 +125,29 @@
       font-weight: 600;
     }
 
+    /* Dark Mode Specific Styles */
+    [data-theme="dark"] .credit-pack-table {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] .credit-pack-table th {
+      background-color: #333333;
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .credit-pack-table td {
+      border-color: #444444;
+    }
+
+    [data-theme="dark"] .credit-pack-table tbody tr:nth-child(even) {
+      background-color: #333333;
+    }
+
+    [data-theme="dark"] .credit-pack-table tbody tr:hover {
+      background-color: #3a3a3a;
+    }
+
     /* New Ticket Table Styles */
     .new-ticket-table {
       width: 100%;
@@ -334,8 +357,59 @@
       padding: 10px;
       border-radius: 4px;
       font-size: 12px;
-      max-width: 300px;
+      max-width: 400px;
+      /* Increased from 300px */
+      width: auto;
+      /* Allow the tooltip to adjust its width based on content */
       word-wrap: break-word;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+    }
+
+    #credit-pack-tooltip .tooltip-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #credit-pack-tooltip .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    #credit-pack-tooltip .tooltip-label {
+      font-weight: bold;
+      margin-right: 10px;
+      white-space: nowrap;
+    }
+
+    #credit-pack-tooltip .tooltip-value {
+      text-align: right;
+      word-break: break-all;
+    }
+
+    [data-theme="dark"] #credit-pack-tooltip {
+      background-color: rgba(42, 42, 42, 0.95);
+      color: #e0e0e0;
+      border: 1px solid #555555;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] #credit-pack-tooltip .tooltip-label {
+      color: #4db6ac;
+    }
+
+    [data-theme="dark"] #creditPackTicketTableBody tr {
+      background-color: #2a2a2a;
+      color: #e0e0e0;
+    }
+
+    [data-theme="dark"] #creditPackTicketTableBody tr:hover {
+      background-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] #creditPackTicketTableBody tr.selected-row {
+      background-color: #4a4a4a;
     }
 
     /* Dark Mode Specific Styles */
@@ -365,12 +439,9 @@
       color: #000000;
     }
 
-    [data-theme="dark"] .table .bg-gray-200 {
-      color: #ffffff;
-    }
-
     [data-theme="dark"] .table .bg-gray-200.selected-row {
       color: #000000;
+
     }
 
     [data-theme="dark"] .input,
@@ -714,7 +785,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
+    <div class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl shadow-md">
       <h2 class="text-2xl text-bw-800">Select Existing Credit Pack Ticket</h2>
       <div class="relative text-bw-700 overflow-x-auto">
         <table class="credit-pack-table table bordered bw">
@@ -1458,7 +1529,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
 
       let modalCloseTimer;
-      const MODAL_AUTO_CLOSE_DELAY = 10000; // 10 seconds
+      const MODAL_AUTO_CLOSE_DELAY = 5000; // 5 seconds
 
       async function importPromotionalPack() {
         const fileInput = document.getElementById("promotionalPackFile");
@@ -2008,6 +2079,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           tooltip.className =
             "hidden fixed z-50 p-3 bg-white text-black rounded-lg shadow-lg border border-gray-300 transition-opacity duration-300 opacity-0 max-w-5xl text-xs";
           tooltip.style.pointerEvents = "none";
+          tooltip.style.width = 'auto';
+          tooltip.style.maxWidth = '400px';
+          tooltip.style.padding = '12px';
           document.body.appendChild(tooltip);
         }
 
@@ -2073,9 +2147,8 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
           for (const ticket of validCreditPackTickets) {
             const row = document.createElement("tr");
-            row.className =
-              "hover:bg-gray-100 transition-colors duration-200 cursor-pointer";
-
+            row.className = "transition-colors duration-200 cursor-pointer";
+            row.classList.add("hover:bg-gray-100", "dark:hover:bg-gray-700", "dark:bg-gray-800", "dark:text-gray-200");
             const tooltipContent = Object.entries(ticket)
               .filter(([key]) => !displayedColumns.includes(key))
               .map(
@@ -2205,7 +2278,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
 
             if (ticket === highestBalanceTicket) {
               radioInput.checked = true;
-              row.classList.add("bg-gray-200", "selected-row");
+              row.classList.add("bg-gray-200", "dark:bg-gray-700", "selected-row");
             }
           }
 
@@ -3151,11 +3224,11 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
         );
         radioButtons.forEach((button) => {
           button.addEventListener("change", () => {
-            document
-              .querySelectorAll("#creditPackTicketTableBody tr")
-              .forEach((row) => {
-                row.classList.remove("bg-gray-200", "selected-row");
-              });
+            document.querySelectorAll("#creditPackTicketTableBody tr").forEach((row) => {
+              row.classList.remove("bg-gray-200", "dark:bg-gray-700", "selected-row");
+            });
+            button.parentElement.parentElement.classList.add("bg-gray-200", "dark:bg-gray-700", "selected-row");
+
             button.parentElement.parentElement.classList.add(
               "bg-gray-200",
               "selected-row"
