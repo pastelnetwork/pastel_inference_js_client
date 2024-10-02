@@ -474,6 +474,61 @@
     [data-theme="dark"] .prompt.success.xs .json .hljs-keyword {
       color: #569cd6;
     }
+
+    .credit-pack-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .credit-pack-table th,
+    .credit-pack-table td {
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
+    }
+
+    .credit-pack-table th {
+      background-color: #f8fafc;
+      font-weight: 600;
+    }
+
+    @media (max-width: 1200px) {
+      .credit-pack-table {
+        font-size: 0.875rem;
+        /* Slightly smaller font size */
+      }
+
+      .credit-pack-table th {
+        white-space: normal;
+        height: auto;
+        vertical-align: top;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .credit-pack-table {
+        font-size: 0.75rem;
+        /* Even smaller font size for very narrow screens */
+      }
+    }
+
+    .terminal-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    #terminal {
+      /* Preserve the original font size */
+      font-size: inherit;
+    }
+
+    /* Media query to reduce font size when viewport width is insufficient */
+    @media (max-width: 1200px) {
+      #terminal {
+        font-size: 0.65em;
+        /* 65% of the parent font size */
+      }
+
+    }
   </style>
 </head>
 
@@ -695,8 +750,8 @@
 
     <div class="grid grid-cols-1 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl text-bw-800">Select Existing Credit Pack Ticket</h2>
-      <div class="relative text-bw-700 table-responsive">
-        <table class="table bordered bw">
+      <div class="relative text-bw-700 overflow-x-auto">
+        <table class="credit-pack-table table bordered bw">
           <thead>
             <tr>
               <th class="select-column">Select</th>
