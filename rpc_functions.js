@@ -1122,7 +1122,7 @@ async function getContractTicket(txid, decodeProperties = true) {
   }
 }
 
-async function importPrivKey(zcashPrivKey, label = "", rescan = true, rescan_start = 732000) {
+async function importPrivKey(zcashPrivKey, label = "", rescan = true, rescan_start = 730000) {
   try {
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
@@ -1280,7 +1280,7 @@ function getPastelIDDirectory(network) {
   let pastelIDDir = "";
   if (network === "mainnet") {
     if (process.platform === "linux") {
-      pastelIDDir =  path.join(homeDir, ".pastel", "pastelkeys")
+      pastelIDDir = path.join(homeDir, ".pastel", "pastelkeys")
     } else if (process.platform === "darwin") {
       pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "pastelkeys")
     } else {
@@ -1288,7 +1288,7 @@ function getPastelIDDirectory(network) {
     }
   } else if (network === "testnet") {
     if (process.platform === "linux") {
-      pastelIDDir =  path.join(homeDir, ".pastel", "testnet3", "pastelkeys")
+      pastelIDDir = path.join(homeDir, ".pastel", "testnet3", "pastelkeys")
     } else if (process.platform === "darwin") {
       pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "testnet3", "pastelkeys")
     } else {
@@ -1296,7 +1296,7 @@ function getPastelIDDirectory(network) {
     }
   } else if (network === "devnet") {
     if (process.platform === "linux") {
-      pastelIDDir =  path.join(homeDir, ".pastel", "devnet3", "pastelkeys")
+      pastelIDDir = path.join(homeDir, ".pastel", "devnet3", "pastelkeys")
     } else if (process.platform === "darwin") {
       pastelIDDir = path.join(os.homedir(), "Library", "Application Support", "Pastel", "devnet3", "pastelkeys")
     } else {
