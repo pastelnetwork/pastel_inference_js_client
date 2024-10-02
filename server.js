@@ -8,7 +8,6 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const archiver = require("archiver");
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const {
   getCurrentPastelIdAndPassphrase,
   setPastelIdAndPassphrase,
