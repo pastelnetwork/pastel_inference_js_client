@@ -38,7 +38,7 @@ async function main() {
 
         // Send 10 PSL to each unique address
         for (const address of uniqueAddresses) {
-            const amountToSend = 10; // 10 PSL
+            const amountToSend = 1; // 1 PSL
             const sendResult = await sendToAddress(
                 address,
                 amountToSend,
