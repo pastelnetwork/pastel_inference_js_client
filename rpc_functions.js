@@ -1127,16 +1127,43 @@ async function importPrivKey(zcashPrivKey, label = "", rescan = true, rescan_sta
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
       logger.error("RPC connection is not available. Cannot proceed.");
-      return;
+      return null;
     }
-    const result = await rpc_connection.importprivkey(
+
+    // Check if the address is already in the wallet
+    const address = await rpc_connection.validateaddress(zcashPrivKey);
+    if (address.ismine) {
+      logger.info(`Address ${address.address} is already in the wallet.`);
+      return address.address;
+    }
+
+    // Import the private key
+    const importedAddress = await rpc_connection.importprivkey(
       zcashPrivKey,
       label,
       rescan,
       rescan_start
     );
-    logger.info(`Imported private key with label: ${label}`);
-    return result;
+    logger.info(`Private key imported successfully for address: ${importedAddress}`);
+
+    // Verify the import by dumping the private key and comparing
+    const dumpedPrivKey = await rpc_connection.dumpprivkey(importedAddress);
+    if (dumpedPrivKey === zcashPrivKey) {
+      logger.info(`Import verified: Private key for ${importedAddress} matches the original.`);
+    } else {
+      throw new Error(`Import verification failed: Private key mismatch for ${importedAddress}`);
+    }
+
+    // Check the balance
+    const balance = await rpc_connection.z_getbalance(importedAddress);
+    logger.info(`Balance for address ${importedAddress}: ${balance} PSL`);
+    if (balance > 0) {
+      logger.info(`Confirmed non-zero balance for address: ${importedAddress}`);
+    } else {
+      logger.warn(`Balance is zero for address: ${importedAddress}. This may be normal for unused addresses.`);
+    }
+
+    return importedAddress;
   } catch (error) {
     logger.error(`Error importing private key: ${safeStringify(error).slice(0, globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE)}`);
     throw error;

@@ -1365,46 +1365,20 @@ async function importPromotionalPack(jsonFilePath) {
 
       logger.info(`Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`);
 
-      // Check if the address is already in the wallet
-      const addressInfo = await rpc_connection.validateaddress(pack.psl_credit_usage_tracking_address);
-      if (addressInfo.ismine) {
-        logger.info(`Address ${pack.psl_credit_usage_tracking_address} is already in the wallet.`);
-      } else {
-        // Import the private key with rescan
-        try {
-          const startBlock = 730000; // Adjust this value as needed
-          const importedAddress = await rpc_connection.importprivkey(
-            pack.psl_credit_usage_tracking_address_private_key,
-            "Imported from promotional pack",
-            true,
-            startBlock
-          );
-          logger.info(`Private key imported successfully for tracking address: ${importedAddress}`);
-
-          // Verify the import by dumping the private key and comparing
-          const dumpedPrivKey = await rpc_connection.dumpprivkey(importedAddress);
-          if (dumpedPrivKey === pack.psl_credit_usage_tracking_address_private_key) {
-            logger.info(`Import verified: Private key for ${importedAddress} matches the original.`);
-          } else {
-            logger.error(`Import verification failed: Private key mismatch for ${importedAddress}`);
-          }
-        } catch (error) {
-          logger.error(`Failed to import or verify private key: ${error.message}`);
-          continue; // Skip to the next pack if import or verification fails
-        }
-      }
-
-      // Check the balance
       try {
-        const balance = await rpc_connection.z_getbalance(pack.psl_credit_usage_tracking_address);
-        logger.info(`Balance for address ${pack.psl_credit_usage_tracking_address}: ${balance} PSL`);
-        if (balance > 0) {
-          logger.info(`Confirmed non-zero balance for address: ${pack.psl_credit_usage_tracking_address}`);
-        } else {
-          logger.warn(`Balance is zero for address: ${pack.psl_credit_usage_tracking_address}. This may be normal for unused promotional packs.`);
+        const importedAddress = await importPrivKey(
+          pack.psl_credit_usage_tracking_address_private_key,
+          "Imported from promotional pack",
+          true,
+          730000
+        );
+
+        if (importedAddress) {
+          logger.info(`Successfully imported and verified address: ${importedAddress}`);
         }
       } catch (error) {
-        logger.error(`Failed to get balance: ${error.message}`);
+        logger.error(`Failed to import or verify private key: ${error.message}`);
+        continue; // Skip to the next pack if import or verification fails
       }
 
       logger.info(`PastelID: ${pack.pastel_id_pubkey}`);
@@ -1495,6 +1469,5 @@ module.exports = {
   validateInferenceResponseFields,
   validateInferenceResultFields,
   validateInferenceData,
-  logger,
   importPromotionalPack,
 };
