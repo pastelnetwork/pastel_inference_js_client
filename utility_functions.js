@@ -1341,122 +1341,109 @@ async function importPromotionalPack(jsonFilePath) {
   const processedPacks = [];
 
   try {
-    // Initialize RPC connection
     logger.info("Initializing RPC connection...");
     await initializeRPCConnection();
     logger.info("RPC connection initialized successfully");
 
-    // Read and parse the JSON file
     const jsonContent = fs.readFileSync(jsonFilePath, "utf8");
     let packData = JSON.parse(jsonContent);
-
-    // Process each promotional pack in the file
     if (!Array.isArray(packData)) {
-      packData = [packData]; // Wrap it in an array if it's not already
+      packData = [packData];
     }
 
     for (let i = 0; i < packData.length; i++) {
       const pack = packData[i];
       logger.info(`Processing pack ${i + 1} of ${packData.length}`);
 
-      // 1. Save the PastelID secure container file
       const { rpcport } = await getLocalRPCSettings();
-      const network =
-        rpcport === "9932"
-          ? "mainnet"
-          : rpcport === "19932"
-            ? "testnet"
-            : "devnet";
+      const network = rpcport === "9932" ? "mainnet" : rpcport === "19932" ? "testnet" : "devnet";
       const pastelIDDir = getPastelIDDirectory(network);
       const secureContainerPath = path.join(pastelIDDir, pack.pastel_id_pubkey);
 
-      logger.info(
-        `Saving PastelID secure container to: ${secureContainerPath}`
-      );
-      fs.writeFileSync(
-        secureContainerPath,
-        Buffer.from(pack.secureContainerBase64, "base64")
-      );
+      logger.info(`Saving PastelID secure container to: ${secureContainerPath}`);
+      fs.writeFileSync(secureContainerPath, Buffer.from(pack.secureContainerBase64, "base64"));
 
-      // 2. Import the tracking address private key
-      logger.info(
-        `Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`
-      );
+      logger.info(`Importing private key for tracking address: ${pack.psl_credit_usage_tracking_address}`);
 
-      const startingBlockHeight = 730000;
-      const importResult = await importPrivKey(
-        pack.psl_credit_usage_tracking_address_private_key,
-        "Imported from promotional pack",
-        true,
-        startingBlockHeight
-      );
-      if (importResult) {
-        logger.info(
-          `Private key imported successfully for tracking address: ${importResult}`
-        );
+      // Check if the address is already in the wallet
+      const addressInfo = await rpc_connection.validateaddress(pack.psl_credit_usage_tracking_address);
+      if (addressInfo.ismine) {
+        logger.info(`Address ${pack.psl_credit_usage_tracking_address} is already in the wallet.`);
       } else {
-        logger.warn("Failed to import private key");
+        // Import the private key with rescan
+        try {
+          const startBlock = 730000; // Adjust this value as needed
+          const importedAddress = await rpc_connection.importprivkey(
+            pack.psl_credit_usage_tracking_address_private_key,
+            "Imported from promotional pack",
+            true,
+            startBlock
+          );
+          logger.info(`Private key imported successfully for tracking address: ${importedAddress}`);
+
+          // Verify the import by dumping the private key and comparing
+          const dumpedPrivKey = await rpc_connection.dumpprivkey(importedAddress);
+          if (dumpedPrivKey === pack.psl_credit_usage_tracking_address_private_key) {
+            logger.info(`Import verified: Private key for ${importedAddress} matches the original.`);
+          } else {
+            logger.error(`Import verification failed: Private key mismatch for ${importedAddress}`);
+          }
+        } catch (error) {
+          logger.error(`Failed to import or verify private key: ${error.message}`);
+          continue; // Skip to the next pack if import or verification fails
+        }
       }
 
-      // 3. Log other important information
+      // Check the balance
+      try {
+        const balance = await rpc_connection.z_getbalance(pack.psl_credit_usage_tracking_address);
+        logger.info(`Balance for address ${pack.psl_credit_usage_tracking_address}: ${balance} PSL`);
+        if (balance > 0) {
+          logger.info(`Confirmed non-zero balance for address: ${pack.psl_credit_usage_tracking_address}`);
+        } else {
+          logger.warn(`Balance is zero for address: ${pack.psl_credit_usage_tracking_address}. This may be normal for unused promotional packs.`);
+        }
+      } catch (error) {
+        logger.error(`Failed to get balance: ${error.message}`);
+      }
+
       logger.info(`PastelID: ${pack.pastel_id_pubkey}`);
       logger.info(`Passphrase: ${pack.pastel_id_passphrase}`);
       logger.info(`Credit Pack Ticket: ${JSON.stringify(pack, null, 2)}`);
 
-      // Add the processed pack info to our array
       processedPacks.push({
         pub_key: pack.pastel_id_pubkey,
-        passphrase: pack.pastel_id_passphrase
+        passphrase: pack.pastel_id_passphrase,
+        address: pack.psl_credit_usage_tracking_address
       });
 
       logger.info(`Pack ${i + 1} processed successfully`);
     }
 
-    // Wait for RPC connection to be re-established
     await waitForRPCConnection();
 
-    // Verify PastelID import and wait for blockchain confirmation
     for (let i = 0; i < packData.length; i++) {
       const pack = packData[i];
       logger.info(`Verifying PastelID import for pack ${i + 1}`);
 
       try {
-        // Wait for PastelID to be confirmed in the blockchain
         await waitForPastelIDRegistration(pack.pastel_id_pubkey);
-        logger.info(
-          `PastelID ${pack.pastel_id_pubkey} confirmed in blockchain`
-        );
+        logger.info(`PastelID ${pack.pastel_id_pubkey} confirmed in blockchain`);
 
-        // Verify PastelID functionality
         const testMessage = "This is a test message for PastelID verification";
-        const signature = await signMessageWithPastelID(
-          pack.pastel_id_pubkey,
-          testMessage,
-          pack.pastel_id_passphrase
-        );
-        logger.info(
-          `Signature created successfully for PastelID: ${pack.pastel_id_pubkey}`
-        );
+        const signature = await signMessageWithPastelID(pack.pastel_id_pubkey, testMessage, pack.pastel_id_passphrase);
+        logger.info(`Signature created successfully for PastelID: ${pack.pastel_id_pubkey}`);
 
-        const verificationResult = await verifyMessageWithPastelID(
-          pack.pastel_id_pubkey,
-          testMessage,
-          signature
-        );
+        const verificationResult = await verifyMessageWithPastelID(pack.pastel_id_pubkey, testMessage, signature);
 
         if (verificationResult) {
-          logger.info(
-            `PastelID ${pack.pastel_id_pubkey} verified successfully`
-          );
+          logger.info(`PastelID ${pack.pastel_id_pubkey} verified successfully`);
         } else {
           logger.warn(`PastelID ${pack.pastel_id_pubkey} verification failed`);
         }
 
-        // Verify Credit Pack Ticket
         await waitForCreditPackConfirmation(pack.credit_pack_registration_txid);
-        logger.info(
-          `Credit Pack Ticket ${pack.credit_pack_registration_txid} confirmed in blockchain`
-        );
+        logger.info(`Credit Pack Ticket ${pack.credit_pack_registration_txid} confirmed in blockchain`);
       } catch (error) {
         logger.error(`Error verifying pack ${i + 1}: ${error.message}`);
       }
