@@ -1443,43 +1443,64 @@ async function ensureTrackingAddressesHaveMinimalPSLBalance(
     const isConnectionReady = await waitForRPCConnection();
     if (!isConnectionReady) {
       logger.error("RPC connection is not available. Cannot proceed.");
-      return; // Stop the function if the connection is not available
-    }
-    let addresses = addressesList;
-    if (!addresses) {
-      // If no address list is provided, retrieve all addresses and their balances
-      addresses = Object.keys(await rpc_connection.listaddressamounts());
+      return;
     }
 
-    // Get the address with the largest balance to use for sending PSL if needed
+    // Get all addresses and their balances
+    const allAddressesAmounts = await rpc_connection.listaddressamounts();
+
+    let trackingAddresses = addressesList || Object.keys(allAddressesAmounts);
+
+    // Check if the only addresses with positive balance are tracking addresses
+    const addressesWithBalance = Object.keys(allAddressesAmounts).filter(addr => allAddressesAmounts[addr] > 0);
+    if (addressesWithBalance.every(addr => trackingAddresses.includes(addr))) {
+      logger.info("All addresses with positive balance are tracking addresses. Skipping balance adjustment.");
+      return;
+    }
+
+    // Get the address with the largest balance that is not a tracking address
     const fundingAddress = await getMyPslAddressWithLargestBalance();
-    if (!fundingAddress) {
-      logger.error("No address with sufficient funds to fund other addresses.");
-      return; // No address has sufficient funds
+    if (!fundingAddress || trackingAddresses.includes(fundingAddress)) {
+      logger.error("No suitable funding address found.");
+      return;
     }
 
-    for (const address of addresses) {
-      const balance = await checkPSLAddressBalance(address); // Get balance for each address
+    const amountsToSend = {};
+    let totalAmountToSend = 0;
+
+    for (const address of trackingAddresses) {
+      const balance = allAddressesAmounts[address] || 0;
       if (balance < 1.0) {
-        // If balance is less than 1.0 PSL, send the needed amount
         const amountNeeded = Math.round((1.0 - balance) * 10000) / 10000;
         if (amountNeeded > 0.0001) {
-          const sendResult = await sendToAddress(
-            address,
-            amountNeeded,
-            "Balancing PSL amount to ensure tracking address has a minimum balance of 1 PSL",
-          );
-          if (sendResult.success) {
-            logger.info(
-              `Sent ${amountNeeded} PSL from address ${fundingAddress} to address ${address} to maintain minimum balance. TXID: ${sendResult.result}`
-            );
-          } else {
-            logger.error(
-              `Failed to send PSL from address ${fundingAddress} to address ${address}: ${sendResult.message}`
-            );
-          }
+          amountsToSend[address] = amountNeeded;
+          totalAmountToSend += amountNeeded;
         }
       }
+    }
+
+    if (Object.keys(amountsToSend).length > 0) {
+      if (allAddressesAmounts[fundingAddress] < totalAmountToSend) {
+        logger.error(`Insufficient funds in the funding address. Required: ${totalAmountToSend}, Available: ${allAddressesAmounts[fundingAddress]}`);
+        return;
+      }
+
+      const sendResult = await rpc_connection.sendmany(
+        "", // fromaccount (empty string for default account)
+        amountsToSend,
+        1, // minconf
+        "Balancing PSL amount to ensure tracking addresses have a minimum balance of 1 PSL",
+        [], // subtractfeefromamount
+        fundingAddress // change-address
+      );
+
+      if (sendResult) {
+        logger.info(`Sent PSL to multiple tracking addresses. TXID: ${sendResult}`);
+      } else {
+        logger.error("Failed to send PSL to tracking addresses.");
+      }
+    } else {
+      logger.info("All tracking addresses have sufficient balance.");
     }
   } catch (error) {
     logger.error(
