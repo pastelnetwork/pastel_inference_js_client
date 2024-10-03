@@ -4670,133 +4670,126 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
       });
 
       // This function ensures that the tracking addresses have a minimum balance of 1 PSL; only runs every 10 minutes to give time for a new block to be mined including the transactions
-      // document.addEventListener("DOMContentLoaded", function () {
-      //   const refreshButton = document.getElementById("refreshButton");
-      //   let lastRunTime = 0;
-      //   const runInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
-      //   async function ensureMinimalPSLBalance() {
-      //     const currentTime = new Date().getTime();
-      //     if (currentTime - lastRunTime < runInterval) {
-      //       console.log(
-      //         "Skipping balance check: Less than 10 minutes since last run."
-      //       );
-      //       return; // Skip execution if not enough time has passed
-      //     }
+      document.addEventListener("DOMContentLoaded", function () {
+        const refreshButton = document.getElementById("refreshButton");
+        let lastRunTime = 0;
+        const runInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
+        async function ensureMinimalPSLBalance() {
+          const currentTime = new Date().getTime();
+          if (currentTime - lastRunTime < runInterval) {
+            console.log(
+              "Skipping balance check: Less than 10 minutes since last run."
+            );
+            return; // Skip execution if not enough time has passed
+          }
 
-      //     try {
-      //       // Wait for the table to load with a timeout
-      //       await waitForTableLoad();
+          try {
+            // Wait for the table to load with a timeout
+            await waitForTableLoad();
 
-      //       // Once the table is confirmed to be loaded, proceed to gather addresses
-      //       const table = document.getElementById(
-      //         "creditPackTicketTableBody"
-      //       );
+            // Once the table is confirmed to be loaded, proceed to gather addresses
+            const table = document.getElementById(
+              "creditPackTicketTableBody"
+            );
 
-      //       if (!table) {
-      //         console.log(
-      //           "Credit pack table not found. Skipping balance check."
-      //         );
-      //         return;
-      //       }
+            if (!table) {
+              console.log(
+                "Credit pack table not found. Skipping balance check."
+              );
+              return;
+            }
 
-      //       const rows = table.querySelectorAll("tr");
+            const rows = table.querySelectorAll("tr");
 
-      //       if (rows.length === 0) {
-      //         console.log("No credit packs found. Skipping balance check.");
-      //         return;
-      //       }
+            if (rows.length === 0) {
+              console.log("No credit packs found. Skipping balance check.");
+              return;
+            }
 
-      //       const trackingAddresses = Array.from(rows)
-      //         .map((row) => {
-      //           const cell = row.cells[3]; // Assuming the tracking address is in the 4th column
-      //           return cell ? cell.textContent.trim() : null;
-      //         })
-      //         .filter((address) => address); // Remove any null or empty addresses
+            const trackingAddresses = Array.from(rows)
+              .map((row) => {
+                const cell = row.cells[3]; // Assuming the tracking address is in the 4th column
+                return cell ? cell.textContent.trim() : null;
+              })
+              .filter((address) => address); // Remove any null or empty addresses
 
-      //       const uniqueAddresses = [...new Set(trackingAddresses)];
+            const uniqueAddresses = [...new Set(trackingAddresses)];
 
-      //       if (uniqueAddresses.length === 0) {
-      //         console.log(
-      //           "No valid tracking addresses found. Skipping balance check."
-      //         );
-      //         return;
-      //       }
+            if (uniqueAddresses.length === 0) {
+              console.log(
+                "No valid tracking addresses found. Skipping balance check."
+              );
+              return;
+            }
 
-      //       const response = await axios.post("/ensure-minimal-psl-balance", {
-      //         addresses: uniqueAddresses,
-      //       });
+            const response = await axios.post("/ensure-minimal-psl-balance", {
+              addresses: uniqueAddresses,
+            });
 
-      //       if (response.data && response.data.success) {
-      //         console.log("Balance check and update initiated successfully.");
-      //         lastRunTime = currentTime; // Update last run time on successful execution
-      //       } else {
-      //         console.error("Failed to initiate balance check and update.");
-      //       }
-      //     } catch (error) {
-      //       console.error("Error ensuring minimal PSL balance:", error);
-      //       if (
-      //         error.message.includes("Timeout waiting for the table to load")
-      //       ) {
-      //         console.log(
-      //           "Table did not load in time. This may be normal if no credit packs exist yet."
-      //         );
-      //       }
-      //     }
-      //   }
-
-      async function waitForTableLoad(maxWaitTime = 10000, interval = 500) {
-        const startTime = new Date().getTime();
-
-        function checkCondition() {
-          const table = document.getElementById(
-            "creditPackTicketTableBody"
-          );
-          return table !== null;
+            if (response.data && response.data.success) {
+              console.log("Balance check and update initiated successfully.");
+              lastRunTime = currentTime; // Update last run time on successful execution
+            } else {
+              console.error("Failed to initiate balance check and update.");
+            }
+          } catch (error) {
+            console.error("Error ensuring minimal PSL balance:", error);
+            if (
+              error.message.includes("Timeout waiting for the table to load")
+            ) {
+              console.log(
+                "Table did not load in time. This may be normal if no credit packs exist yet."
+              );
+            }
+          }
         }
 
-        return new Promise((resolve, reject) => {
-          (function waitForCondition() {
-            if (checkCondition()) {
-              resolve();
-            } else if (new Date().getTime() - startTime < maxWaitTime) {
-              setTimeout(waitForCondition, interval);
-            } else {
-              reject(new Error("Timeout waiting for the table to load."));
-            }
-          })();
-        });
-      }
+        async function waitForTableLoad(maxWaitTime = 10000, interval = 500) {
+          const startTime = new Date().getTime();
 
-      async function waitForTableLoad(maxWaitTime = 25000, interval = 500) {
-        const startTime = new Date().getTime();
+          function checkCondition() {
+            const table = document.getElementById(
+              "creditPackTicketTableBody"
+            );
+            return table !== null;
+          }
 
-        function checkCondition() {
-          const table = document.getElementById(
-            "creditPackTicketTableBody"
-          );
-          return table && table.querySelectorAll("tr").length > 0; // Check if the table has at least one row
+          return new Promise((resolve, reject) => {
+            (function waitForCondition() {
+              if (checkCondition()) {
+                resolve();
+              } else if (new Date().getTime() - startTime < maxWaitTime) {
+                setTimeout(waitForCondition, interval);
+              } else {
+                reject(new Error("Timeout waiting for the table to load."));
+              }
+            })();
+          });
         }
 
-        return new Promise((resolve, reject) => {
-          (function waitForCondition() {
-            if (checkCondition()) {
-              resolve(true);
-            } else if (new Date().getTime() - startTime < maxWaitTime) {
-              setTimeout(waitForCondition, interval);
-            } else {
-              reject(new Error("Timeout waiting for the table to load."));
-            }
-          })();
-        });
-      }
+        async function waitForTableLoad(maxWaitTime = 25000, interval = 500) {
+          const startTime = new Date().getTime();
 
-      // Event listener for manual refresh
-      refreshButton.addEventListener("click", ensureMinimalPSLBalance);
+          function checkCondition() {
+            const table = document.getElementById(
+              "creditPackTicketTableBody"
+            );
+            return table && table.querySelectorAll("tr").length > 0; // Check if the table has at least one row
+          }
 
-      // Automatically trigger the balance check on initial page load
-      ensureMinimalPSLBalance().catch((error) =>
-        console.error("Error on initial load:", error)
-      );
+          return new Promise((resolve, reject) => {
+            (function waitForCondition() {
+              if (checkCondition()) {
+                resolve(true);
+              } else if (new Date().getTime() - startTime < maxWaitTime) {
+                setTimeout(waitForCondition, interval);
+              } else {
+                reject(new Error("Timeout waiting for the table to load."));
+              }
+            })();
+          });
+        }
+
       });
     </script>
     <script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script>
