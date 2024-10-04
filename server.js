@@ -49,7 +49,6 @@ const {
   getMyPslAddressWithLargestBalance,
   isPastelIDRegistered,
   isCreditPackConfirmed,
-  ensureTrackingAddressesHaveMinimalPSLBalance,
   verifyMessageWithPastelID,
   signMessageWithPastelID,
   getPastelIDDirectory,
@@ -684,43 +683,6 @@ let network;
           success: false,
           message: "Failed to set PastelID and passphrase",
         });
-      }
-    });
-
-    app.post("/ensure-minimal-psl-balance", async (req, res) => {
-      try {
-        const { addresses } = req.body; // Expects a JSON body with an "addresses" array
-        await ensureTrackingAddressesHaveMinimalPSLBalance(addresses);
-        res.json({
-          success: true,
-          message: "Balance check and update process initiated.",
-        });
-      } catch (error) {
-        logger.error(
-          `Error in ensuring minimal PSL balance: ${safeStringify(error).slice(
-            0,
-            globals.MAX_CHARACTERS_TO_DISPLAY_IN_ERROR_MESSAGE
-          )}`
-        );
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    app.get("/ensure-minimal-psl-balance", async (req, res) => {
-      try {
-        await ensureTrackingAddressesHaveMinimalPSLBalance();
-        res.json({
-          success: true,
-          message:
-            "Balance check and update process initiated for all addresses.",
-        });
-      } catch (error) {
-        logger.error(
-          `Error in ensuring minimal PSL balance for all addresses: ${safeStringify(
-            error
-          )}`
-        );
-        res.status(500).json({ success: false, error: error.message });
       }
     });
 

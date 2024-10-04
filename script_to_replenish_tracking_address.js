@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { initializeRPCConnection, sendToAddress, getMyPslAddressWithLargestBalance } = require('./rpc_functions');
+const { initializeRPCConnection, sendToAddress, getMyPslAddressWithLargestBalance, checkPSLAddressBalance, checkPSLAddressBalanceAlternative } = require('./rpc_functions');
 
 async function main() {
     try {
@@ -36,13 +36,17 @@ async function main() {
             throw new Error("No address with sufficient funds to send PSL.");
         }
 
-        // Send 10 PSL to each unique address
         for (const address of uniqueAddresses) {
+
+            //get balance of address
+            const balance = await checkPSLAddressBalanceAlternative(address);
+            // console.log(`Balance of ${address}: ${balance}`);
+
             const amountToSend = 1; // 1 PSL
             const sendResult = await sendToAddress(
                 address,
                 amountToSend,
-                "Sending 10 PSL to tracking address"
+                "Sending 1 PSL to tracking address"
             );
 
             if (sendResult.success) {

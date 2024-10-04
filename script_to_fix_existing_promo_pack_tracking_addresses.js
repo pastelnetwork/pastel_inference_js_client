@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { initializeRPCConnection, ensureTrackingAddressesHaveMinimalPSLBalance } = require('./rpc_functions');
+const { initializeRPCConnection } = require('./rpc_functions');
 
 async function main() {
     try {
@@ -29,9 +29,6 @@ async function main() {
         // Remove duplicates
         const uniqueAddresses = [...new Set(trackingAddresses)];
         console.log(`Unique addresses: ${uniqueAddresses.length}`);
-
-        // Ensure minimal balance for each unique address
-        await ensureTrackingAddressesHaveMinimalPSLBalance(uniqueAddresses);
 
         console.log('Finished ensuring minimal balances for all tracking addresses.');
     } catch (error) {
