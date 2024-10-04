@@ -18,6 +18,34 @@
   <script
     src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha3/0.9.3/sha3.min.js"></script>
+  <script>
+    // Function to check if running in Electron
+    function isRunningInElectron() {
+      if (navigator.userAgent.toLowerCase().indexOf(' electron/') > -1) {
+        return true;
+      }
+      if (window.process && process.type === 'renderer') {
+        return true;
+      }
+      if (typeof window !== 'undefined' && typeof window.electron !== 'undefined') {
+        return true;
+      }
+      if (location.hash === '#wallet') {
+        return true;
+      }
+      return false;
+    }
+    if (isRunningInElectron()) {
+      const eleHtml = document.querySelector('html');
+      const toggle = document.querySelector("#theme-toggle");
+      if (eleHtml) {
+        eleHtml.setAttribute("data-theme", "dark");
+      }
+      if (toggle) {
+        toggle.checked = true
+      }
+    }
+  </script>
   <style>
     /* Base Styles */
     body {
@@ -570,6 +598,7 @@
       </h1>
       <input id="theme-toggle" class="switch success lg" data-content="☀" type="checkbox" onchange="toggleDarkMode()" />
       <button id="openInBrowserButton" class="btn success outline">Open New Window in Browser</button>
+      <form id="openInBrowserForm" class="hidden"></form>
     </div>
     <div class="grid grid-cols-5 gap-4 p-4 has-border rounded-xl bg-white shadow-md">
       <h2 class="text-2xl col-span-full text-bw-800">User Information</h2>
@@ -1103,23 +1132,9 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
     <script>
 
       document.addEventListener('DOMContentLoaded', function () {
-        // Function to check if running in Electron
-        function isRunningInElectron() {
-          if (navigator.userAgent.toLowerCase().indexOf(' electron/') > -1) {
-            return true;
-          }
-          if (window.process && process.type === 'renderer') {
-            return true;
-          }
-          if (typeof window !== 'undefined' && typeof window.electron !== 'undefined') {
-            return true;
-          }
-          return false;
-        }
-
         document.getElementById('openInBrowserButton').addEventListener('click', () => {
-          if (window.electron && window.electron.shell) {
-            window.electron.shell.openExternal(window.location.href);
+          if (isRunningInElectron()) {
+            document.getElementById('openInBrowserForm').submit();
           } else {
             // Fallback for non-Electron environments or if shell is not available
             window.open(window.location.href, '_blank');
