@@ -1870,6 +1870,19 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             return;
           }
 
+          if (!storedPassphrase) {
+            const testPassphrase = btoa("testpass");
+            localStorage.setItem(selectedPastelID, testPassphrase);
+            storedPassphrase = testPassphrase;
+            try {
+              await postPassphrase(selectedPastelID, storedPassphrase);
+            } catch (error) {
+              console.log("'testpass' didn't work, will prompt user for passphrase");
+              localStorage.setItem(selectedPastelID, ""); // Clear passphrase but keep the key
+              storedPassphrase = null;
+            }
+          }
+
           if (!storedPassphrase && !isNewlyImportedPromoPack) {
             const dialogHtml = `
         <div style="background-color: rgba(0, 0, 0, 0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
@@ -1889,7 +1902,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
             dialog.innerHTML = dialogHtml;
             document.body.appendChild(dialog);
 
-            return new Promise((resolve) => {
+            await new Promise((resolve) => {
               const submitButton = dialog.querySelector("#submitPassphrase");
               const passphraseInput = dialog.querySelector("#passphraseInput");
 
@@ -1904,6 +1917,7 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
                     resolve();
                   } catch (error) {
                     console.error("Error handling passphrase:", error);
+                    localStorage.setItem(selectedPastelID, ""); // Clear passphrase but keep the key
                   }
                 } else {
                   console.error("No passphrase entered");
@@ -1977,13 +1991,10 @@ Hello, this is a brand 🍉 NEW test message from a regular user!</textarea>
           // Fetch received messages after setting the PastelID and passphrase
           await fetchReceivedMessages();
         } catch (error) {
-          await localStorage.setItem(pastelID, "");
-          setSelectedPastelIDAndPassphrase(pastelID, "Invalid Passphrase");
-
-          console.error("Error setting PastelID and passphrase:", error);
+          localStorage.setItem(pastelID, ""); // Clear passphrase but keep the key
+          throw error;
         }
       }
-
       function togglePastelIDDropdown() {
         const dropdown = document.getElementById("pastelIDDropdown");
         dropdown.classList.toggle("hidden");
